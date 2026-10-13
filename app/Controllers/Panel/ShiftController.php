@@ -3,6 +3,7 @@
 namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
+use App\Services\AccountingService;
 use CodeIgniter\HTTP\RedirectResponse;
 
 class ShiftController extends BaseController
@@ -28,19 +29,31 @@ class ShiftController extends BaseController
         }
         $database = db_connect();
         $userId = (int) session('user_id');
-        if ($database->table('shifts')->where('cashier_id', $userId)->where('status', 'open')->countAllResults() > 0) {
-            return redirect()->route('panel.shifts')->with('error', 'Anda masih memiliki shift aktif.');
+        try {
+            $database->transException(true)->transStart();
+            $database->query('SELECT id FROM users WHERE id = ? FOR UPDATE', [$userId]);
+            if ($database->table('shifts')->where('cashier_id', $userId)->where('status', 'open')->countAllResults() > 0) {
+                throw new \RuntimeException('Anda masih memiliki shift aktif.');
+            }
+            $now = date('Y-m-d H:i:s');
+            $openingCash = (float) $this->request->getPost('opening_cash');
+            $shiftNumber = 'S-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2)));
+            $database->table('shifts')->insert([
+                'shift_number' => $shiftNumber, 'cashier_id' => $userId, 'opened_at' => $now,
+                'opening_cash' => $openingCash, 'status' => 'open', 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            $shiftId = (int) $database->insertID();
+            if ($openingCash > 0) {
+                (new AccountingService($database))->post('shift_opening', $shiftId, date('Y-m-d', strtotime($now)), 'Modal awal ' . $shiftNumber, [
+                    ['account_key' => 'cash_drawer', 'debit' => $openingCash, 'credit' => 0],
+                    ['account_key' => 'main_cash', 'debit' => 0, 'credit' => $openingCash],
+                ], $userId);
+            }
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.shifts')->with('error', $exception->getMessage());
         }
-        $now = date('Y-m-d H:i:s');
-        $database->table('shifts')->insert([
-            'shift_number' => 'S-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2))),
-            'cashier_id' => $userId,
-            'opened_at' => $now,
-            'opening_cash' => (string) $this->request->getPost('opening_cash'),
-            'status' => 'open',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
         return redirect()->route('panel.shifts')->with('success', 'Shift dibuka. POS sudah dapat digunakan.');
     }
 
@@ -75,9 +88,10 @@ class ShiftController extends BaseController
         }
         $cashSales = (float) ($database->table('payments')->selectSum('payments.amount', 'total')->join('sales', 'sales.id = payments.sale_id')->where('sales.shift_id', $shift['id'])->where('payments.method', 'cash')->get()->getRow('total') ?? 0);
         $cashRefunds = (float) ($database->table('refunds')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('status', 'posted')->where('method', 'cash')->get()->getRow('total') ?? 0);
+        $drawerExpenses = (float) ($database->table('expenses')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('status', 'paid')->where('payment_source', 'cash_drawer')->get()->getRow('total') ?? 0);
         $cashIn = (float) ($database->table('cash_movements')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('movement_type', 'in')->get()->getRow('total') ?? 0);
         $cashOut = (float) ($database->table('cash_movements')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('movement_type', 'out')->get()->getRow('total') ?? 0);
-        $expected = (float) $shift['opening_cash'] + $cashSales - $cashRefunds + $cashIn - $cashOut;
+        $expected = (float) $shift['opening_cash'] + $cashSales - $cashRefunds - $drawerExpenses + $cashIn - $cashOut;
         $actual = (float) $this->request->getPost('actual_cash');
         $difference = $actual - $expected;
         $reason = trim((string) $this->request->getPost('difference_reason'));

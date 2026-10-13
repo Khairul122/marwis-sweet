@@ -37,6 +37,7 @@ class CatalogController extends BaseController
             'products' => $products,
             'variantsByProduct' => $variantsByProduct,
             'imagesByProduct' => $imagesByProduct,
+            'inventoryItems' => db_connect()->table('inventory_items')->where('is_active', true)->orderBy('name')->get()->getResultArray(),
         ]);
     }
 
@@ -122,6 +123,11 @@ class CatalogController extends BaseController
         }
 
         $database = db_connect();
+        $stockMode = (string) $this->request->getPost('stock_mode');
+        $directItemId = $this->directInventoryItemId($stockMode);
+        if ($stockMode === 'direct' && !$directItemId) {
+            return redirect()->back()->withInput()->with('error', 'Pilih item persediaan untuk varian dengan stok langsung.');
+        }
         $database->transStart();
         $productModel = new ProductModel();
         $name = trim((string) $this->request->getPost('name'));
@@ -139,7 +145,8 @@ class CatalogController extends BaseController
             'name' => trim((string) $this->request->getPost('variant_name')),
             'sku' => strtoupper(trim((string) $this->request->getPost('sku'))),
             'price' => (string) $this->request->getPost('price'),
-            'stock_mode' => (string) $this->request->getPost('stock_mode'),
+            'stock_mode' => $stockMode,
+            'direct_inventory_item_id' => $directItemId,
             'is_default' => true,
             'is_active' => true,
         ]);
@@ -169,12 +176,18 @@ class CatalogController extends BaseController
             return redirect()->route('panel.catalog')->with('error', implode(' ', $this->validator->getErrors()));
         }
 
+        $stockMode = (string) $this->request->getPost('stock_mode');
+        $directItemId = $this->directInventoryItemId($stockMode);
+        if ($stockMode === 'direct' && !$directItemId) {
+            return redirect()->route('panel.catalog')->with('error', 'Pilih item persediaan untuk varian dengan stok langsung.');
+        }
         (new ProductVariantModel())->insert([
             'product_id' => $product['id'],
             'name' => trim((string) $this->request->getPost('variant_name')),
             'sku' => strtoupper(trim((string) $this->request->getPost('sku'))),
             'price' => (string) $this->request->getPost('price'),
-            'stock_mode' => (string) $this->request->getPost('stock_mode'),
+            'stock_mode' => $stockMode,
+            'direct_inventory_item_id' => $directItemId,
             'is_default' => false,
             'is_active' => true,
         ]);
@@ -228,11 +241,17 @@ class CatalogController extends BaseController
         if (!$this->validate($rules)) {
             return redirect()->route('panel.catalog')->with('error', implode(' ', $this->validator->getErrors()));
         }
+        $stockMode = (string) $this->request->getPost('stock_mode');
+        $directItemId = $this->directInventoryItemId($stockMode);
+        if ($stockMode === 'direct' && !$directItemId) {
+            return redirect()->route('panel.catalog')->with('error', 'Pilih item persediaan untuk varian dengan stok langsung.');
+        }
         $model->update($variant['id'], [
             'name' => trim((string) $this->request->getPost('variant_name')),
             'sku' => strtoupper(trim((string) $this->request->getPost('sku'))),
             'price' => (string) $this->request->getPost('price'),
-            'stock_mode' => (string) $this->request->getPost('stock_mode'),
+            'stock_mode' => $stockMode,
+            'direct_inventory_item_id' => $directItemId,
             'is_active' => $this->request->getPost('is_active') === '1',
         ]);
         return redirect()->route('panel.catalog')->with('success', 'Varian berhasil diperbarui.');
@@ -304,5 +323,17 @@ class CatalogController extends BaseController
             $slug = $base . '-' . $suffix++;
         }
         return $slug;
+    }
+
+    private function directInventoryItemId(string $stockMode): ?int
+    {
+        if ($stockMode !== 'direct') {
+            return null;
+        }
+        $itemId = filter_var($this->request->getPost('direct_inventory_item_id'), FILTER_VALIDATE_INT);
+        if (!$itemId || !db_connect()->table('inventory_items')->where('id', $itemId)->where('is_active', true)->get()->getRowArray()) {
+            return null;
+        }
+        return (int) $itemId;
     }
 }

@@ -110,6 +110,37 @@
         });
     });
 
+    const opnameScopeInputs = [...document.querySelectorAll('[data-opname-scope]')];
+    const opnamePartial = document.querySelector('[data-opname-partial]');
+    if (opnameScopeInputs.length && opnamePartial) {
+        const updateOpnameScope = () => {
+            const partial = opnameScopeInputs.some((input) => input.checked && input.value === 'partial');
+            opnamePartial.classList.toggle('hidden', !partial);
+            opnamePartial.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.disabled = !partial; });
+        };
+        opnameScopeInputs.forEach((input) => input.addEventListener('change', updateOpnameScope));
+        updateOpnameScope();
+    }
+
+    const reportPeriod = document.querySelector('[data-report-period]');
+    if (reportPeriod) {
+        const periodGroups = {
+            daily: document.querySelector('[data-report-date]'),
+            monthly: document.querySelector('[data-report-month]'),
+            yearly: document.querySelector('[data-report-year]'),
+        };
+        const updateReportPeriod = () => {
+            Object.entries(periodGroups).forEach(([type, group]) => {
+                if (!group) return;
+                const active = type === reportPeriod.value;
+                group.classList.toggle('hidden', !active);
+                group.querySelectorAll('input').forEach((input) => { input.disabled = !active; input.required = active; });
+            });
+        };
+        reportPeriod.addEventListener('change', updateReportPeriod);
+        updateReportPeriod();
+    }
+
     const posRoot = document.querySelector('[data-pos-root]');
     if (posRoot) {
         const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });

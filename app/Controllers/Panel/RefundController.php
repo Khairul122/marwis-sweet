@@ -16,6 +16,7 @@ class RefundController extends BaseController
                 'reason' => $this->request->getPost('reason'),
                 'reference_number' => $this->request->getPost('reference_number'),
                 'quantities' => $this->request->getPost('quantities') ?? [],
+                'restock' => $this->request->getPost('restock') ?? [],
             ], (int) session('user_id'));
         } catch (\Throwable $exception) {
             return redirect()->to(site_url('panel/transactions/' . $saleId))->with('error', $exception->getMessage());

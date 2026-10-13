@@ -51,6 +51,41 @@ $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
         $routes->post('receipts/items', 'Panel\InventoryController::addReceiptItem');
         $routes->post('receipts/post', 'Panel\InventoryController::postReceipt');
     });
+    $routes->group('opnames', static function ($routes): void {
+        $routes->get('/', 'Panel\StockOpnameController::index', ['as' => 'panel.opnames']);
+        $routes->post('create', 'Panel\StockOpnameController::create');
+        $routes->post('(:num)/counts', 'Panel\StockOpnameController::saveCounts/$1');
+        $routes->post('(:num)/evidence', 'Panel\StockOpnameController::uploadEvidence/$1');
+        $routes->get('(:num)/evidence', 'Panel\StockOpnameController::evidence/$1');
+        $routes->post('(:num)/submit', 'Panel\StockOpnameController::submit/$1');
+        $routes->post('(:num)/cancel', 'Panel\StockOpnameController::cancel/$1');
+        $routes->post('(:num)/approve', 'Panel\StockOpnameController::approve/$1', ['filter' => 'owner']);
+        $routes->post('(:num)/reject', 'Panel\StockOpnameController::reject/$1', ['filter' => 'owner']);
+    });
+    $routes->group('expenses', static function ($routes): void {
+        $routes->get('/', 'Panel\ExpenseController::index', ['as' => 'panel.expenses']);
+        $routes->post('create', 'Panel\ExpenseController::create');
+        $routes->post('(:num)/update', 'Panel\ExpenseController::update/$1');
+        $routes->post('(:num)/submit', 'Panel\ExpenseController::submit/$1');
+        $routes->post('(:num)/cancel', 'Panel\ExpenseController::cancel/$1');
+        $routes->get('(:num)/evidence', 'Panel\ExpenseController::evidence/$1');
+        $routes->post('(:num)/approve', 'Panel\ExpenseController::approve/$1', ['filter' => 'owner']);
+        $routes->post('(:num)/pay', 'Panel\ExpenseController::pay/$1', ['filter' => 'owner']);
+        $routes->post('(:num)/reject', 'Panel\ExpenseController::reject/$1', ['filter' => 'owner']);
+        $routes->post('categories', 'Panel\ExpenseController::createCategory', ['filter' => 'owner']);
+        $routes->post('categories/status', 'Panel\ExpenseController::toggleCategory', ['filter' => 'owner']);
+    });
+    $routes->group('accounting', ['filter' => 'owner'], static function ($routes): void {
+        $routes->get('/', 'Panel\AccountingController::index', ['as' => 'panel.accounting']);
+        $routes->post('journals', 'Panel\AccountingController::manualJournal');
+        $routes->post('opening-balances', 'Panel\AccountingController::openingBalance');
+        $routes->post('periods/close', 'Panel\AccountingController::closePeriod');
+        $routes->post('periods/(:num)/reopen', 'Panel\AccountingController::reopenPeriod/$1');
+    });
+    $routes->group('reports', static function ($routes): void {
+        $routes->get('/', 'Panel\ReportController::index', ['as' => 'panel.reports']);
+        $routes->get('sales.pdf', 'Panel\ReportController::pdf', ['as' => 'panel.reports.sales.pdf']);
+    });
     $routes->group('shifts', static function ($routes): void {
         $routes->get('/', 'Panel\ShiftController::index', ['as' => 'panel.shifts']);
         $routes->post('open', 'Panel\ShiftController::open');

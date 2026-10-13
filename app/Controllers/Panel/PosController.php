@@ -48,7 +48,7 @@ class PosController extends BaseController
     public function transactions(): string
     {
         $database = db_connect();
-        $builder = $database->table('sales')->select('sales.*, users.name AS cashier_name, shifts.shift_number')->join('users', 'users.id = sales.cashier_id')->join('shifts', 'shifts.id = sales.shift_id')->orderBy('sales.paid_at', 'DESC');
+        $builder = $database->table('sales')->select('sales.*, users.name AS cashier_name, shifts.shift_number, (SELECT COUNT(*) FROM refunds WHERE refunds.sale_id = sales.id AND refunds.status = "submitted") AS pending_refund_count', false)->join('users', 'users.id = sales.cashier_id')->join('shifts', 'shifts.id = sales.shift_id')->orderBy('sales.paid_at', 'DESC');
         return view('panel/transactions/index', ['title' => 'Transaksi', 'user' => session('user'), 'sales' => $builder->limit(100)->get()->getResultArray()]);
     }
 

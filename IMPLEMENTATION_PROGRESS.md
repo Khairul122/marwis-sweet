@@ -39,12 +39,16 @@ Stack: CodeIgniter 4.7.5, PHP 8.3, Tailwind CSS 4, MySQL, Bahasa Indonesia, zona
 ## Tahap 3 — Operasional
 
 - [x] Draft penerimaan, item dengan konversi satuan, posting atomik, biaya rata-rata, dan kartu stok
-- [ ] Shift, POS, pembayaran, struk, dan refund
+- [x] Shift, POS, pembayaran gabungan, struk cetak, dan perlindungan transaksi ganda
+- [x] Refund parsial/penuh per item, alokasi nilai, persetujuan owner, riwayat, dan dampak ke kas shift
 
 ## Tahap 4 — Kontrol keuangan
 
-- [ ] Stok opname dan pengeluaran
-- [ ] Jurnal otomatis, saldo awal, buku besar, dan tutup periode
+- [x] Sesi stok opname, snapshot cut-off, penguncian mutasi, hitung fisik, persetujuan owner, dan posting selisih
+- [x] Jurnal selisih opname otomatis
+- [x] Lampiran bukti stok opname privat dengan validasi isi dan batas ukuran
+- [x] Kategori dan pengeluaran dengan alur draft, pengajuan, persetujuan, pembayaran, bukti privat, dan sumber laci/kas/bank
+- [x] Daftar akun, jurnal otomatis berpasangan, saldo awal, buku besar, neraca saldo, laba rugi, neraca, laporan kas, dan tutup periode
 
 ## Tahap 5 — Pelaporan dan ulasan
 

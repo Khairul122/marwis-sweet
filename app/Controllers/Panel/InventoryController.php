@@ -5,6 +5,8 @@ namespace App\Controllers\Panel;
 use App\Controllers\BaseController;
 use App\Models\InventoryItemModel;
 use App\Models\SupplierModel;
+use App\Services\InventoryLockService;
+use App\Services\AccountingService;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
 
@@ -140,9 +142,15 @@ class InventoryController extends BaseController
             if ($lines === []) {
                 throw new RuntimeException('Tambahkan minimal satu item sebelum posting.');
             }
+            usort($lines, static fn (array $left, array $right): int => (int) $left['inventory_item_id'] <=> (int) $right['inventory_item_id']);
+            $lockedItems = [];
+            foreach ($lines as $line) {
+                $lockedItems[$line['inventory_item_id']] = $database->query('SELECT * FROM inventory_items WHERE id = ? FOR UPDATE', [$line['inventory_item_id']])->getRowArray();
+            }
+            (new InventoryLockService($database))->assertUnlocked(array_column($lines, 'inventory_item_id'));
             $postedAt = date('Y-m-d H:i:s');
             foreach ($lines as $line) {
-                $item = $database->query('SELECT * FROM inventory_items WHERE id = ? FOR UPDATE', [$line['inventory_item_id']])->getRowArray();
+                $item = $lockedItems[$line['inventory_item_id']];
                 $oldQuantity = (float) $item['quantity_on_hand'];
                 $oldValue = $oldQuantity * (float) $item['average_cost'];
                 $addedQuantity = (float) $line['base_quantity'];
@@ -156,6 +164,12 @@ class InventoryController extends BaseController
                     'posted_at' => $postedAt, 'created_by' => (int) session('user_id'), 'created_at' => $postedAt,
                 ]);
             }
+            $receiptTotal = array_sum(array_map(static fn (array $line): float => (float) $line['line_total'], $lines));
+            $creditAccount = match ($receipt['payment_source']) { 'cash' => 'main_cash', 'bank' => 'bank', default => 'accounts_payable' };
+            (new AccountingService($database))->post('goods_receipt', $receiptId, date('Y-m-d', strtotime($postedAt)), 'Penerimaan stok ' . $receipt['reference_number'], [
+                ['account_key' => 'inventory', 'debit' => $receiptTotal, 'credit' => 0],
+                ['account_key' => $creditAccount, 'debit' => 0, 'credit' => $receiptTotal],
+            ], (int) session('user_id'));
             $database->table('goods_receipts')->where('id', $receiptId)->update(['status' => 'posted', 'posted_by' => (int) session('user_id'), 'posted_at' => $postedAt, 'updated_at' => $postedAt]);
             $database->transComplete();
         } catch (\Throwable $exception) {

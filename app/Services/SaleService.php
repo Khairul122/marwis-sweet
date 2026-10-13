@@ -80,22 +80,30 @@ class SaleService
                         $requirements[$material['inventory_item_id']] = ($requirements[$material['inventory_item_id']] ?? 0) + $required;
                     }
                 } elseif ($variant['stock_mode'] === 'direct') {
-                    throw new RuntimeException('Produk stok langsung belum dipetakan ke bahan persediaan.');
+                    $directItemId = (int) ($variant['direct_inventory_item_id'] ?? 0);
+                    if (!$directItemId) {
+                        throw new RuntimeException('Produk stok langsung belum dipetakan ke item persediaan.');
+                    }
+                    $requirements[$directItemId] = ($requirements[$directItemId] ?? 0) + $quantity;
                 }
                 $unitPrice = (float) $variant['price'] + $toppingPrice;
                 $lineTotal = $unitPrice * $quantity;
                 $subtotal += $lineTotal;
-                $lines[] = ['variant' => $variant, 'quantity' => $quantity, 'unit_price' => $unitPrice, 'line_total' => $lineTotal, 'recipe' => $recipe, 'toppings' => $toppings];
+                $lines[] = ['variant' => $variant, 'quantity' => $quantity, 'unit_price' => $unitPrice, 'line_total' => $lineTotal, 'recipe' => $recipe, 'toppings' => $toppings, 'direct_item_id' => $variant['stock_mode'] === 'direct' ? (int) $variant['direct_inventory_item_id'] : null];
             }
 
             $lockedItems = [];
-            foreach ($requirements as $itemId => $required) {
+            $requirementIds = array_keys($requirements);
+            sort($requirementIds);
+            foreach ($requirementIds as $itemId) {
+                $required = $requirements[$itemId];
                 $item = $this->database->query('SELECT * FROM inventory_items WHERE id = ? FOR UPDATE', [$itemId])->getRowArray();
                 if (!$item || (float) $item['quantity_on_hand'] + 0.0001 < $required) {
                     throw new RuntimeException('Stok ' . ($item['name'] ?? 'bahan') . ' tidak mencukupi.');
                 }
                 $lockedItems[$itemId] = $item;
             }
+            (new InventoryLockService($this->database))->assertUnlocked($requirementIds);
 
             $discount = max(0, (float) ($payload['discount'] ?? 0));
             if ($discount > $subtotal) {
@@ -144,10 +152,13 @@ class SaleService
                         $lineCogs += (float) $material['quantity'] * (float) $lockedItems[$material['inventory_item_id']]['average_cost'] * $line['quantity'];
                     }
                 }
+                if ($line['direct_item_id']) {
+                    $lineCogs += (float) $lockedItems[$line['direct_item_id']]['average_cost'] * $line['quantity'];
+                }
                 $totalCogs += $lineCogs;
                 $variant = $line['variant'];
                 $this->database->table('sale_items')->insert([
-                    'sale_id' => $saleId, 'product_id' => $variant['product_id'], 'product_variant_id' => $variant['id'], 'product_name' => $variant['product_name'],
+                    'sale_id' => $saleId, 'product_id' => $variant['product_id'], 'product_variant_id' => $variant['id'], 'direct_inventory_item_id' => $line['direct_item_id'], 'product_name' => $variant['product_name'],
                     'variant_name' => $variant['name'], 'sku' => $variant['sku'], 'quantity' => $line['quantity'], 'unit_price' => $line['unit_price'], 'line_total' => $line['line_total'],
                     'unit_cogs' => $lineCogs / $line['quantity'], 'line_cogs' => $lineCogs,
                     'recipe_snapshot' => $line['recipe'] ? json_encode($line['recipe'], JSON_UNESCAPED_UNICODE) : null,
@@ -164,6 +175,17 @@ class SaleService
                 $this->database->table('inventory_items')->where('id', $itemId)->update(['quantity_on_hand' => (float) $item['quantity_on_hand'] - $required, 'updated_at' => $now]);
                 $this->database->table('stock_movements')->insert(['inventory_item_id' => $itemId, 'quantity' => -$required, 'unit_cost' => $unitCost, 'total_cost' => -($required * $unitCost), 'movement_type' => 'sale', 'source_type' => 'sale', 'source_id' => $saleId, 'notes' => $saleNumber, 'posted_at' => $now, 'created_by' => $userId, 'created_at' => $now]);
             }
+            $journalLines = [];
+            foreach ($normalizedPayments as $payment) {
+                $journalLines[] = ['account_key' => AccountingService::paymentAccountKey($payment['method']), 'debit' => $payment['amount'], 'credit' => 0, 'memo' => 'Pembayaran ' . $payment['method']];
+            }
+            $netProductRevenue = round($subtotal - $discount, 2);
+            if ($netProductRevenue > 0) { $journalLines[] = ['account_key' => 'sales_revenue', 'debit' => 0, 'credit' => $netProductRevenue]; }
+            if ($totalCogs > 0) {
+                $journalLines[] = ['account_key' => 'cogs', 'debit' => $totalCogs, 'credit' => 0];
+                $journalLines[] = ['account_key' => 'inventory', 'debit' => 0, 'credit' => $totalCogs];
+            }
+            (new AccountingService($this->database))->post('sale', $saleId, date('Y-m-d', strtotime($now)), 'Penjualan ' . $saleNumber, $journalLines, $userId);
             $this->database->transComplete();
             return $saleId;
         } catch (\Throwable $exception) {
