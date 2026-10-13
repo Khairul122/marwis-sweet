@@ -300,8 +300,12 @@ class CatalogController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Teks alternatif foto harus berisi 5 sampai 180 karakter.');
         }
         $database = db_connect();
+        $file = $this->request->getFile('image');
+        if (!$file || $file->getError() === UPLOAD_ERR_NO_FILE) {
+            return redirect()->back()->withInput()->with('error', 'Pilih gambar produk.');
+        }
         try {
-            $imagePath = (new ImageUploadService())->store($this->request->getFile('image'), 'products', 2 * 1024 * 1024);
+            $imagePath = (new ImageUploadService())->store($file, 'products', 2 * 1024 * 1024);
         } catch (RuntimeException $exception) {
             return redirect()->back()->with('error', $exception->getMessage());
         }

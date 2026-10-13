@@ -24,6 +24,10 @@ app.baseURL = 'http://localhost:8080/'
 # If you have trouble with `.`, you could also use `_`.
 # app_baseURL = ''
 app.forceGlobalSecureRequests = false
+# Use true with an HTTPS base URL. Leave false for local or HTTP LAN access.
+# app.forceGlobalSecureRequests = true
+# Only list actual trusted reverse-proxy IPs/CIDRs; empty means forwarded headers are ignored.
+# app.proxyIPs = '127.0.0.1,10.0.0.0/24'
 # app.CSPEnabled = false
 
 #--------------------------------------------------------------------
@@ -38,8 +42,7 @@ database.default.DBDriver = MySQLi
 # database.default.DBPrefix =
 database.default.port = 3306
 
-# Set true only when app.baseURL uses HTTPS.
-cookie.secure = false
+# Session cookies are marked Secure automatically when app.baseURL uses HTTPS.
 BUSINESS_NAME = 'Marwis Sweet'
 
 #--------------------------------------------------------------------

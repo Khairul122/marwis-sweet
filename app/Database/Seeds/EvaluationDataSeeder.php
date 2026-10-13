@@ -36,6 +36,12 @@ class EvaluationDataSeeder extends Seeder
             return;
         }
 
+        $this->db->table('settings')->replace([
+            'setting_key' => 'business_profile_is_demo',
+            'setting_value' => '1',
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
         if ($this->db->table('categories')->where('slug', 'demo-martabak-manis')->countAllResults() === 0) {
             $this->call(TemporaryDataSeeder::class);
         }

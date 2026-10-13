@@ -9,49 +9,117 @@ use RuntimeException;
 
 class SalesReportService
 {
+    public const PAGE_SIZE = 50;
+    public const PDF_DETAIL_LIMIT = 5000;
+    private const SUMMARY_BATCH_SIZE = 200;
+
     public function __construct(private ?BaseConnection $database = null)
     {
         $this->database ??= db_connect();
     }
 
-    public function build(array $input, bool $includeFinancials): array
+    public function build(array $input, bool $includeFinancials, int $detailLimit = self::PAGE_SIZE, bool $includeAllDetails = false): array
     {
         $period = $this->period($input);
         $filters = $this->normalizeFilters($input);
-        $matchedSaleIds = $this->matchedSaleIds($filters);
+        $detailLimit = max(1, min($detailLimit, self::PDF_DETAIL_LIMIT));
+        $salesTotal = $this->salesQuery($period, $filters)->countAllResults();
+        $refundsTotal = $this->refundQuery($period, $filters)->countAllResults();
+        $salesPages = max(1, (int) ceil($salesTotal / $detailLimit));
+        $refundPages = max(1, (int) ceil($refundsTotal / $detailLimit));
+        $salesPage = $includeAllDetails ? 1 : min($salesPages, max(1, (int) ($input['sales_page'] ?? 1)));
+        $refundPage = $includeAllDetails ? 1 : min($refundPages, max(1, (int) ($input['refund_page'] ?? 1)));
+        $salesOffset = ($salesPage - 1) * $detailLimit;
+        $refundOffset = ($refundPage - 1) * $detailLimit;
+        $salesPageRows = $this->salesQuery($period, $filters)->get($detailLimit, $salesOffset)->getResultArray();
+        $refundPageRows = $this->refundQuery($period, $filters)->get($detailLimit, $refundOffset)->getResultArray();
+        $salesPageIds = array_fill_keys(array_map('intval', array_column($salesPageRows, 'id')), true);
+        $refundPageIds = array_fill_keys(array_map('intval', array_column($refundPageRows, 'id')), true);
 
-        $salesBuilder = $this->database->table('sales')
+        $state = [
+            'totalsCents' => ['gross' => 0, 'discount' => 0, 'tax' => 0, 'service' => 0, 'refunds' => 0, 'net_sales' => 0, 'cogs' => 0, 'gross_profit' => 0],
+            'unitsMilli' => 0, 'salesCollectedCents' => 0, 'paymentTotalsCents' => [], 'products' => [], 'sales' => [],
+            'refundByMethodCents' => [], 'refundProductRevenueCents' => 0, 'refundedCogsCents' => 0, 'refunds' => [],
+        ];
+
+        foreach ($this->salesBatches($period, $filters) as $batch) {
+            $saleIds = array_map('intval', array_column($batch, 'id'));
+            $itemsBySale = $this->itemsBySale($saleIds);
+            $paymentsBySale = $this->paymentsBySale($saleIds, $filters['sale_method']);
+            foreach ($batch as $sale) {
+                $enriched = $this->accumulateSale($sale, $itemsBySale[(int) $sale['id']] ?? [], $paymentsBySale[(int) $sale['id']] ?? [], $filters, $includeFinancials, $state);
+                if (isset($salesPageIds[(int) $sale['id']])) { $state['sales'][(int) $sale['id']] = $enriched; }
+            }
+        }
+
+        foreach ($this->refundBatches($period, $filters) as $batch) {
+            $refundIds = array_map('intval', array_column($batch, 'id'));
+            $itemsByRefund = $this->itemsByRefund($refundIds);
+            foreach ($batch as $refund) {
+                $enriched = $this->accumulateRefund($refund, $itemsByRefund[(int) $refund['id']] ?? [], $filters, $includeFinancials, $state);
+                if ($enriched !== null && isset($refundPageIds[(int) $refund['id']])) { $state['refunds'][(int) $refund['id']] = $enriched; }
+            }
+        }
+
+        $totalsCents = $state['totalsCents'];
+        $totalsCents['net_sales'] = $state['salesCollectedCents'] - $totalsCents['refunds'];
+        $totalsCents['cogs'] -= $state['refundedCogsCents'];
+        $totalsCents['gross_profit'] = $totalsCents['gross'] - $totalsCents['discount'] - $state['refundProductRevenueCents'] - $totalsCents['cogs'];
+        $totals = ['transactions' => $salesTotal, 'units' => Money::quantity($state['unitsMilli'])];
+        foreach ($totalsCents as $key => $cents) { $totals[$key] = Money::decimal($cents); }
+        $paymentTotals = array_map(static fn (int $cents): string => Money::decimal($cents), $state['paymentTotalsCents']);
+        $refundByMethod = array_map(static fn (int $cents): string => Money::decimal($cents), $state['refundByMethodCents']);
+        $products = array_values($state['products']);
+        foreach ($products as &$product) {
+            $product['quantity'] = Money::quantity($product['quantity_milli']);
+            $product['sales'] = Money::decimal($product['sales_cents']);
+            unset($product['quantity_milli'], $product['sales_cents']);
+        }
+        unset($product);
+        usort($products, static fn (array $a, array $b): int => Money::quantityMilli($b['quantity']) <=> Money::quantityMilli($a['quantity']));
+
+        return [
+            'period' => $period, 'filters' => $filters,
+            'sales' => array_values(array_map(static fn (array $row): array => $row, array_intersect_key($state['sales'], $salesPageIds))),
+            'refunds' => array_values(array_map(static fn (array $row): array => $row, array_intersect_key($state['refunds'], $refundPageIds))),
+            'salesPage' => $salesPage, 'salesPages' => $salesPages, 'salesTotal' => $salesTotal, 'salesPageSize' => $detailLimit,
+            'refundPage' => $refundPage, 'refundPages' => $refundPages, 'refundsTotal' => $refundsTotal,
+            'salesDetailsTruncated' => $includeAllDetails && $salesTotal > $detailLimit,
+            'refundDetailsTruncated' => $includeAllDetails && $refundsTotal > $detailLimit,
+            'paymentTotals' => $paymentTotals, 'refundByMethod' => $refundByMethod,
+            'products' => $products, 'totals' => $totals, 'includeFinancials' => $includeFinancials,
+        ];
+    }
+
+    private function salesQuery(array $period, array $filters)
+    {
+        $builder = $this->database->table('sales')
             ->select('sales.*, users.name AS cashier_name, shifts.shift_number')
             ->join('users', 'users.id = sales.cashier_id')
             ->join('shifts', 'shifts.id = sales.shift_id')
             ->whereIn('sales.status', ['paid', 'partially_refunded', 'refunded'])
             ->where('sales.paid_at >=', $period['start'])
             ->where('sales.paid_at <', $period['end'])
-            ->orderBy('sales.paid_at', 'DESC');
-        $this->applyDirectSaleFilters($salesBuilder, $filters);
-        if ($matchedSaleIds !== null) {
-            if ($matchedSaleIds === []) { $sales = []; }
-            else { $sales = $salesBuilder->whereIn('sales.id', $matchedSaleIds)->get()->getResultArray(); }
-        } else {
-            $sales = $salesBuilder->get()->getResultArray();
+            ->orderBy('sales.paid_at', 'DESC')->orderBy('sales.id', 'DESC');
+        $this->applyDirectSaleFilters($builder, $filters);
+
+        if ($filters['product_id'] || $filters['category_id']) {
+            $conditions = ['report_items.sale_id = sales.id'];
+            if ($filters['product_id']) { $conditions[] = 'report_items.product_id = ' . (int) $filters['product_id']; }
+            if ($filters['category_id']) { $conditions[] = 'report_products.category_id = ' . (int) $filters['category_id']; }
+            $join = $filters['category_id'] ? ' JOIN products report_products ON report_products.id = report_items.product_id' : '';
+            $builder->where('EXISTS (SELECT 1 FROM sale_items report_items' . $join . ' WHERE ' . implode(' AND ', $conditions) . ')', null, false);
         }
-        $saleIds = array_map('intval', array_column($sales, 'id'));
-
-        $itemsBySale = [];
-        $paymentsBySale = [];
-        if ($saleIds !== []) {
-            $itemRows = $this->database->table('sale_items')
-                ->select('sale_items.*, products.category_id')
-                ->join('products', 'products.id = sale_items.product_id', 'left')
-                ->whereIn('sale_items.sale_id', $saleIds)->get()->getResultArray();
-            foreach ($itemRows as $item) { $itemsBySale[$item['sale_id']][] = $item; }
-
-            $paymentBuilder = $this->database->table('payments')->whereIn('sale_id', $saleIds);
-            if ($filters['sale_method']) { $paymentBuilder->where('method', $filters['sale_method']); }
-            foreach ($paymentBuilder->get()->getResultArray() as $payment) { $paymentsBySale[$payment['sale_id']][] = $payment; }
+        if ($filters['sale_method']) {
+            $method = $this->database->escape($filters['sale_method']);
+            $builder->where('EXISTS (SELECT 1 FROM payments report_payments WHERE report_payments.sale_id = sales.id AND report_payments.method = ' . $method . ')', null, false);
         }
+        return $builder;
+    }
 
-        $refundBuilder = $this->database->table('refunds')
+    private function refundQuery(array $period, array $filters)
+    {
+        $builder = $this->database->table('refunds')
             ->select('refunds.*, sales.sale_number, users.name AS cashier_name, shifts.shift_number')
             ->join('sales', 'sales.id = refunds.sale_id')
             ->join('users', 'users.id = sales.cashier_id')
@@ -59,56 +127,109 @@ class SalesReportService
             ->where('refunds.status', 'posted')
             ->where('refunds.posted_at >=', $period['start'])
             ->where('refunds.posted_at <', $period['end'])
-            ->orderBy('refunds.posted_at', 'DESC');
-        $this->applyDirectSaleFilters($refundBuilder, $filters, 'sales');
-        if ($filters['refund_method']) { $refundBuilder->where('refunds.method', $filters['refund_method']); }
-        if ($matchedSaleIds !== null) {
-            if ($matchedSaleIds === []) { $refunds = []; }
-            else { $refunds = $refundBuilder->whereIn('refunds.sale_id', $matchedSaleIds)->get()->getResultArray(); }
+            ->orderBy('refunds.posted_at', 'DESC')->orderBy('refunds.id', 'DESC');
+        $this->applyDirectSaleFilters($builder, $filters, 'sales');
+        if ($filters['refund_method']) { $builder->where('refunds.method', $filters['refund_method']); }
+        if ($filters['product_id'] || $filters['category_id']) {
+            $conditions = ['report_refund_items.refund_id = refunds.id'];
+            if ($filters['product_id']) { $conditions[] = 'report_sale_items.product_id = ' . (int) $filters['product_id']; }
+            if ($filters['category_id']) { $conditions[] = 'report_products.category_id = ' . (int) $filters['category_id']; }
+            $join = ' JOIN sale_items report_sale_items ON report_sale_items.id = report_refund_items.sale_item_id';
+            if ($filters['category_id']) { $join .= ' JOIN products report_products ON report_products.id = report_sale_items.product_id'; }
+            $builder->where('EXISTS (SELECT 1 FROM refund_items report_refund_items' . $join . ' WHERE ' . implode(' AND ', $conditions) . ')', null, false);
+        }
+        return $builder;
+    }
+
+    private function salesBatches(array $period, array $filters): \Generator
+    {
+        $lastDate = null;
+        $lastId = null;
+        do {
+            $builder = $this->salesQuery($period, $filters);
+            if ($lastDate !== null) {
+                $builder->groupStart()->where('sales.paid_at <', $lastDate)->orGroupStart()
+                    ->where('sales.paid_at', $lastDate)->where('sales.id <', $lastId)->groupEnd()->groupEnd();
+            }
+            $batch = $builder->get(self::SUMMARY_BATCH_SIZE)->getResultArray();
+            if ($batch === []) { return; }
+            yield $batch;
+            $last = $batch[array_key_last($batch)];
+            $lastDate = $last['paid_at'];
+            $lastId = (int) $last['id'];
+        } while (count($batch) === self::SUMMARY_BATCH_SIZE);
+    }
+
+    private function refundBatches(array $period, array $filters): \Generator
+    {
+        $lastDate = null;
+        $lastId = null;
+        do {
+            $builder = $this->refundQuery($period, $filters);
+            if ($lastDate !== null) {
+                $builder->groupStart()->where('refunds.posted_at <', $lastDate)->orGroupStart()
+                    ->where('refunds.posted_at', $lastDate)->where('refunds.id <', $lastId)->groupEnd()->groupEnd();
+            }
+            $batch = $builder->get(self::SUMMARY_BATCH_SIZE)->getResultArray();
+            if ($batch === []) { return; }
+            yield $batch;
+            $last = $batch[array_key_last($batch)];
+            $lastDate = $last['posted_at'];
+            $lastId = (int) $last['id'];
+        } while (count($batch) === self::SUMMARY_BATCH_SIZE);
+    }
+
+    private function itemsBySale(array $saleIds): array
+    {
+        if ($saleIds === []) { return []; }
+        $grouped = [];
+        $rows = $this->database->table('sale_items')
+            ->select('sale_items.*, products.category_id')
+            ->join('products', 'products.id = sale_items.product_id', 'left')
+            ->whereIn('sale_items.sale_id', $saleIds)->get()->getResultArray();
+        foreach ($rows as $row) { $grouped[(int) $row['sale_id']][] = $row; }
+        return $grouped;
+    }
+
+    private function paymentsBySale(array $saleIds, ?string $method): array
+    {
+        if ($saleIds === []) { return []; }
+        $builder = $this->database->table('payments')->whereIn('sale_id', $saleIds);
+        if ($method) { $builder->where('method', $method); }
+        $grouped = [];
+        foreach ($builder->get()->getResultArray() as $row) { $grouped[(int) $row['sale_id']][] = $row; }
+        return $grouped;
+    }
+
+    private function itemsByRefund(array $refundIds): array
+    {
+        if ($refundIds === []) { return []; }
+        $grouped = [];
+        $rows = $this->database->table('refund_items')
+            ->select('refund_items.*, sale_items.product_id, products.category_id')
+            ->join('sale_items', 'sale_items.id = refund_items.sale_item_id')
+            ->join('products', 'products.id = sale_items.product_id', 'left')
+            ->whereIn('refund_items.refund_id', $refundIds)->get()->getResultArray();
+        foreach ($rows as $row) { $grouped[(int) $row['refund_id']][] = $row; }
+        return $grouped;
+    }
+
+    private function accumulateSale(array $sale, array $saleItems, array $payments, array $filters, bool $includeFinancials, array &$state): array
+    {
+        $saleGrossCents = 0;
+        $saleTotalCents = 0;
+        if ($saleItems === []) {
+            $saleGrossCents = Money::cents($sale['subtotal']);
+            $saleTotalCents = Money::cents($sale['total']);
+            $state['totalsCents']['gross'] += $saleGrossCents;
+            $state['totalsCents']['discount'] += Money::cents($sale['discount']);
+            $state['totalsCents']['tax'] += Money::cents($sale['tax']);
+            $state['totalsCents']['service'] += Money::cents($sale['service_charge']);
+            if ($includeFinancials) { $state['totalsCents']['cogs'] += Money::cents($sale['total_cogs']); }
+            foreach ($payments as $payment) {
+                $state['paymentTotalsCents'][$payment['method']] = ($state['paymentTotalsCents'][$payment['method']] ?? 0) + Money::cents($payment['amount']);
+            }
         } else {
-            $refunds = $refundBuilder->get()->getResultArray();
-        }
-
-        $refundItemsByRefund = [];
-        $refundIds = array_map('intval', array_column($refunds, 'id'));
-        if ($refundIds !== []) {
-            $refundItemRows = $this->database->table('refund_items')
-                ->select('refund_items.*, sale_items.product_id, products.category_id')
-                ->join('sale_items', 'sale_items.id = refund_items.sale_item_id')
-                ->join('products', 'products.id = sale_items.product_id', 'left')
-                ->whereIn('refund_items.refund_id', $refundIds)->get()->getResultArray();
-            foreach ($refundItemRows as $item) {
-                if (!$this->itemMatchesFilters($item, $filters)) { continue; }
-                $refundItemsByRefund[$item['refund_id']][] = $item;
-            }
-        }
-
-        $totalsCents = ['gross' => 0, 'discount' => 0, 'tax' => 0, 'service' => 0, 'refunds' => 0, 'net_sales' => 0, 'cogs' => 0, 'gross_profit' => 0];
-        $unitsMilli = 0;
-        $salesCollectedCents = 0;
-        $paymentTotalsCents = [];
-        $products = [];
-        foreach ($sales as $saleIndex => $sale) {
-            $saleItems = $itemsBySale[$sale['id']] ?? [];
-            if ($saleItems === []) {
-                $grossCents = Money::cents($sale['subtotal']);
-                $discountCents = Money::cents($sale['discount']);
-                $taxCents = Money::cents($sale['tax']);
-                $serviceCents = Money::cents($sale['service_charge']);
-                $totalsCents['gross'] += $grossCents;
-                $totalsCents['discount'] += $discountCents;
-                $totalsCents['tax'] += $taxCents;
-                $totalsCents['service'] += $serviceCents;
-                $salesCollectedCents += Money::cents($sale['total']);
-                if ($includeFinancials) { $totalsCents['cogs'] += Money::cents($sale['total_cogs']); }
-                $sales[$saleIndex]['report_subtotal'] = Money::decimal($grossCents);
-                $sales[$saleIndex]['report_total'] = Money::decimal(Money::cents($sale['total']));
-                foreach ($paymentsBySale[$sale['id']] ?? [] as $payment) {
-                    $paymentTotalsCents[$payment['method']] = ($paymentTotalsCents[$payment['method']] ?? 0) + Money::cents($payment['amount']);
-                }
-                continue;
-            }
-
             $grossWeights = array_map(static fn (array $item): int => Money::cents($item['line_total']), $saleItems);
             $itemDiscounts = array_map(static fn (array $item): int => Money::cents($item['item_discount_amount'] ?? 0), $saleItems);
             $transactionDiscounts = array_map(static fn (array $item): int => Money::cents($item['transaction_discount_amount'] ?? 0), $saleItems);
@@ -125,19 +246,13 @@ class SalesReportService
             $afterItemDiscount = array_map(static fn (int $index, int $gross): int => $gross - $itemDiscounts[$index], array_keys($grossWeights), $grossWeights);
             $unallocatedDiscount = $headerDiscountCents - array_sum($itemDiscounts) - array_sum($transactionDiscounts);
             if ($unallocatedDiscount > 0) {
-                $legacyTransactionDiscounts = Money::allocateRupiahCents($unallocatedDiscount, $afterItemDiscount);
-                foreach ($transactionDiscounts as $index => $amount) {
-                    $transactionDiscounts[$index] = $amount + $legacyTransactionDiscounts[$index];
-                }
+                $legacyDiscounts = Money::allocateRupiahCents($unallocatedDiscount, $afterItemDiscount);
+                foreach ($transactionDiscounts as $index => $amount) { $transactionDiscounts[$index] = $amount + $legacyDiscounts[$index]; }
             }
             $discountAllocations = [];
-            foreach ($itemDiscounts as $index => $amount) {
-                $discountAllocations[$index] = $amount + $transactionDiscounts[$index];
-            }
+            foreach ($itemDiscounts as $index => $amount) { $discountAllocations[$index] = $amount + $transactionDiscounts[$index]; }
             foreach ($grossWeights as $index => $grossCents) {
-                if ($discountAllocations[$index] > $grossCents) {
-                    throw new RuntimeException('Diskon melebihi nilai baris pada transaksi ' . $sale['sale_number'] . '.');
-                }
+                if ($discountAllocations[$index] > $grossCents) { throw new RuntimeException('Diskon melebihi nilai baris pada transaksi ' . $sale['sale_number'] . '.'); }
             }
             $afterDiscountWeights = array_map(static fn (int $index, int $gross): int => $gross - $discountAllocations[$index], array_keys($grossWeights), $grossWeights);
             $serviceAllocations = array_map(static fn (array $item): int => Money::cents($item['service_charge_amount'] ?? 0), $saleItems);
@@ -149,9 +264,7 @@ class SalesReportService
             $missingService = $headerServiceCents - array_sum($serviceAllocations);
             if ($missingService > 0) {
                 $legacyService = Money::allocateRupiahCents($missingService, $afterDiscountWeights);
-                foreach ($serviceAllocations as $index => $amount) {
-                    $serviceAllocations[$index] = $amount + $legacyService[$index];
-                }
+                foreach ($serviceAllocations as $index => $amount) { $serviceAllocations[$index] = $amount + $legacyService[$index]; }
             }
             $taxAllocations = array_map(static fn (array $item): int => Money::cents($item['tax_amount'] ?? 0), $saleItems);
             $taxBases = array_map(static fn (int $index, int $net): int => $net + $serviceAllocations[$index], array_keys($afterDiscountWeights), $afterDiscountWeights);
@@ -163,127 +276,80 @@ class SalesReportService
             $missingTax = $headerTaxCents - array_sum($taxAllocations);
             if ($missingTax > 0) {
                 $legacyTax = Money::allocateRupiahCents($missingTax, $taxBases);
-                foreach ($taxAllocations as $index => $amount) {
-                    $taxAllocations[$index] = $amount + $legacyTax[$index];
-                }
+                foreach ($taxAllocations as $index => $amount) { $taxAllocations[$index] = $amount + $legacyTax[$index]; }
             }
+
             $netWeights = [];
             $selectedIndices = [];
-            $saleGrossCents = 0;
-            $saleTotalCents = 0;
             foreach ($saleItems as $index => $item) {
                 $grossCents = $grossWeights[$index];
                 $netWeights[$index] = $grossCents - $discountAllocations[$index] + $taxAllocations[$index] + $serviceAllocations[$index];
                 if (!$this->itemMatchesFilters($item, $filters)) { continue; }
-
                 $selectedIndices[] = $index;
                 $saleGrossCents += $grossCents;
                 $saleTotalCents += $netWeights[$index];
-                $totalsCents['gross'] += $grossCents;
-                $totalsCents['discount'] += $discountAllocations[$index];
-                $totalsCents['tax'] += $taxAllocations[$index];
-                $totalsCents['service'] += $serviceAllocations[$index];
-                $unitsMilli += Money::quantityMilli($item['quantity']);
-                if ($includeFinancials) { $totalsCents['cogs'] += Money::cents($item['line_cogs']); }
-
+                $state['totalsCents']['gross'] += $grossCents;
+                $state['totalsCents']['discount'] += $discountAllocations[$index];
+                $state['totalsCents']['tax'] += $taxAllocations[$index];
+                $state['totalsCents']['service'] += $serviceAllocations[$index];
+                $state['unitsMilli'] += Money::quantityMilli($item['quantity']);
+                if ($includeFinancials) { $state['totalsCents']['cogs'] += Money::cents($item['line_cogs']); }
                 $key = (string) $item['product_id'] . ':' . (string) $item['product_variant_id'];
-                if (!isset($products[$key])) {
-                    $products[$key] = ['product_name' => $item['product_name'], 'variant_name' => $item['variant_name'], 'quantity_milli' => 0, 'sales_cents' => 0];
+                if (!isset($state['products'][$key])) {
+                    $state['products'][$key] = ['product_name' => $item['product_name'], 'variant_name' => $item['variant_name'], 'quantity_milli' => 0, 'sales_cents' => 0];
                 }
-                $products[$key]['quantity_milli'] += Money::quantityMilli($item['quantity']);
-                $products[$key]['sales_cents'] += max(0, $grossCents - $discountAllocations[$index]);
+                $state['products'][$key]['quantity_milli'] += Money::quantityMilli($item['quantity']);
+                $state['products'][$key]['sales_cents'] += max(0, $grossCents - $discountAllocations[$index]);
             }
-
             if (array_sum($netWeights) !== Money::cents($sale['total'])) {
                 throw new RuntimeException('Rincian transaksi ' . $sale['sale_number'] . ' tidak cocok dengan total pembayaran tersimpan.');
             }
-
-            $salesCollectedCents += $saleTotalCents;
-            $sales[$saleIndex]['report_subtotal'] = Money::decimal($saleGrossCents);
-            $sales[$saleIndex]['report_total'] = Money::decimal($saleTotalCents);
-            foreach ($paymentsBySale[$sale['id']] ?? [] as $payment) {
+            foreach ($payments as $payment) {
                 $allocations = Money::allocateRupiahCents(Money::cents($payment['amount']), $netWeights);
                 foreach ($selectedIndices as $index) {
-                    $paymentTotalsCents[$payment['method']] = ($paymentTotalsCents[$payment['method']] ?? 0) + $allocations[$index];
+                    $state['paymentTotalsCents'][$payment['method']] = ($state['paymentTotalsCents'][$payment['method']] ?? 0) + $allocations[$index];
                 }
             }
         }
 
-        $refundByMethodCents = [];
-        $refundProductRevenueCents = 0;
-        $refundedCogsCents = 0;
-        $filteredRefunds = [];
-        foreach ($refunds as $refund) {
-            $refundItems = $refundItemsByRefund[$refund['id']] ?? [];
-            if (($filters['product_id'] || $filters['category_id']) && $refundItems === []) { continue; }
-            $refundGrossCents = 0;
-            $refundDiscountCents = 0;
-            $refundTaxCents = 0;
-            $refundServiceCents = 0;
-            $refundAmountCents = 0;
-            $refundCogsCents = 0;
-            if ($refundItems === []) {
-                $refundGrossCents = Money::cents($refund['subtotal_amount']);
-                $refundDiscountCents = Money::cents($refund['discount_amount']);
-                $refundTaxCents = Money::cents($refund['tax_amount']);
-                $refundServiceCents = Money::cents($refund['service_charge_amount']);
-                $refundAmountCents = Money::cents($refund['amount']);
-                if ($includeFinancials) {
-                    $refundCogsCents = Money::cents($this->database->table('refund_items')->selectSum('cogs_reversed', 'total')->where('refund_id', $refund['id'])->get()->getRow('total') ?? 0);
-                }
-            } else {
-                foreach ($refundItems as $item) {
-                    $refundGrossCents += Money::cents($item['gross_amount']);
-                    $refundDiscountCents += Money::cents($item['discount_amount']);
-                    $refundTaxCents += Money::cents($item['tax_amount']);
-                    $refundServiceCents += Money::cents($item['service_charge_amount']);
-                    $refundAmountCents += Money::cents($item['refund_amount']);
-                    if ($includeFinancials) { $refundCogsCents += Money::cents($item['cogs_reversed']); }
-                }
+        $state['salesCollectedCents'] += $saleTotalCents;
+        $sale['report_subtotal'] = Money::decimal($saleGrossCents);
+        $sale['report_total'] = Money::decimal($saleTotalCents);
+        return $sale;
+    }
+
+    private function accumulateRefund(array $refund, array $refundItems, array $filters, bool $includeFinancials, array &$state): ?array
+    {
+        $refundItems = array_values(array_filter($refundItems, fn (array $item): bool => $this->itemMatchesFilters($item, $filters)));
+        if (($filters['product_id'] || $filters['category_id']) && $refundItems === []) { return null; }
+        $gross = $discount = $tax = $service = $amount = $cogs = 0;
+        if ($refundItems === []) {
+            $gross = Money::cents($refund['subtotal_amount']);
+            $discount = Money::cents($refund['discount_amount']);
+            $tax = Money::cents($refund['tax_amount']);
+            $service = Money::cents($refund['service_charge_amount']);
+            $amount = Money::cents($refund['amount']);
+        } else {
+            foreach ($refundItems as $item) {
+                $gross += Money::cents($item['gross_amount']);
+                $discount += Money::cents($item['discount_amount']);
+                $tax += Money::cents($item['tax_amount']);
+                $service += Money::cents($item['service_charge_amount']);
+                $amount += Money::cents($item['refund_amount']);
+                if ($includeFinancials) { $cogs += Money::cents($item['cogs_reversed']); }
             }
-            $refund['report_subtotal_amount'] = Money::decimal($refundGrossCents);
-            $refund['report_discount_amount'] = Money::decimal($refundDiscountCents);
-            $refund['report_tax_amount'] = Money::decimal($refundTaxCents);
-            $refund['report_service_charge_amount'] = Money::decimal($refundServiceCents);
-            $refund['report_amount'] = Money::decimal($refundAmountCents);
-            $refund['report_cogs_reversed'] = Money::decimal($refundCogsCents);
-            $filteredRefunds[] = $refund;
-
-            $totalsCents['refunds'] += $refundAmountCents;
-            $refundByMethodCents[$refund['method']] = ($refundByMethodCents[$refund['method']] ?? 0) + $refundAmountCents;
-            $refundProductRevenueCents += $refundGrossCents - $refundDiscountCents;
-            $refundedCogsCents += $refundCogsCents;
         }
-
-        $totalsCents['net_sales'] = $salesCollectedCents - $totalsCents['refunds'];
-        $totalsCents['cogs'] -= $refundedCogsCents;
-        $totalsCents['gross_profit'] = $totalsCents['gross'] - $totalsCents['discount'] - $refundProductRevenueCents - $totalsCents['cogs'];
-        $totals = ['transactions' => count($sales), 'units' => Money::quantity($unitsMilli)];
-        foreach ($totalsCents as $key => $cents) { $totals[$key] = Money::decimal($cents); }
-        $paymentTotals = [];
-        foreach ($paymentTotalsCents as $method => $cents) { $paymentTotals[$method] = Money::decimal($cents); }
-        $refundByMethod = [];
-        foreach ($refundByMethodCents as $method => $cents) { $refundByMethod[$method] = Money::decimal($cents); }
-
-        foreach ($products as &$product) {
-            $product['quantity'] = Money::quantity($product['quantity_milli']);
-            $product['sales'] = Money::decimal($product['sales_cents']);
-            unset($product['quantity_milli'], $product['sales_cents']);
-        }
-        unset($product);
-        usort($products, static fn (array $a, array $b): int => Money::quantityMilli($b['quantity']) <=> Money::quantityMilli($a['quantity']));
-
-        return [
-            'period' => $period,
-            'filters' => $filters,
-            'sales' => $sales,
-            'refunds' => $filteredRefunds,
-            'paymentTotals' => $paymentTotals,
-            'refundByMethod' => $refundByMethod,
-            'products' => $products,
-            'totals' => $totals,
-            'includeFinancials' => $includeFinancials,
-        ];
+        $refund['report_subtotal_amount'] = Money::decimal($gross);
+        $refund['report_discount_amount'] = Money::decimal($discount);
+        $refund['report_tax_amount'] = Money::decimal($tax);
+        $refund['report_service_charge_amount'] = Money::decimal($service);
+        $refund['report_amount'] = Money::decimal($amount);
+        $refund['report_cogs_reversed'] = Money::decimal($cogs);
+        $state['totalsCents']['refunds'] += $amount;
+        $state['refundByMethodCents'][$refund['method']] = ($state['refundByMethodCents'][$refund['method']] ?? 0) + $amount;
+        $state['refundProductRevenueCents'] += $gross - $discount;
+        $state['refundedCogsCents'] += $cogs;
+        return $refund;
     }
 
     public function options(): array
@@ -335,19 +401,6 @@ class SalesReportService
             'sale_method' => $method($input['sale_method'] ?? null) ?? $legacyMethod,
             'refund_method' => $method($input['refund_method'] ?? null),
         ];
-    }
-
-    private function matchedSaleIds(array $filters): ?array
-    {
-        if (!$filters['product_id'] && !$filters['category_id'] && !$filters['sale_method']) { return null; }
-        $builder = $this->database->table('sales')->distinct()->select('sales.id');
-        if ($filters['product_id'] || $filters['category_id']) {
-            $builder->join('sale_items', 'sale_items.sale_id = sales.id');
-            if ($filters['product_id']) { $builder->where('sale_items.product_id', $filters['product_id']); }
-            if ($filters['category_id']) { $builder->join('products', 'products.id = sale_items.product_id')->where('products.category_id', $filters['category_id']); }
-        }
-        if ($filters['sale_method']) { $builder->join('payments', 'payments.sale_id = sales.id')->where('payments.method', $filters['sale_method']); }
-        return array_map('intval', array_column($builder->get()->getResultArray(), 'id'));
     }
 
     private function itemMatchesFilters(array $item, array $filters): bool

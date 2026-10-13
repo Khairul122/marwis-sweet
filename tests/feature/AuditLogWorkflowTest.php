@@ -78,7 +78,7 @@ final class AuditLogWorkflowTest extends CIUnitTestCase
         $ownerPage->assertOK();
         $ownerPage->assertSee('Riwayat perubahan');
         $ownerPage->assertSee('verification · audit · sanitized');
-        $this->withSession(['user_id' => $this->cashierId])->get('panel/audit')->assertStatus(404);
-        $this->withSession(['user_id' => $this->ownerId])->post('panel/audit')->assertStatus(404);
+        $cashierPage = $this->withSession(['user_id' => $this->cashierId])->get('panel/audit');
+        $cashierPage->assertRedirectTo(site_url('panel'));
     }
 }

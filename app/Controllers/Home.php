@@ -16,6 +16,7 @@ class Home extends BaseController
         $now = date('Y-m-d H:i:s');
         $data['banners'] = (new BannerModel())
             ->where('is_active', true)
+            ->whereNotLike('image_path', 'uploads/demo/%')
             ->groupStart()->where('starts_at', null)->orWhere('starts_at <=', $now)->groupEnd()
             ->groupStart()->where('ends_at', null)->orWhere('ends_at >', $now)->groupEnd()
             ->orderBy('sort_order')->orderBy('id', 'DESC')->findAll();
@@ -27,7 +28,9 @@ class Home extends BaseController
         $data['reviews'] = db_connect()->table('product_reviews')
             ->select('product_reviews.display_name, product_reviews.rating, product_reviews.comment, product_reviews.created_at, products.name AS product_name')
             ->join('products', 'products.id = product_reviews.product_id')
+            ->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')
             ->where('product_reviews.status', 'approved')->where('products.is_active', true)
+            ->groupStart()->where('review_tokens.disabled_reason', null)->orWhere('review_tokens.disabled_reason !=', 'EVL contoh')->groupEnd()
             ->orderBy('product_reviews.created_at', 'DESC')->limit(6)->get()->getResultArray();
 
         return view('public/home', $data);
@@ -48,7 +51,11 @@ class Home extends BaseController
         }
 
         $database = db_connect();
-        $reviews = $database->table('product_reviews')->where('product_id', $product['id'])->where('status', 'approved')->orderBy('created_at', 'DESC')->limit(20)->get()->getResultArray();
+        $reviews = $database->table('product_reviews')->select('product_reviews.*')
+            ->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')
+            ->where('product_reviews.product_id', $product['id'])->where('product_reviews.status', 'approved')
+            ->groupStart()->where('review_tokens.disabled_reason', null)->orWhere('review_tokens.disabled_reason !=', 'EVL contoh')->groupEnd()
+            ->orderBy('product_reviews.created_at', 'DESC')->limit(20)->get()->getResultArray();
         $reviewImages = [];
         if ($reviews !== []) {
             foreach ($database->table('review_images')->whereIn('product_review_id', array_column($reviews, 'id'))->get()->getResultArray() as $image) {
@@ -56,7 +63,11 @@ class Home extends BaseController
             }
         }
         $ratingCounts = array_fill_keys([5, 4, 3, 2, 1], 0);
-        foreach ($database->table('product_reviews')->select('rating, COUNT(*) AS total', false)->where('product_id', $product['id'])->where('status', 'approved')->groupBy('rating')->get()->getResultArray() as $row) {
+        foreach ($database->table('product_reviews')->select('product_reviews.rating, COUNT(*) AS total', false)
+            ->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')
+            ->where('product_reviews.product_id', $product['id'])->where('product_reviews.status', 'approved')
+            ->groupStart()->where('review_tokens.disabled_reason', null)->orWhere('review_tokens.disabled_reason !=', 'EVL contoh')->groupEnd()
+            ->groupBy('product_reviews.rating')->get()->getResultArray() as $row) {
             $ratingCounts[(int) $row['rating']] = (int) $row['total'];
         }
         $total = array_sum($ratingCounts);
@@ -110,7 +121,11 @@ class Home extends BaseController
 
         $toppings = $availability->annotateToppings($database->table('toppings')->where('is_active', true)->orderBy('additional_price')->orderBy('name')->get()->getResultArray());
         $ratings = [];
-        foreach ($database->table('product_reviews')->select('product_id, AVG(rating) AS average, COUNT(*) AS total', false)->where('status', 'approved')->groupBy('product_id')->get()->getResultArray() as $row) {
+        foreach ($database->table('product_reviews')->select('product_reviews.product_id, AVG(product_reviews.rating) AS average, COUNT(*) AS total', false)
+            ->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')
+            ->where('product_reviews.status', 'approved')
+            ->groupStart()->where('review_tokens.disabled_reason', null)->orWhere('review_tokens.disabled_reason !=', 'EVL contoh')->groupEnd()
+            ->groupBy('product_reviews.product_id')->get()->getResultArray() as $row) {
             $ratings[$row['product_id']] = ['average' => (float) $row['average'], 'total' => (int) $row['total']];
         }
 
@@ -128,7 +143,11 @@ class Home extends BaseController
             'variantsByProduct' => $variantsByProduct,
             'toppings' => $toppings,
             'ratings' => $ratings,
-            'storeReviews' => $database->table('product_reviews')->select('COUNT(*) AS total, COALESCE(AVG(rating), 0) AS average', false)->where('status', 'approved')->get()->getRowArray(),
+            'storeReviews' => $database->table('product_reviews')->select('COUNT(*) AS total, COALESCE(AVG(product_reviews.rating), 0) AS average', false)
+                ->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')
+                ->where('product_reviews.status', 'approved')
+                ->groupStart()->where('review_tokens.disabled_reason', null)->orWhere('review_tokens.disabled_reason !=', 'EVL contoh')->groupEnd()->get()->getRowArray(),
+            'isDemoData' => ($settings['business_profile_is_demo'] ?? '0') === '1',
             'catalog' => [
                 'business' => $businessName,
                 'whatsapp' => $waNumber,

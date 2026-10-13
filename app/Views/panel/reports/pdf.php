@@ -116,6 +116,7 @@ $businessDetails = array_filter([$settings['address'] ?? null, $settings['phone'
 </tbody></table>
 
 <div class="section-title">Detail Transaksi</div>
+<?php if ($report['salesDetailsTruncated'] || $report['refundDetailsTruncated']): ?><div class="filter-strip">Total dan rekap mencakup seluruh data periode. Rincian PDF dibatasi <?= number_format($report['salesPageSize'], 0, ',', '.') ?> baris per tabel; gunakan filter periode lebih pendek untuk mengunduh seluruh rincian.</div><?php endif ?>
 <table class="data"><thead><tr><th>Nomor</th><th>Waktu</th><th>Kasir</th><th>Shift</th><th class="right">Subtotal laporan</th><th class="right">Total laporan</th></tr></thead><tbody>
 <?php if ($report['sales'] === []): ?><tr><td class="empty" colspan="6">Tidak ada data pada periode ini.</td></tr>
 <?php else: ?><?php foreach ($report['sales'] as $sale): ?><tr><td><?= esc($sale['sale_number']) ?></td><td><?= esc(date('d/m/Y H:i', strtotime($sale['paid_at']))) ?></td><td><?= esc($sale['cashier_name']) ?></td><td><?= esc($sale['shift_number']) ?></td><td class="right"><?= $money((float) $sale['report_subtotal']) ?></td><td class="right"><strong><?= $money((float) $sale['report_total']) ?></strong></td></tr><?php endforeach ?><?php endif ?>

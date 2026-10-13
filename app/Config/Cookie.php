@@ -7,6 +7,14 @@ use DateTimeInterface;
 
 class Cookie extends BaseConfig
 {
+    public function __construct()
+    {
+        parent::__construct();
+
+        $baseURL = trim((string) env('app.baseURL', 'http://localhost:8080/'));
+        $this->secure = strtolower((string) parse_url($baseURL, PHP_URL_SCHEME)) === 'https';
+    }
+
     /**
      * --------------------------------------------------------------------------
      * Cookie Prefix

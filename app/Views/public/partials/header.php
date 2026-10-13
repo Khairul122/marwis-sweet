@@ -12,6 +12,11 @@ $navLinks = array_filter([
     $hasContact ? ['#lokasi', 'Lokasi'] : null,
 ]);
 ?>
+    <?php if (!empty($isDemoData)): ?>
+    <aside class="border-b border-[#A85A00]/25 bg-[#FFF4C2] px-4 py-2.5 text-center text-xs font-semibold leading-5 text-[#4A2B00] sm:text-sm" role="note">
+        Tampilan data contoh. Identitas, menu, dan informasi usaha di halaman ini belum terverifikasi.
+    </aside>
+    <?php endif ?>
     <?php if ($hours !== '' || $phone !== ''): ?>
     <div class="bg-brand-cocoa text-xs font-semibold text-[#F3E6CC] sm:text-sm">
         <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 sm:justify-between sm:px-6 lg:px-8">

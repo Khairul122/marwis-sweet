@@ -143,6 +143,7 @@ class TemporaryDataSeeder extends Seeder
             'address' => 'Jl. Contoh No. 10, Indonesia',
             'phone' => '0812-3456-7890',
             'opening_hours' => 'Senin–Minggu, 16.00–23.00',
+            'business_profile_is_demo' => '1',
         ] as $key => $value) {
             $this->upsert('settings', ['setting_key' => $key], ['setting_value' => $value], false);
         }

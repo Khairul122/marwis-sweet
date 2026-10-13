@@ -93,6 +93,7 @@ class SettingsController extends BaseController
             $value = trim((string) $this->request->getPost($key));
             $builder->replace(['setting_key' => $key, 'setting_value' => $value ?: null, 'updated_at' => date('Y-m-d H:i:s')]);
         }
+        $builder->replace(['setting_key' => 'business_profile_is_demo', 'setting_value' => '0', 'updated_at' => date('Y-m-d H:i:s')]);
         return redirect()->route('panel.settings')->with('success', 'Informasi usaha berhasil disimpan.');
     }
 

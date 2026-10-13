@@ -7,6 +7,8 @@ use RuntimeException;
 
 class OperationalReportService
 {
+    private const PDF_DETAIL_LIMIT = 5000;
+
     public function __construct(private ?BaseConnection $database = null) { $this->database ??= db_connect(); }
 
     public function build(string $type, array $input, string $role, int $userId): array
@@ -24,6 +26,8 @@ class OperationalReportService
 
     private function stock(array $period, bool $includeFinancials): array
     {
+        $movementCount = $this->database->table('stock_movements')->where('posted_at >=', $period['start'])->where('posted_at <', $period['end'])->countAllResults();
+        $this->assertPdfDetailLimit($movementCount);
         $valueColumn = $includeFinancials
             ? ', COALESCE(SUM(CASE WHEN m.posted_at < ? THEN m.total_cost ELSE 0 END),0) AS value'
             : '';
@@ -59,6 +63,11 @@ class OperationalReportService
 
     private function opnames(array $period, bool $includeFinancials): array
     {
+        $opnameCount = (int) $this->database->query(
+            "SELECT COUNT(DISTINCT o.id) AS total FROM stock_opnames o JOIN stock_opname_items oi ON oi.stock_opname_id=o.id WHERE o.status='approved' AND o.approved_at >= ? AND o.approved_at < ?",
+            [$period['start'], $period['end']],
+        )->getRow('total');
+        $this->assertPdfDetailLimit($opnameCount);
         $varianceColumn = $includeFinancials
             ? ', COALESCE(SUM(ABS(oi.difference_quantity * COALESCE(oi.adjustment_unit_cost,oi.unit_cost_snapshot))),0) AS variance_value'
             : '';
@@ -79,6 +88,8 @@ class OperationalReportService
 
     private function expenses(array $period): array
     {
+        $expenseCount = $this->database->table('expenses')->where('status', 'paid')->where('posting_date >=', substr($period['start'], 0, 10))->where('posting_date <', substr($period['end'], 0, 10))->countAllResults();
+        $this->assertPdfDetailLimit($expenseCount);
         $rows = $this->database->table('expenses')->select('expenses.*, expense_categories.name AS category_name, users.name AS creator_name')->join('expense_categories','expense_categories.id=expenses.expense_category_id')->join('users','users.id=expenses.created_by')->where('expenses.status','paid')->where('expenses.posting_date >=',substr($period['start'],0,10))->where('expenses.posting_date <',substr($period['end'],0,10))->orderBy('expenses.posting_date')->get()->getResultArray();
         $byCategory=[]; foreach($rows as $row){$byCategory[$row['category_name']]=($byCategory[$row['category_name']]??0)+(float)$row['amount'];}
         return ['rows'=>$rows,'byCategory'=>$byCategory,'total'=>array_sum(array_map(static fn(array $row):float=>(float)$row['amount'],$rows))];
@@ -86,8 +97,11 @@ class OperationalReportService
 
     private function shifts(array $period,string $role,int $userId): array
     {
-        $builder=$this->database->table('shifts')->select('shifts.*,users.name AS cashier_name')->join('users','users.id=shifts.cashier_id')->where('opened_at >=',$period['start'])->where('opened_at <',$period['end'])->orderBy('opened_at');
-        if($role!=='owner'){$builder->where('cashier_id',$userId);} $rows=$builder->get()->getResultArray();
+        $builder=$this->database->table('shifts')->select('shifts.*,users.name AS cashier_name')->join('users','users.id=shifts.cashier_id')->where('opened_at >=',$period['start'])->where('opened_at <',$period['end']);
+        if($role!=='owner'){$builder->where('cashier_id',$userId);}
+        $countBuilder=clone $builder;
+        $this->assertPdfDetailLimit($countBuilder->countAllResults());
+        $rows=$builder->orderBy('opened_at')->get()->getResultArray();
         return ['rows'=>$rows,'expected'=>array_sum(array_map(static fn(array $row):float=>(float)($row['expected_cash']??0),$rows)),'difference'=>array_sum(array_map(static fn(array $row):float=>(float)($row['cash_difference']??0),$rows))];
     }
 
@@ -97,5 +111,12 @@ class OperationalReportService
         $debit=array_sum(array_map(static fn(array $row):float=>(float)$row['debit'],$rows)); $credit=array_sum(array_map(static fn(array $row):float=>(float)$row['credit'],$rows));
         $profit=0.0; foreach($rows as $row){if($row['account_type']==='revenue')$profit+=(float)$row['credit']-(float)$row['debit'];elseif(in_array($row['account_type'],['contra_revenue','expense'],true))$profit-=(float)$row['debit']-(float)$row['credit'];}
         return ['rows'=>$rows,'debit'=>$debit,'credit'=>$credit,'profit'=>$profit];
+    }
+
+    private function assertPdfDetailLimit(int $count): void
+    {
+        if ($count > self::PDF_DETAIL_LIMIT) {
+            throw new RuntimeException('PDF ini berisi ' . number_format($count, 0, ',', '.') . ' baris, melewati batas aman 5.000. Pilih periode yang lebih pendek untuk mengunduhnya.');
+        }
     }
 }

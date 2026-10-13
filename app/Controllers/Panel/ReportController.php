@@ -29,7 +29,7 @@ class ReportController extends BaseController
         try {
             $database->transException(true)->transStart();
             $service = new SalesReportService($database);
-            $report = $service->build($this->request->getGet(), $this->isOwner());
+            $report = $service->build($this->request->getGet(), $this->isOwner(), SalesReportService::PDF_DETAIL_LIMIT, true);
             $optionLists = $service->options();
             $settings = [];
             foreach ((new SettingModel())->findAll() as $row) { $settings[$row['setting_key']] = $row['setting_value']; }

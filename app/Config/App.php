@@ -16,7 +16,7 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'http://localhost/';
+    public string $baseURL = 'http://localhost:8080/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
@@ -181,6 +181,52 @@ class App extends BaseConfig
      * @var array<string, string>
      */
     public array $proxyIPs = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $parts = parse_url(trim($this->baseURL));
+        if (! is_array($parts)
+            || ! in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
+            || empty($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+            || isset($parts['query'])
+            || isset($parts['fragment'])) {
+            $this->baseURL = 'http://localhost:8080/';
+            $parts = parse_url($this->baseURL);
+        }
+
+        $this->baseURL = rtrim((string) $this->baseURL, '/') . '/';
+        $usesHttps = strtolower((string) ($parts['scheme'] ?? '')) === 'https';
+        $this->forceGlobalSecureRequests = $usesHttps && $this->forceGlobalSecureRequests;
+
+        $trustedProxies = [];
+        foreach (explode(',', (string) env('app.proxyIPs', '')) as $proxy) {
+            $proxy = trim($proxy);
+            if ($proxy !== '' && $this->isValidProxyAddress($proxy)) {
+                $trustedProxies[$proxy] = 'X-Forwarded-For';
+            }
+        }
+        $this->proxyIPs = $trustedProxies;
+    }
+
+    private function isValidProxyAddress(string $proxy): bool
+    {
+        [$address, $prefix] = array_pad(explode('/', $proxy, 2), 2, null);
+        $packedAddress = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6);
+        if ($packedAddress === false) {
+            return false;
+        }
+        if ($prefix === null) {
+            return true;
+        }
+
+        $maxPrefix = str_contains($address, ':') ? 128 : 32;
+
+        return ctype_digit($prefix) && (int) $prefix >= 0 && (int) $prefix <= $maxPrefix;
+    }
 
     /**
      * --------------------------------------------------------------------------

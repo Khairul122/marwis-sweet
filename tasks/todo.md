@@ -250,7 +250,7 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **Terima bila:** setiap perubahan stok punya sumber, pelaksana, waktu, jumlah, biaya, dan alasan.
 
-**Verifikasi backend (2026-10-14, MySQL salinan terisolasi):** `StockAdjustmentWorkflowTest` lulus (2 tes, 65 assertion): saldo awal mencatat jumlah/nilai dan jurnal seimbang; kerusakan memakai nilai buku proporsional; koreksi berlebih ditolak; draft tidak mengubah stok/jurnal; owner-only approval/reversal dijaga; pembalik memulihkan stok dan menautkan jurnal asal. Migrasi `2026-10-14-000022` diterapkan ke MySQL utama, batch 19.
+**Verifikasi backend (2026-10-14, MySQL salinan terisolasi):** `StockAdjustmentWorkflowTest` lulus (2 tes, 66 assertion): saldo awal mencatat jumlah/nilai dan jurnal seimbang; kerusakan memakai nilai buku proporsional; koreksi berlebih ditolak; draft tidak mengubah stok/jurnal; owner-only approval/reversal dijaga; pembalik memulihkan stok dan menautkan jurnal asal. Migrasi `2026-10-14-000022` diterapkan ke MySQL utama, batch 19.
 
 **Verifikasi UI:** halaman daftar, form baru, dan detail diuji melalui hasil render untuk akun owner/kasir. Screenshot ukuran layar langsung belum dapat diambil karena batas browser localhost yang sudah dijelaskan.
 
@@ -258,35 +258,37 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P2 · Ketergantungan:** daftar event dan struktur audit.
 
-- [ ] Sediakan tabel/layanan audit append-only dengan pengguna, tindakan, objek, waktu, alasan, dan nilai perubahan relevan.
-- [ ] Catat perubahan harga/resep, stok/penerimaan, refund, pengeluaran, jurnal, penutupan periode, akun, dan moderasi.
-- [ ] Jangan simpan password atau token ulasan mentah.
+- [x] Sediakan tabel/layanan audit append-only dengan pengguna, tindakan, objek, waktu, alasan, dan nilai perubahan relevan.
+- [x] Catat perubahan harga/resep, stok/penerimaan, refund, pengeluaran, jurnal, penutupan periode, akun, dan moderasi.
+- [x] Jangan simpan password atau token ulasan mentah.
 
 **Terima bila:** owner dapat menelusuri perubahan sensitif dan pengguna biasa tidak dapat mengubah/menghapus riwayat audit.
 
-**Verifikasi nanti:** lakukan contoh tiap event dan periksa kelengkapan tanpa data rahasia.
+**Verifikasi backend (2026-10-14, MySQL verifikasi terisolasi):** `AuditLogWorkflowTest` lulus bersama tes Task 17 dan tes UI berikutnya. Tes memeriksa sanitasi password/token, trigger MySQL menolak update/delete, tampilan audit untuk owner, serta penolakan akses kasir. Migrasi `2026-10-14-000023` diterapkan pada MySQL utama, batch 20. Call site audit mencakup varian/harga, resep, penerimaan/stok opname/penyesuaian, refund, pengeluaran, akun, moderasi, jurnal, dan periode.
+
+**Pemeriksaan UI:** halaman audit dan batas akses dirender lewat feature test. Screenshot browser belum dapat diambil karena akses browser localhost dibatasi.
 
 ### Tugas 19 — Sinkronkan struk dengan pengaturan usaha (B-13)
 
 **P2 · Ketergantungan:** Tugas 11.
 
-- [ ] Gunakan identitas usaha dari pengaturan tersimpan.
-- [ ] Sediakan QR/tautan ulasan dan cetak ulang, serta format cetak 58/80 mm dan PDF bila tetap masuk lingkup PRD.
+- [x] Gunakan identitas usaha dari pengaturan tersimpan.
+- [x] Sediakan tautan ulasan dan cetak ulang, serta format cetak 58/80 mm dan PDF sesuai PRD.
 
 **Terima bila:** perubahan nama/alamat usaha muncul konsisten pada struk; cetak ulang memiliki detail/tautan yang benar.
 
-**Verifikasi nanti:** pratinjau dan cetak browser untuk ukuran yang didukung.
+**Verifikasi backend dan render (2026-10-14, MySQL verifikasi terisolasi):** halaman struk diuji memakai identitas toko tersimpan, tautan ulasan aktif, selector kertas 58/80 mm, dan unduhan PDF dengan tipe konten `application/pdf` serta penanda `%PDF-`. Screenshot dan cetak fisik/browser belum dapat diperiksa karena browser localhost dibatasi.
 
 ### Tugas 20 — Lengkapi pengelolaan foto produk dan banner (B-14)
 
 **P2 · Ketergantungan:** tidak ada.
 
-- [ ] Foto produk dapat diganti, diurutkan, dan dihapus dengan batas jumlah yang ditetapkan.
-- [ ] Banner mendukung gambar baru saat edit dan pratinjau desktop/mobile sebelum simpan.
+- [x] Foto produk dapat diganti, diurutkan, dan dihapus dengan batas jumlah yang ditetapkan.
+- [x] Banner mendukung gambar baru saat edit dan pratinjau desktop/mobile sebelum simpan.
 
 **Terima bila:** file lama dibersihkan dengan aman, urutan konsisten pada publik, validasi ukuran/tipe tetap berlaku.
 
-**Verifikasi nanti:** uji CRUD media dan banner nonaktif/di luar jadwal.
+**Verifikasi backend dan render (2026-10-14, MySQL verifikasi terisolasi):** feature test memeriksa urutan foto, alt text, sinkronisasi gambar utama, hapus gambar, mempertahankan file banner bila edit tanpa unggahan, serta markup preview banner 16:5/4:3 dan form media produk. Upload multipart dan penggantian file aktual tidak bisa dieksekusi lewat harness feature CI4 karena berkas PHP CLI tidak dianggap unggahan HTTP; jalur layanan upload divalidasi melalui pemeriksaan kode. Screenshot browser belum tersedia.
 
 ## Fase 5 — Tampilan dan kesiapan rilis
 
@@ -294,24 +296,24 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P2 · Ketergantungan:** tidak ada.
 
-- [ ] Saat drawer tertutup, kontrolnya tidak bisa difokuskan dan tersembunyi dari teknologi bantu.
-- [ ] Saat drawer terbuka, fokus masuk, tetap di dalam drawer, dan kembali ke tombol pembuka saat ditutup.
-- [ ] Sesuaikan POS untuk breakpoint tablet dan bottom sheet ponsel sesuai desain.
+- [x] Saat drawer tertutup, kontrolnya tidak bisa difokuskan dan tersembunyi dari teknologi bantu.
+- [x] Saat drawer terbuka, fokus masuk, tetap di dalam drawer, dan kembali ke tombol pembuka saat ditutup.
+- [x] Sesuaikan POS untuk breakpoint tablet dan bottom sheet ponsel sesuai desain.
 
 **Terima bila:** tidak ada fokus Tab pada kontrol drawer tertutup; layout sesuai pada 360, 768, 1024, dan 1440 px.
 
-**Verifikasi nanti:** keyboard-only, pohon aksesibilitas browser, dan viewport desain.
+**Verifikasi render/statis (2026-10-14):** feature test memeriksa drawer navigasi, status `aria-hidden`/`inert` awal, panel POS tertutup di bawah 768 px dan drawer samping di tablet, serta jalur fokus/Escape dalam JS. `node --check` lulus. Pemeriksaan keyboard dan ukuran 360/768/1024/1440 px secara visual menunggu akses browser yang tersedia.
 
 ### Tugas 22 — Buat tabel panel nyaman dipakai di ponsel (B-12)
 
 **P2 · Ketergantungan:** tidak ada.
 
-- [ ] Tabel prioritas menampilkan data menjadi baris berlabel pada ponsel atau memakai solusi responsif yang setara.
-- [ ] Header kolom tetap terbaca saat daftar digulir.
+- [x] Tabel prioritas menampilkan data menjadi baris berlabel pada ponsel atau memakai solusi responsif yang setara.
+- [x] Header kolom tetap terbaca saat daftar digulir.
 
 **Terima bila:** data inti tidak memerlukan gulir horizontal pada lebar ponsel; tabel besar tetap dapat dibandingkan di desktop.
 
-**Verifikasi nanti:** viewport 360/768/1024/1440 px dan pembesaran teks.
+**Verifikasi render/build (2026-10-14):** feature test memeriksa label kolom pada HTML panel dan JavaScript menambahkan label ke tabel statis. CSS menetapkan header sticky di daftar panjang dan mengubah sel menjadi kartu berlabel pada ponsel; build CSS berhasil. Pemeriksaan visual di beberapa viewport dan zoom belum tersedia karena pembatasan browser localhost.
 
 ### Tugas 23 — Paginasi dan ekspor laporan besar (B-14)
 
