@@ -8,6 +8,8 @@
     --color-brand-sun-hover: #EAB308;
     --color-brand-cocoa: #2D1B12;
     --color-brand-chili: #B93824;
+    --color-brand-orange: #EE6A1F;
+    --color-brand-pandan: #2E9A5A;
     --color-surface-cream: #FFF8E7;
     --color-surface-soft-yellow: #FEFCE8;
     --color-surface-white: #FFFFFF;
@@ -19,6 +21,9 @@
     --color-status-info: #1E40AF;
     --font-display: "Arial Black", "Arial Bold", sans-serif;
     --font-sans: "Segoe UI", Arial, sans-serif;
+    /* Khusus landing publik, dimuat dari Google Fonts di home.php */
+    --font-brand: "Baloo 2", "Arial Black", sans-serif;
+    --font-jakarta: "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
 }
 
 @layer base {
@@ -230,6 +235,79 @@
 
     .app-dialog-icon.is-warning {
         @apply bg-brand-sun text-brand-cocoa;
+    }
+
+    .js .reveal {
+        opacity: 0;
+        transform: translateY(14px);
+        transition: opacity .5s ease, transform .5s ease, translate .2s ease, border-color .2s ease;
+    }
+
+    .js .reveal.is-visible {
+        opacity: 1;
+        transform: none;
+    }
+
+    .order-drawer {
+        margin: 0 0 0 auto;
+        height: 100dvh;
+        max-height: none;
+        width: min(30rem, 100%);
+        max-width: 100%;
+        padding: 0;
+        border: 0;
+        border-left: 2px solid var(--color-brand-cocoa);
+        background: var(--color-surface-white);
+        color: var(--color-brand-cocoa);
+    }
+
+    .order-drawer:not([open]) {
+        display: none;
+    }
+
+    .order-drawer::backdrop {
+        background: rgb(45 27 18 / .55);
+    }
+
+    /* ---- landing publik */
+    .lp-btn {
+        @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-extrabold transition duration-150 hover:-translate-y-0.5 sm:text-base;
+    }
+
+    .lp-btn-sun {
+        @apply bg-brand-sun text-brand-cocoa shadow-[0_8px_20px_-8px_rgb(234_179_8/.8)] hover:bg-brand-sun-hover;
+    }
+
+    .lp-btn-dark {
+        @apply bg-brand-cocoa text-white hover:bg-brand-chili;
+    }
+
+    .lp-btn-light {
+        @apply border-2 border-brand-cocoa/15 bg-white text-brand-cocoa hover:border-brand-cocoa;
+    }
+
+    .lp-eyebrow {
+        @apply inline-flex items-center gap-2 rounded-full bg-brand-sun/35 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-brand-chili;
+    }
+
+    .lp-title {
+        @apply font-brand text-4xl leading-[1.05] font-extrabold sm:text-5xl;
+    }
+
+    .lp-card {
+        @apply rounded-3xl border border-border-warm bg-white shadow-[0_18px_40px_-24px_rgb(45_27_18/.35)];
+    }
+
+    .lp-chip {
+        @apply min-h-11 shrink-0 rounded-full border border-border-warm bg-white px-5 text-sm font-bold transition hover:border-brand-cocoa;
+    }
+
+    .lp-chip.is-active {
+        @apply border-brand-cocoa bg-brand-cocoa text-white;
+    }
+
+    .lp-nav {
+        @apply rounded-full px-4 py-2.5 text-sm font-bold transition hover:bg-brand-sun/40;
     }
 
     .stage-number {
