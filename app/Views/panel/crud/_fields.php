@@ -1,5 +1,5 @@
 <?php foreach ($hidden as $name => $value): ?><input type="hidden" name="<?= esc($name) ?>" value="<?= (int) $value ?>"><?php endforeach ?>
-<input type="hidden" name="_return" value="<?= esc($config['index']) ?>">
+<?php if (empty($config['noReturn'])): ?><input type="hidden" name="_return" value="<?= esc($config['index']) ?>"><?php endif ?>
 <?php foreach ($fields as $field): ?>
     <?php
     $name = $field['name'];

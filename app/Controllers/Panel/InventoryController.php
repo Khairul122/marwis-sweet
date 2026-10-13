@@ -15,33 +15,42 @@ class InventoryController extends BaseController
     public function index(): string
     {
         $database = db_connect();
-        $receipts = $database->table('goods_receipts')
-            ->select('goods_receipts.*, suppliers.name AS supplier_name, users.name AS creator_name')
-            ->join('suppliers', 'suppliers.id = goods_receipts.supplier_id', 'left')
-            ->join('users', 'users.id = goods_receipts.created_by')
-            ->orderBy('goods_receipts.id', 'DESC')->limit(30)->get()->getResultArray();
-        $receiptItems = $database->table('goods_receipt_items')
-            ->select('goods_receipt_items.*, inventory_items.name AS item_name, inventory_items.base_unit')
-            ->join('inventory_items', 'inventory_items.id = goods_receipt_items.inventory_item_id')
-            ->orderBy('goods_receipt_items.id')->get()->getResultArray();
-        $itemsByReceipt = [];
-        foreach ($receiptItems as $item) {
-            $itemsByReceipt[$item['goods_receipt_id']][] = $item;
-        }
-        $conversionsByItem = [];
-        foreach ($database->table('unit_conversions')->get()->getResultArray() as $conversion) {
-            $conversionsByItem[$conversion['inventory_item_id']][] = $conversion;
-        }
 
         return view('panel/inventory/index', [
             'title' => 'Penerimaan dan kartu stok',
             'user' => session('user'),
             'items' => (new InventoryItemModel())->where('is_active', true)->orderBy('name')->findAll(),
-            'suppliers' => (new SupplierModel())->where('is_active', true)->orderBy('name')->findAll(),
-            'receipts' => $receipts,
-            'itemsByReceipt' => $itemsByReceipt,
-            'conversionsByItem' => $conversionsByItem,
-            'movements' => $database->table('stock_movements')->select('stock_movements.*, inventory_items.name AS item_name, inventory_items.base_unit')->join('inventory_items', 'inventory_items.id = stock_movements.inventory_item_id')->orderBy('posted_at', 'DESC')->limit(50)->get()->getResultArray(),
+            'receipts' => $database->table('goods_receipts')
+                ->select('goods_receipts.*, suppliers.name AS supplier_name, users.name AS creator_name, (SELECT COALESCE(SUM(line_total), 0) FROM goods_receipt_items WHERE goods_receipt_id = goods_receipts.id) AS total', false)
+                ->join('suppliers', 'suppliers.id = goods_receipts.supplier_id', 'left')
+                ->join('users', 'users.id = goods_receipts.created_by')
+                ->orderBy('goods_receipts.id', 'DESC')->limit(200)->get()->getResultArray(),
+            'movements' => $database->table('stock_movements')
+                ->select('stock_movements.*, inventory_items.name AS item_name, inventory_items.base_unit')
+                ->join('inventory_items', 'inventory_items.id = stock_movements.inventory_item_id')
+                ->orderBy('posted_at', 'DESC')->orderBy('stock_movements.id', 'DESC')->limit(200)->get()->getResultArray(),
+        ]);
+    }
+
+    public function receipt(int $receiptId): string
+    {
+        $database = db_connect();
+        $receipt = $database->table('goods_receipts')
+            ->select('goods_receipts.*, suppliers.name AS supplier_name, users.name AS creator_name')
+            ->join('suppliers', 'suppliers.id = goods_receipts.supplier_id', 'left')
+            ->join('users', 'users.id = goods_receipts.created_by')
+            ->where('goods_receipts.id', $receiptId)->get()->getRowArray()
+            ?? throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+
+        return view('panel/inventory/receipt', [
+            'title' => 'Penerimaan ' . $receipt['reference_number'],
+            'user' => session('user'),
+            'receipt' => $receipt,
+            'lines' => $database->table('goods_receipt_items')
+                ->select('goods_receipt_items.*, inventory_items.name AS item_name, inventory_items.base_unit')
+                ->join('inventory_items', 'inventory_items.id = goods_receipt_items.inventory_item_id')
+                ->where('goods_receipt_id', $receiptId)->orderBy('goods_receipt_items.id')->get()->getResultArray(),
+            'items' => (new InventoryItemModel())->where('is_active', true)->orderBy('name')->findAll(),
         ]);
     }
 
@@ -61,7 +70,8 @@ class InventoryController extends BaseController
         if ($supplierId && !(new SupplierModel())->find($supplierId)) {
             return redirect()->back()->withInput()->with('error', 'Supplier tidak ditemukan.');
         }
-        db_connect()->table('goods_receipts')->insert([
+        $database = db_connect();
+        $database->table('goods_receipts')->insert([
             'reference_number' => strtoupper(trim((string) $this->request->getPost('reference_number'))),
             'supplier_id' => $supplierId,
             'document_date' => (string) $this->request->getPost('document_date'),
@@ -72,7 +82,7 @@ class InventoryController extends BaseController
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
-        return redirect()->route('panel.inventory')->with('success', 'Draft penerimaan berhasil dibuat.');
+        return redirect()->to(site_url('panel/inventory/receipts/' . $database->insertID()))->with('success', 'Draft penerimaan berhasil dibuat. Tambahkan item bahan yang diterima.');
     }
 
     public function addReceiptItem(): RedirectResponse
@@ -85,7 +95,7 @@ class InventoryController extends BaseController
             'purchase_unit_cost' => 'required|decimal|greater_than_equal_to[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.inventory')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $database = db_connect();
         $receiptId = (int) $this->request->getPost('receipt_id');
@@ -98,7 +108,7 @@ class InventoryController extends BaseController
         $purchaseUnit = strtolower(trim((string) $this->request->getPost('purchase_unit')));
         $factor = $purchaseUnit === $item['base_unit'] ? 1.0 : (float) ($database->table('unit_conversions')->where('inventory_item_id', $itemId)->where('purchase_unit', $purchaseUnit)->get()->getRow('factor_to_base') ?? 0);
         if ($factor <= 0) {
-            return redirect()->route('panel.inventory')->with('error', 'Konversi satuan pembelian belum tersedia untuk bahan tersebut.');
+            return redirect()->back()->withInput()->with('error', 'Konversi satuan pembelian belum tersedia untuk bahan tersebut. Tambahkan di halaman edit bahan.');
         }
         $purchaseQuantity = (float) $this->request->getPost('purchase_quantity');
         $purchaseCost = (float) $this->request->getPost('purchase_unit_cost');
@@ -174,7 +184,7 @@ class InventoryController extends BaseController
             $database->transComplete();
         } catch (\Throwable $exception) {
             $database->transRollback();
-            return redirect()->route('panel.inventory')->with('error', $exception->getMessage());
+            return redirect()->back()->with('error', $exception->getMessage());
         }
         return redirect()->route('panel.inventory')->with('success', 'Penerimaan diposting dan saldo stok diperbarui.');
     }

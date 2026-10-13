@@ -85,7 +85,7 @@
     .button-primary-inverse,
     .button-secondary,
     .button-icon {
-        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border px-4 py-2.5 text-sm font-bold transition duration-150;
+        @apply inline-flex min-h-11 items-center justify-center text-center gap-2 rounded-[10px] border px-4 py-2.5 text-sm font-bold transition duration-150;
     }
 
     .button-primary {
@@ -101,7 +101,7 @@
     }
 
     .button-danger {
-        @apply inline-flex min-h-9 items-center justify-center rounded-[10px] border border-status-danger bg-status-danger px-3 py-1.5 text-sm font-bold text-white transition duration-150 hover:bg-[#991B1B];
+        @apply inline-flex min-h-9 items-center justify-center text-center rounded-[10px] border border-status-danger bg-status-danger px-3 py-1.5 text-sm font-bold text-white transition duration-150 hover:bg-[#991B1B];
     }
 
     .button-sm {

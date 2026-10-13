@@ -14,7 +14,6 @@ $routes->post('logout', 'AuthController::logout', ['filter' => 'auth', 'as' => '
 $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($routes): void {
     $routes->get('/', 'Panel\DashboardController::index', ['as' => 'panel']);
     $routes->group('data', static function ($routes): void {
-        $routes->get('(:segment)', 'Panel\CrudController::index/$1');
         $routes->get('(:segment)/create', 'Panel\CrudController::create/$1');
         $routes->get('(:segment)/(:num)/edit', 'Panel\CrudController::edit/$1/$2');
     });
@@ -60,9 +59,11 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
         $routes->post('banners', 'Panel\SettingsController::createBanner');
         $routes->post('banners/status', 'Panel\SettingsController::toggleBanner');
         $routes->post('banners/update', 'Panel\SettingsController::updateBanner');
+        $routes->post('banners/delete', 'Panel\SettingsController::deleteBanner');
     });
     $routes->group('inventory', ['filter' => 'owner'], static function ($routes): void {
         $routes->get('/', 'Panel\InventoryController::index', ['as' => 'panel.inventory']);
+        $routes->get('receipts/(:num)', 'Panel\InventoryController::receipt/$1');
         $routes->post('receipts', 'Panel\InventoryController::createReceipt');
         $routes->post('receipts/items', 'Panel\InventoryController::addReceiptItem');
         $routes->post('receipts/post', 'Panel\InventoryController::postReceipt');

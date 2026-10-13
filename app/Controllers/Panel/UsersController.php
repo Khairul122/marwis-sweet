@@ -89,7 +89,7 @@ class UsersController extends BaseController
 
         $password = (string) $this->request->getPost('password');
         if (strlen($password) < 12 || strlen($password) > 255) {
-            return redirect()->route('panel.users')->with('error', 'Password baru harus berisi 12 sampai 255 karakter.');
+            return redirect()->back()->with('error', 'Password baru harus berisi 12 sampai 255 karakter.');
         }
 
         (new UserModel())->update($cashier['id'], ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]);

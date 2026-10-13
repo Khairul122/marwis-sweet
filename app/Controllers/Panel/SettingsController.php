@@ -96,6 +96,23 @@ class SettingsController extends BaseController
         return redirect()->route('panel.settings')->with('success', $banner['is_active'] ? 'Banner dinonaktifkan.' : 'Banner diaktifkan.');
     }
 
+    public function deleteBanner(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('banner_id'), FILTER_VALIDATE_INT);
+        $banner = $id ? (new BannerModel())->find($id) : null;
+        if (!$banner) {
+            return redirect()->route('panel.settings')->with('error', 'Banner tidak ditemukan.');
+        }
+        (new BannerModel())->delete($id);
+        $uploads = realpath(FCPATH . 'uploads');
+        $path = realpath(FCPATH . $banner['image_path']);
+        if ($uploads && $path && str_starts_with($path, $uploads)) {
+            @unlink($path);
+        }
+
+        return redirect()->route('panel.settings')->with('success', 'Banner berhasil dihapus.');
+    }
+
     public function updateBanner(): RedirectResponse
     {
         $id = filter_var($this->request->getPost('banner_id'), FILTER_VALIDATE_INT);

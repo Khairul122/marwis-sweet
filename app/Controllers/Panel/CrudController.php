@@ -14,27 +14,6 @@ class CrudController extends BaseController
     private const UNITS = ['gram' => 'Gram', 'mililiter' => 'Mililiter', 'pcs' => 'Pcs'];
     private const STOCK_MODES = ['recipe' => 'Berdasarkan resep', 'direct' => 'Stok produk langsung', 'none' => 'Tanpa pelacakan stok'];
 
-    public function index(string $entity): string
-    {
-        $config = $this->config($entity);
-        if (!isset($config['columns'])) {
-            throw PageNotFoundException::forPageNotFound();
-        }
-        $builder = db_connect()->table($config['table'])->select($config['table'] . '.*' . ($config['select'] ?? ''));
-        foreach ($config['join'] ?? [] as $join) {
-            $builder->join($join[0], $join[1], 'left');
-        }
-        $rows = $builder->where($config['where'] ?? [])->orderBy($config['order'] ?? ($config['table'] . '.id DESC'))->get()->getResultArray();
-
-        return view('panel/crud/index', [
-            'title' => ucfirst($config['plural']),
-            'user' => session('user'),
-            'entity' => $entity,
-            'config' => $config,
-            'rows' => $rows,
-        ]);
-    }
-
     public function create(string $entity): string
     {
         return $this->render($entity, null, 'panel/crud/form');
@@ -51,7 +30,7 @@ class CrudController extends BaseController
         if (empty($config['staff']) && (session('user')['role'] ?? '') !== 'owner') {
             throw PageNotFoundException::forPageNotFound();
         }
-        $config['index'] = isset($config['columns']) ? 'panel/data/' . $entity : $config['back'];
+        $config['index'] = $config['back'];
 
         return $config;
     }
@@ -59,6 +38,9 @@ class CrudController extends BaseController
     private function render(string $entity, ?int $id, string $view): string
     {
         $config = $this->config($entity);
+        if ($id === null && !isset($config['create'])) {
+            throw PageNotFoundException::forPageNotFound();
+        }
         $row = [];
         if ($id !== null) {
             if (!isset($config['update'])) {
@@ -174,9 +156,6 @@ class CrudController extends BaseController
 
         return [
             'category' => [
-                'plural' => 'kategori', 'order' => 'sort_order, name',
-                'columns' => ['name' => 'Nama', 'description' => 'Keterangan', 'sort_order' => 'Urutan', 'is_active' => '@active'],
-                'toggle' => ['panel/catalog/categories/status', 'category_id', 'kategori'], 'delete' => ['panel/catalog/categories/delete', 'category_id'],
                 'label' => 'kategori', 'table' => 'categories', 'back' => 'panel/catalog', 'idField' => 'category_id',
                 'create' => 'panel/catalog/categories', 'update' => 'panel/catalog/categories/update',
                 'intro' => 'Kategori aktif menjadi filter di katalog publik.',
@@ -187,10 +166,6 @@ class CrudController extends BaseController
                 ],
             ],
             'product' => [
-                'plural' => 'produk', 'order' => 'products.name', 'select' => ', categories.name AS category_name', 'join' => [['categories', 'categories.id = products.category_id']],
-                'columns' => ['name' => 'Nama', 'category_name' => 'Kategori', 'product_type' => '@type', 'is_featured' => '@yesno:Unggulan', 'is_active' => '@active'],
-                'toggle' => ['panel/catalog/products/status', 'product_id', 'produk'], 'delete' => ['panel/catalog/products/delete', 'product_id'],
-                'extraLinks' => ['Varian' => 'panel/data/variant/create?product_id={id}'],
                 'label' => 'produk', 'table' => 'products', 'back' => 'panel/catalog', 'idField' => 'product_id',
                 'create' => 'panel/catalog/products', 'update' => 'panel/catalog/products/update',
                 'intro' => 'Satu varian awal dibuat bersama produk baru.',
@@ -209,9 +184,6 @@ class CrudController extends BaseController
                 'fields' => array_merge($variantFields, [['name' => 'is_active', 'label' => 'Varian aktif', 'type' => 'checkbox', 'only' => 'edit']]),
             ],
             'supplier' => [
-                'plural' => 'supplier', 'order' => 'name',
-                'columns' => ['name' => 'Nama', 'contact_name' => 'Kontak', 'phone' => 'Telepon', 'is_active' => '@active'],
-                'toggle' => ['panel/master/suppliers/status', 'supplier_id', 'supplier'], 'delete' => ['panel/master/suppliers/delete', 'supplier_id'],
                 'label' => 'supplier', 'table' => 'suppliers', 'back' => 'panel/master', 'idField' => 'supplier_id',
                 'create' => 'panel/master/suppliers', 'update' => 'panel/master/suppliers/update',
                 'fields' => [
@@ -222,9 +194,6 @@ class CrudController extends BaseController
                 ],
             ],
             'item' => [
-                'plural' => 'bahan', 'order' => 'name',
-                'columns' => ['name' => 'Nama', 'sku' => 'SKU', 'base_unit' => 'Satuan', 'minimum_stock' => 'Stok minimum', 'is_active' => '@active'],
-                'toggle' => ['panel/master/items/status', 'item_id', 'bahan'], 'delete' => ['panel/master/items/delete', 'item_id'],
                 'label' => 'bahan', 'table' => 'inventory_items', 'back' => 'panel/master', 'idField' => 'item_id',
                 'create' => 'panel/master/items', 'update' => 'panel/master/items/update',
                 'fields' => [
@@ -235,9 +204,6 @@ class CrudController extends BaseController
                 ],
             ],
             'topping' => [
-                'plural' => 'topping', 'order' => 'name',
-                'columns' => ['name' => 'Nama', 'sku' => 'SKU', 'additional_price' => '@money:Harga tambahan', 'is_active' => '@active'],
-                'toggle' => ['panel/master/toppings/status', 'topping_id', 'topping'], 'delete' => ['panel/master/toppings/delete', 'topping_id'],
                 'label' => 'topping', 'table' => 'toppings', 'back' => 'panel/master', 'idField' => 'topping_id',
                 'create' => 'panel/master/toppings', 'update' => 'panel/master/toppings/update',
                 'fields' => [
@@ -247,9 +213,6 @@ class CrudController extends BaseController
                 ],
             ],
             'banner' => [
-                'plural' => 'banner', 'order' => 'sort_order, id DESC',
-                'columns' => ['title' => 'Judul', 'sort_order' => 'Urutan', 'starts_at' => 'Mulai', 'ends_at' => 'Selesai', 'is_active' => '@active'],
-                'toggle' => ['panel/settings/banners/status', 'banner_id', 'banner'],
                 'label' => 'banner', 'table' => 'banners', 'back' => 'panel/settings', 'idField' => 'banner_id', 'multipart' => true,
                 'create' => 'panel/settings/banners', 'update' => 'panel/settings/banners/update',
                 'intro' => 'Gunakan rasio 16:5. Banner tanpa jadwal langsung tersedia setelah diaktifkan.',
@@ -278,7 +241,7 @@ class CrudController extends BaseController
                 ],
             ],
             'receipt' => [
-                'label' => 'draft penerimaan', 'table' => 'goods_receipts', 'back' => 'panel/inventory', 'idField' => 'receipt_id',
+                'label' => 'draft penerimaan', 'noReturn' => true, 'table' => 'goods_receipts', 'back' => 'panel/inventory', 'idField' => 'receipt_id',
                 'create' => 'panel/inventory/receipts',
                 'fields' => [
                     ['name' => 'reference_number', 'label' => 'Nomor referensi', 'max' => 80, 'required' => true, 'upper' => true, 'placeholder' => 'Contoh: PB-2026-001'],
@@ -288,10 +251,13 @@ class CrudController extends BaseController
                     ['name' => 'notes', 'label' => 'Catatan', 'type' => 'textarea', 'max' => 500, 'wide' => true],
                 ],
             ],
+            'password' => [
+                'label' => 'password kasir', 'table' => 'users', 'back' => 'panel/users', 'idField' => 'user_id', 'where' => ['role' => 'cashier'],
+                'update' => 'panel/users/reset-password',
+                'intro' => 'Password lama langsung tidak berlaku setelah disimpan.',
+                'fields' => [['name' => 'password', 'label' => 'Password baru (minimal 12 karakter)', 'type' => 'password', 'min' => 12, 'required' => true, 'autocomplete' => 'new-password']],
+            ],
             'cashier' => [
-                'plural' => 'akun kasir', 'order' => 'name',
-                'columns' => ['name' => 'Nama', 'username' => 'Username', 'email' => 'Email', 'status' => '@status'],
-                'toggle' => ['panel/users/status', 'user_id', 'akun kasir'],
                 'label' => 'akun kasir', 'table' => 'users', 'back' => 'panel/users', 'idField' => 'user_id',
                 'create' => 'panel/users/create', 'update' => 'panel/users/update', 'where' => ['role' => 'cashier'],
                 'intro' => 'Reset password dilakukan dari daftar akun kasir.',
