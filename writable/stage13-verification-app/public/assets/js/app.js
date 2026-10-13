@@ -300,7 +300,7 @@
         const updateSummary = () => {
             const entries = [...cart.values()];
             const lines = entries.map((item) => {
-                const gross = (item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity;
+                const gross = roundMoney(item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity;
                 const discount = amountForDiscount(gross, item.discountType, item.discountValue);
                 return { gross, discount, net: gross - discount };
             });
@@ -362,7 +362,7 @@
             const entries = [...cart.values()];
             if (cartItems) {
                 cartItems.innerHTML = entries.length === 0 ? '<p class="p-5 text-sm text-ink-muted">Belum ada produk di keranjang.</p>' : entries.map((item) => {
-                    const gross = (item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity;
+                    const gross = roundMoney(item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity;
                     const discount = amountForDiscount(gross, item.discountType, item.discountValue);
                     return `
                     <article class="p-4" data-cart-key="${item.key}">

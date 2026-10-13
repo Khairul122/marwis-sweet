@@ -114,7 +114,7 @@ class SaleService
                     $requirements[$directItemId] = ($requirements[$directItemId] ?? 0) + $directQuantityMilli;
                     $directUsageByItem[$directItemId][$lineIndex] = $directQuantityMilli;
                 }
-                $unitPriceCents = Money::cents($variant['price']) + $toppingPriceCents;
+                $unitPriceCents = Money::rupiahCents(Money::cents($variant['price']) + $toppingPriceCents);
                 $lineTotalCents = $unitPriceCents * $quantity;
                 $subtotalCents += $lineTotalCents;
                 $itemDiscount = SalesPolicyService::calculateDiscount(
@@ -212,7 +212,7 @@ class SaleService
                 $discountApprovedBy = (int) $owner['id'];
             }
 
-            $transactionDiscountAllocations = Money::allocateCents(
+            $transactionDiscountAllocations = Money::allocateRupiahCents(
                 $transactionDiscountCents,
                 array_map(static fn (array $line): int => $line['line_total_cents'] - $line['item_discount_cents'], $lines),
             );
@@ -224,12 +224,12 @@ class SaleService
                 $lineNetCents[] = $line['line_total_cents'] - $line['item_discount_cents'] - $line['transaction_discount_cents'];
             }
             unset($line);
-            $lineServiceCharges = Money::allocateCents($serviceCents, $lineNetCents);
+            $lineServiceCharges = Money::allocateRupiahCents($serviceCents, $lineNetCents);
             $lineTaxBases = [];
             foreach ($lineNetCents as $index => $netCents) {
                 $lineTaxBases[] = $netCents + $lineServiceCharges[$index];
             }
-            $lineTaxes = Money::allocateCents($taxCents, $lineTaxBases);
+            $lineTaxes = Money::allocateRupiahCents($taxCents, $lineTaxBases);
             foreach ($lines as $index => &$line) {
                 $line['service_charge_cents'] = $lineServiceCharges[$index];
                 $line['tax_cents'] = $lineTaxes[$index];
@@ -245,7 +245,7 @@ class SaleService
                 }
                 $method = (string) ($payment['method'] ?? '');
                 $amountCents = Money::cents($payment['amount'] ?? 0);
-                if (!in_array($method, ['cash', 'qris', 'bank_transfer', 'debit', 'credit'], true) || $amountCents <= 0) {
+                if (!in_array($method, ['cash', 'qris', 'bank_transfer', 'debit', 'credit'], true) || $amountCents <= 0 || $amountCents % 100 !== 0) {
                     throw new RuntimeException('Rincian pembayaran tidak valid.');
                 }
                 if (in_array($method, $paymentMethods, true)) {
@@ -255,7 +255,7 @@ class SaleService
                 $receivedCents = $method === 'cash'
                     ? Money::cents($payment['cash_received'] ?? Money::decimal($amountCents))
                     : null;
-                if ($method === 'cash' && $receivedCents < $amountCents) {
+                if ($method === 'cash' && ($receivedCents % 100 !== 0 || $receivedCents < $amountCents)) {
                     throw new RuntimeException('Uang tunai diterima kurang dari alokasi tunai.');
                 }
                 $reference = trim((string) ($payment['reference_number'] ?? ''));

@@ -69,16 +69,16 @@ class RefundService
                 $serviceRemainingCents = max(0, $components['service'] - Money::cents($reserved['service'] ?? 0));
                 $grossCents = $quantityMilli === $remainingQuantityMilli
                     ? $grossRemainingCents
-                    : Money::proportionalCents($grossRemainingCents, $quantityMilli, $remainingQuantityMilli);
+                    : Money::proportionalRupiahCents($grossRemainingCents, $quantityMilli, $remainingQuantityMilli);
                 $discountLineCents = $quantityMilli === $remainingQuantityMilli
                     ? $discountRemainingCents
-                    : Money::proportionalCents($discountRemainingCents, $quantityMilli, $remainingQuantityMilli);
+                    : Money::proportionalRupiahCents($discountRemainingCents, $quantityMilli, $remainingQuantityMilli);
                 $taxLineCents = $quantityMilli === $remainingQuantityMilli
                     ? $taxRemainingCents
-                    : Money::proportionalCents($taxRemainingCents, $quantityMilli, $remainingQuantityMilli);
+                    : Money::proportionalRupiahCents($taxRemainingCents, $quantityMilli, $remainingQuantityMilli);
                 $serviceLineCents = $quantityMilli === $remainingQuantityMilli
                     ? $serviceRemainingCents
-                    : Money::proportionalCents($serviceRemainingCents, $quantityMilli, $remainingQuantityMilli);
+                    : Money::proportionalRupiahCents($serviceRemainingCents, $quantityMilli, $remainingQuantityMilli);
                 $refundLineCents = $grossCents - $discountLineCents + $taxLineCents + $serviceLineCents;
                 $grossTotalCents += $grossCents;
                 $discountTotalCents += $discountLineCents;
@@ -367,7 +367,7 @@ class RefundService
         $afterItemDiscount = array_map(static fn (int $index, int $amount): int => $amount - $itemDiscounts[$index], array_keys($gross), $gross);
         $unallocatedDiscount = $headerDiscount - array_sum($itemDiscounts) - array_sum($transactionDiscounts);
         if ($unallocatedDiscount > 0) {
-            $legacyTransactionDiscounts = Money::allocateCents($unallocatedDiscount, $afterItemDiscount);
+            $legacyTransactionDiscounts = Money::allocateRupiahCents($unallocatedDiscount, $afterItemDiscount);
             foreach ($transactionDiscounts as $index => $amount) {
                 $transactionDiscounts[$index] = $amount + $legacyTransactionDiscounts[$index];
             }
@@ -391,7 +391,7 @@ class RefundService
         }
         $missingService = $headerService - array_sum($services);
         if ($missingService > 0) {
-            $legacyServices = Money::allocateCents($missingService, $afterDiscount);
+            $legacyServices = Money::allocateRupiahCents($missingService, $afterDiscount);
             foreach ($services as $index => $amount) {
                 $services[$index] = $amount + $legacyServices[$index];
             }
@@ -406,7 +406,7 @@ class RefundService
         }
         $missingTax = $headerTax - array_sum($taxes);
         if ($missingTax > 0) {
-            $legacyTaxes = Money::allocateCents($missingTax, $taxBases);
+            $legacyTaxes = Money::allocateRupiahCents($missingTax, $taxBases);
             foreach ($taxes as $index => $amount) {
                 $taxes[$index] = $amount + $legacyTaxes[$index];
             }

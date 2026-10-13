@@ -37,7 +37,7 @@ $bannerRows = array_map(static fn (array $b): array => [
 <section class="panel-card mb-8 max-w-4xl p-5 sm:p-7">
     <div>
         <h2 class="text-xl font-bold">Aturan pembayaran dan harga</h2>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">Batas diskon mulai dari Rp0. Diskon yang melewati batas perlu persetujuan owner di kasir. Pajak dan biaya layanan tidak dihitung sampai diaktifkan.</p>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">Diskon di atas batas item atau transaksi memerlukan persetujuan owner. Biaya layanan <?= $policy['service_charge_enabled'] ? 'aktif sebesar ' . number_format($policy['service_charge_rate_hundredths'] / 100, 2, ',', '.') . '%' : 'nonaktif' ?>; pajak <?= $policy['tax_enabled'] ? 'aktif sebesar ' . number_format($policy['tax_rate_hundredths'] / 100, 2, ',', '.') . '%' : 'nonaktif' ?>. Persentase dibulatkan half-up ke Rupiah terdekat.</p>
     </div>
     <form action="<?= site_url('panel/settings/sales-policy') ?>" method="post" class="mt-6 grid gap-5 sm:grid-cols-2">
         <?= csrf_field() ?>

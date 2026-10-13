@@ -63,8 +63,11 @@ final class SalesPolicyService
             if ($valueCents > 10000) {
                 throw new RuntimeException('Persentase diskon tidak boleh melebihi 100%.');
             }
-            $amountCents = Money::proportionalCents($baseCents, $valueCents, 10000);
+            $amountCents = Money::percentageRupiahCents($baseCents, $valueCents);
         } else {
+            if ($valueCents % 100 !== 0) {
+                throw new RuntimeException('Nominal diskon harus berupa Rupiah bulat.');
+            }
             $amountCents = $valueCents;
         }
 
@@ -76,7 +79,7 @@ final class SalesPolicyService
         if ($maxAmountCents > 0 && $amountCents > $maxAmountCents) {
             $overLimit = true;
         }
-        if ($maxPercentHundredths > 0 && $amountCents > Money::proportionalCents($baseCents, $maxPercentHundredths, 10000)) {
+        if ($maxPercentHundredths > 0 && $amountCents > Money::percentageRupiahCents($baseCents, $maxPercentHundredths)) {
             $overLimit = true;
         }
 
@@ -89,7 +92,7 @@ final class SalesPolicyService
             throw new RuntimeException('Tarif pajak atau biaya layanan tidak valid.');
         }
 
-        return Money::proportionalCents($baseCents, $rateHundredths, 10000);
+        return Money::percentageRupiahCents($baseCents, $rateHundredths);
     }
 
     private function nonNegativeMoney(mixed $value): int

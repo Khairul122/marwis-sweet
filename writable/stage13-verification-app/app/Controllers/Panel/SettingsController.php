@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\BannerModel;
 use App\Models\SettingModel;
 use App\Services\ImageUploadService;
+use App\Services\Money;
 use App\Services\SalesPolicyService;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
@@ -40,6 +41,12 @@ class SettingsController extends BaseController
                 return redirect()->back()->withInput()->with('error', 'Batas diskon dan tarif harus berupa angka positif dengan maksimal dua angka desimal.');
             }
             $values[$key] = $value;
+        }
+
+        foreach (['item_discount_max_amount', 'transaction_discount_max_amount'] as $key) {
+            if (Money::cents($values[$key]) % 100 !== 0) {
+                return redirect()->back()->withInput()->with('error', 'Batas nominal diskon harus berupa Rupiah bulat.');
+            }
         }
 
         foreach (['item_discount_max_percent', 'transaction_discount_max_percent', 'service_charge_rate', 'tax_rate'] as $key) {

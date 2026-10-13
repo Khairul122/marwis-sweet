@@ -125,7 +125,7 @@ class SalesReportService
             $afterItemDiscount = array_map(static fn (int $index, int $gross): int => $gross - $itemDiscounts[$index], array_keys($grossWeights), $grossWeights);
             $unallocatedDiscount = $headerDiscountCents - array_sum($itemDiscounts) - array_sum($transactionDiscounts);
             if ($unallocatedDiscount > 0) {
-                $legacyTransactionDiscounts = Money::allocateCents($unallocatedDiscount, $afterItemDiscount);
+                $legacyTransactionDiscounts = Money::allocateRupiahCents($unallocatedDiscount, $afterItemDiscount);
                 foreach ($transactionDiscounts as $index => $amount) {
                     $transactionDiscounts[$index] = $amount + $legacyTransactionDiscounts[$index];
                 }
@@ -148,7 +148,7 @@ class SalesReportService
             }
             $missingService = $headerServiceCents - array_sum($serviceAllocations);
             if ($missingService > 0) {
-                $legacyService = Money::allocateCents($missingService, $afterDiscountWeights);
+                $legacyService = Money::allocateRupiahCents($missingService, $afterDiscountWeights);
                 foreach ($serviceAllocations as $index => $amount) {
                     $serviceAllocations[$index] = $amount + $legacyService[$index];
                 }
@@ -162,7 +162,7 @@ class SalesReportService
             }
             $missingTax = $headerTaxCents - array_sum($taxAllocations);
             if ($missingTax > 0) {
-                $legacyTax = Money::allocateCents($missingTax, $taxBases);
+                $legacyTax = Money::allocateRupiahCents($missingTax, $taxBases);
                 foreach ($taxAllocations as $index => $amount) {
                     $taxAllocations[$index] = $amount + $legacyTax[$index];
                 }
@@ -202,7 +202,7 @@ class SalesReportService
             $sales[$saleIndex]['report_subtotal'] = Money::decimal($saleGrossCents);
             $sales[$saleIndex]['report_total'] = Money::decimal($saleTotalCents);
             foreach ($paymentsBySale[$sale['id']] ?? [] as $payment) {
-                $allocations = Money::allocateCents(Money::cents($payment['amount']), $netWeights);
+                $allocations = Money::allocateRupiahCents(Money::cents($payment['amount']), $netWeights);
                 foreach ($selectedIndices as $index) {
                     $paymentTotalsCents[$payment['method']] = ($paymentTotalsCents[$payment['method']] ?? 0) + $allocations[$index];
                 }

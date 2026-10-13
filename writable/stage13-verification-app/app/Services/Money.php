@@ -101,6 +101,54 @@ final class Money
         return $quotient;
     }
 
+    public static function rupiahCents(int $amountCents): int
+    {
+        if ($amountCents < 0) {
+            throw new InvalidArgumentException('Nominal Rupiah tidak boleh negatif.');
+        }
+
+        $rupiah = intdiv($amountCents, 100);
+        if (($amountCents % 100) >= 50) {
+            $rupiah++;
+        }
+        if ($rupiah > intdiv(PHP_INT_MAX, 100)) {
+            throw new InvalidArgumentException('Nominal melewati batas aritmetika.');
+        }
+
+        return $rupiah * 100;
+    }
+
+    public static function percentageRupiahCents(int $baseCents, int $rateHundredths): int
+    {
+        if ($baseCents < 0 || $rateHundredths < 0 || $rateHundredths > 10000) {
+            throw new InvalidArgumentException('Dasar atau tarif persentase tidak valid.');
+        }
+
+        return self::proportionalCents($baseCents, $rateHundredths, 1000000) * 100;
+    }
+
+    public static function proportionalRupiahCents(int $totalCents, int $part, int $whole): int
+    {
+        if ($totalCents % 100 !== 0) {
+            return self::proportionalCents($totalCents, $part, $whole);
+        }
+
+        return self::proportionalCents(intdiv($totalCents, 100), $part, $whole) * 100;
+    }
+
+    /** @param list<int> $weights @return list<int> */
+    public static function allocateRupiahCents(int $totalCents, array $weights): array
+    {
+        if ($totalCents % 100 !== 0) {
+            return self::allocateCents($totalCents, $weights);
+        }
+
+        return array_map(
+            static fn (int $amount): int => $amount * 100,
+            self::allocateCents(intdiv($totalCents, 100), $weights),
+        );
+    }
+
     /** @param list<int> $weights @return list<int> */
     public static function allocateCents(int $totalCents, array $weights): array
     {
