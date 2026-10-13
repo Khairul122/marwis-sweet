@@ -204,13 +204,13 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P2 · Ketergantungan:** Tugas 13.
 
-- [ ] Tambahkan draft/hold, lanjutkan, dan batal sebelum lunas tanpa mutasi stok/jurnal.
-- [ ] Simpan jenis pesanan, nomor meja/nama pelanggan opsional, dan catatan tiap item.
-- [ ] Periksa ulang stok terkini saat pembayaran, bukan ketika keranjang ditahan.
+- [x] Tambahkan draft/hold, lanjutkan, dan batal sebelum lunas tanpa mutasi stok/jurnal.
+- [x] Simpan jenis pesanan, nomor meja/nama pelanggan opsional, dan catatan tiap item.
+- [x] Periksa ulang stok terkini saat pembayaran, bukan ketika keranjang ditahan.
 
 **Terima bila:** hold tidak mereservasi stok; transaksi dibatalkan tidak menulis penjualan; pembayaran tetap menyimpan snapshot item/pesanan.
 
-**Verifikasi nanti:** skenario hold, perubahan stok saat hold, batal, dan lanjut bayar.
+**Verifikasi backend/UI (2026-10-14):** Pada clone MySQL terisolasi, hold dan lanjutkan memulihkan jenis pesanan serta catatan item. Stok bahan disimulasikan habis setelah hold; pembayaran ditolak dan order tetap held tanpa penjualan, mutasi stok, atau jurnal. Setelah stok uji dipulihkan, pembayaran berhasil dan mencatat satu penjualan, empat mutasi resep, serta jurnal seimbang. Uji makan di tempat berikutnya menyimpan meja 12, nama pelanggan, dan catatan item ke snapshot penjualan serta struk. Dua order dibatalkan lewat tombol POS; keduanya berstatus cancelled tanpa sale_id. Hasil akhir clone: 2 paid sales, 8 mutasi stok, 2 jurnal; tiap jurnal debit/kredit Rp34.880 seimbang. Uji tombol batal di salinan UI sementara hanya menonaktifkan dialog konfirmasi browser agar aksi route dapat dijalankan otomatis; source aplikasi tidak diubah untuk uji itu. Tampilan desktop terbelah, reflow mobile, tombol keranjang tetap di bawah, dan drawer keranjang sudah diperiksa. Migrasi 020 diterapkan ke schema utama sesuai izin pengguna; hanya menambah tabel/kolom order, tanpa mengubah data penjualan, stok, atau jurnal utama.
 
 ## Fase 4 — Kelengkapan operasional
 
