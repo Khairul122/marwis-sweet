@@ -44,7 +44,7 @@
                     <?php endif ?>
                     <a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/transactions') ? 'is-active' : '' ?>" href="<?= site_url('panel/transactions') ?>">Transaksi dan struk</a>
                     <a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/reports') ? 'is-active' : '' ?>" href="<?= site_url('panel/reports') ?>">Laporan penjualan</a>
-                    <?php if (($user['role'] ?? null) === 'owner'): ?><a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/accounting') ? 'is-active' : '' ?>" href="<?= site_url('panel/accounting') ?>">Pembukuan</a><?php endif ?>
+                    <?php if (($user['role'] ?? null) === 'owner'): ?><a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/accounting') ? 'is-active' : '' ?>" href="<?= site_url('panel/accounting') ?>">Pembukuan</a><a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/audit') ? 'is-active' : '' ?>" href="<?= site_url('panel/audit') ?>">Riwayat perubahan</a><?php endif ?>
                 </nav>
                 <div class="border-t border-white/15 p-4"><a class="block border border-brand-sun bg-[#151515] p-4 text-white focus-ring transition hover:bg-[#202020]" href="<?= site_url('/') ?>" target="_blank" rel="noopener"><span class="text-xs font-bold uppercase tracking-wider text-brand-sun">Katalog publik</span><span class="mt-1 block text-sm font-semibold">Lihat tampilan pelanggan</span></a></div>
             </div>

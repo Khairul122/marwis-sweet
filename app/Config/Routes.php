@@ -13,6 +13,9 @@ $routes->post('login', 'AuthController::attempt', ['as' => 'login.attempt']);
 $routes->post('logout', 'AuthController::logout', ['filter' => 'auth', 'as' => 'logout']);
 $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($routes): void {
     $routes->get('/', 'Panel\DashboardController::index', ['as' => 'panel']);
+    $routes->group('audit', ['filter' => 'owner'], static function ($routes): void {
+        $routes->get('/', 'Panel\AuditController::index', ['as' => 'panel.audit']);
+    });
     $routes->group('data', static function ($routes): void {
         $routes->get('receipt/create', 'Panel\CrudController::create/receipt', ['filter' => 'owner']);
         $routes->get('(:segment)/create', 'Panel\CrudController::create/$1');
@@ -65,6 +68,16 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
     });
     $routes->group('inventory', ['filter' => 'inventorystaff'], static function ($routes): void {
         $routes->get('/', 'Panel\InventoryController::index', ['as' => 'panel.inventory']);
+        $routes->get('adjustments', 'Panel\StockAdjustmentController::index', ['as' => 'panel.inventory.adjustments']);
+        $routes->get('adjustments/new', 'Panel\StockAdjustmentController::new');
+        $routes->get('adjustments/(:num)', 'Panel\StockAdjustmentController::show/$1');
+        $routes->post('adjustments', 'Panel\StockAdjustmentController::create');
+        $routes->post('adjustments/items', 'Panel\StockAdjustmentController::saveLine');
+        $routes->post('adjustments/(:num)/submit', 'Panel\StockAdjustmentController::submit/$1');
+        $routes->post('adjustments/(:num)/approve', 'Panel\StockAdjustmentController::approve/$1', ['filter' => 'owner']);
+        $routes->post('adjustments/(:num)/reject', 'Panel\StockAdjustmentController::reject/$1', ['filter' => 'owner']);
+        $routes->post('adjustments/post', 'Panel\StockAdjustmentController::post');
+        $routes->post('adjustments/(:num)/reverse', 'Panel\StockAdjustmentController::reverse/$1', ['filter' => 'owner']);
         $routes->get('receipts/(:num)', 'Panel\InventoryController::receipt/$1');
         $routes->get('receipts/new', 'Panel\InventoryController::newReceipt');
         $routes->post('receipts', 'Panel\InventoryController::createReceipt');

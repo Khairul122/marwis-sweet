@@ -71,6 +71,8 @@ class StockOpnameService
             $this->database->transException(true)->transStart();
             $opname = $this->lockEditableOpname($opnameId, $userId, $role);
             $items = $this->database->table('stock_opname_items')->where('stock_opname_id', $opnameId)->get()->getResultArray();
+            $beforeCounts = [];
+            $afterCounts = [];
             foreach ($items as $item) {
                 $rawQuantity = $physicalQuantities[$item['id']] ?? null;
                 if ($rawQuantity === null || $rawQuantity === '') {
@@ -89,6 +91,16 @@ class StockOpnameService
                     throw new RuntimeException('Catatan item maksimal 300 karakter.');
                 }
                 $systemMilli = Money::quantityMilli($item['system_quantity']);
+                $beforeCounts[] = [
+                    'inventory_item_id' => (int) $item['inventory_item_id'],
+                    'physical_quantity' => $item['physical_quantity'],
+                    'difference_quantity' => $item['difference_quantity'],
+                ];
+                $afterCounts[] = [
+                    'inventory_item_id' => (int) $item['inventory_item_id'],
+                    'physical_quantity' => Money::quantity($physicalMilli),
+                    'difference_quantity' => Money::quantity($physicalMilli - $systemMilli),
+                ];
                 $this->database->table('stock_opname_items')->where('id', $item['id'])->update([
                     'physical_quantity' => Money::quantity($physicalMilli),
                     'difference_quantity' => Money::quantity($physicalMilli - $systemMilli),
@@ -99,6 +111,7 @@ class StockOpnameService
             if ($opname['status'] === 'rejected') {
                 $this->database->table('stock_opnames')->where('id', $opnameId)->update(['status' => 'counting', 'updated_at' => date('Y-m-d H:i:s')]);
             }
+            (new AuditLogService($this->database))->record($userId, 'inventory.opname.counts_saved', 'stock_opname', $opnameId, $opname['notes'], $beforeCounts, $afterCounts);
             $this->database->transComplete();
         } catch (\Throwable $exception) {
             $this->database->transRollback();
@@ -110,7 +123,7 @@ class StockOpnameService
     {
         try {
             $this->database->transException(true)->transStart();
-            $this->lockEditableOpname($opnameId, $userId, $role);
+            $opname = $this->lockEditableOpname($opnameId, $userId, $role);
             $missing = $this->database->table('stock_opname_items')->where('stock_opname_id', $opnameId)->where('physical_quantity', null)->countAllResults();
             if ($missing > 0) {
                 throw new RuntimeException('Simpan hasil hitung seluruh item sebelum mengirim opname.');
@@ -119,6 +132,7 @@ class StockOpnameService
             $this->database->table('stock_opnames')->where('id', $opnameId)->update([
                 'status' => 'submitted', 'submitted_by' => $userId, 'submitted_at' => $now, 'updated_at' => $now,
             ]);
+            (new AuditLogService($this->database))->record($userId, 'inventory.opname.submitted', 'stock_opname', $opnameId, $opname['notes'], ['status' => $opname['status']], ['status' => 'submitted']);
             $this->database->transComplete();
         } catch (\Throwable $exception) {
             $this->database->transRollback();
@@ -151,7 +165,7 @@ class StockOpnameService
         }
     }
 
-    public function reject(int $opnameId, string $reason): void
+    public function reject(int $opnameId, string $reason, int $ownerId): void
     {
         $reason = trim($reason);
         if (mb_strlen($reason) < 5 || mb_strlen($reason) > 500) {
@@ -164,6 +178,7 @@ class StockOpnameService
                 throw new RuntimeException('Opname tidak ditemukan atau sudah diproses.');
             }
             $this->database->table('stock_opnames')->where('id', $opnameId)->update(['status' => 'rejected', 'review_notes' => $reason, 'updated_at' => date('Y-m-d H:i:s')]);
+            (new AuditLogService($this->database))->record($ownerId, 'inventory.opname.rejected', 'stock_opname', $opnameId, $reason, ['status' => $opname['status']], ['status' => 'rejected']);
             $this->database->transComplete();
         } catch (\Throwable $exception) {
             $this->database->transRollback();
@@ -188,6 +203,7 @@ class StockOpnameService
                 'status' => 'cancelled', 'cancellation_reason' => $reason, 'cancelled_by' => $userId,
                 'cancelled_at' => $now, 'updated_at' => $now,
             ]);
+            (new AuditLogService($this->database))->record($userId, 'inventory.opname.cancelled', 'stock_opname', $opnameId, $reason, ['status' => $opname['status']], ['status' => 'cancelled']);
             $this->database->transComplete();
         } catch (\Throwable $exception) {
             $this->database->transRollback();
@@ -275,6 +291,10 @@ class StockOpnameService
             }
             $this->database->table('stock_opnames')->where('id', $opnameId)->update([
                 'status' => 'approved', 'approved_by' => $ownerId, 'approved_at' => $now, 'updated_at' => $now,
+            ]);
+            (new AuditLogService($this->database))->record($ownerId, 'inventory.opname.approved', 'stock_opname', $opnameId, $opname['notes'], ['status' => $opname['status']], [
+                'status' => 'approved', 'shortage_value' => Money::decimal($shortageValueCents),
+                'surplus_value' => Money::decimal($surplusValueCents), 'item_count' => count($items),
             ]);
             $this->database->transComplete();
         } catch (\Throwable $exception) {

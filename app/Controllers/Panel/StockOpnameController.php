@@ -151,7 +151,7 @@ class StockOpnameController extends BaseController
     public function reject(int $opnameId): RedirectResponse
     {
         try {
-            (new StockOpnameService())->reject($opnameId, (string) $this->request->getPost('review_notes'));
+            (new StockOpnameService())->reject($opnameId, (string) $this->request->getPost('review_notes'), (int) session('user_id'));
         } catch (\Throwable $exception) {
             return redirect()->route('panel.opnames')->with('error', $exception->getMessage());
         }

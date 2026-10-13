@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\InventoryItemModel;
 use App\Models\SupplierModel;
 use App\Services\InventoryLockService;
+use App\Services\AuditLogService;
 use App\Services\AccountingService;
 use App\Services\Money;
 use CodeIgniter\HTTP\RedirectResponse;
@@ -129,6 +130,7 @@ class InventoryController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Supplier aktif tidak ditemukan.');
         }
         try {
+            $database->transException(true)->transStart();
             $database->table('goods_receipts')->insert([
             'reference_number' => $referenceNumber,
             'supplier_id' => $supplierId,
@@ -140,11 +142,21 @@ class InventoryController extends BaseController
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
             ]);
+            $receiptId = (int) $database->insertID();
+            (new AuditLogService($database))->record((int) session('user_id'), 'inventory.receipt.created', 'goods_receipt', $receiptId, $notesInput, [], [
+                'reference_number' => $referenceNumber,
+                'supplier_id' => $supplierId,
+                'document_date' => (string) $this->request->getPost('document_date'),
+                'payment_source' => (string) $this->request->getPost('payment_source'),
+                'status' => 'draft',
+            ]);
+            $database->transComplete();
         } catch (\Throwable $exception) {
+            $database->transRollback();
             log_message('error', 'Draft penerimaan stok gagal dibuat.');
             return redirect()->back()->withInput()->with('error', 'Draft belum berhasil dibuat. Periksa nomor referensi lalu coba lagi.');
         }
-        return redirect()->to(site_url('panel/inventory/receipts/' . $database->insertID()))->with('success', 'Draft penerimaan berhasil dibuat. Tambahkan item bahan yang diterima.');
+        return redirect()->to(site_url('panel/inventory/receipts/' . $receiptId))->with('success', 'Draft penerimaan berhasil dibuat. Tambahkan item bahan yang diterima.');
     }
 
     public function addReceiptItem(): RedirectResponse
@@ -206,6 +218,16 @@ class InventoryController extends BaseController
                 $data['created_at'] = date('Y-m-d H:i:s');
                 $database->table('goods_receipt_items')->insert($data);
             }
+            (new AuditLogService($database))->record((int) session('user_id'), 'inventory.receipt.line_saved', 'goods_receipt', $receiptId, $receipt['notes'], $existing ? [
+                'inventory_item_id' => $itemId,
+                'purchase_quantity' => $existing['purchase_quantity'],
+                'purchase_unit_cost' => $existing['purchase_unit_cost'],
+            ] : [], [
+                'inventory_item_id' => $itemId,
+                'purchase_quantity' => $data['purchase_quantity'],
+                'purchase_unit_cost' => $data['purchase_unit_cost'],
+                'line_total' => $data['line_total'],
+            ]);
             $database->transComplete();
         } catch (\Throwable $exception) {
             $database->transRollback();
@@ -233,6 +255,7 @@ class InventoryController extends BaseController
                 'submitted_at' => $submittedAt,
                 'updated_at' => $submittedAt,
             ]);
+            (new AuditLogService($database))->record((int) session('user_id'), 'inventory.receipt.submitted', 'goods_receipt', $receiptId, $receipt['notes'], ['status' => $receipt['status']], ['status' => 'submitted']);
             $database->transComplete();
         } catch (\Throwable $exception) {
             $database->transRollback();
@@ -266,6 +289,7 @@ class InventoryController extends BaseController
                 'review_notes' => null,
                 'updated_at' => $reviewedAt,
             ]);
+            (new AuditLogService($database))->record((int) session('user_id'), 'inventory.receipt.approved', 'goods_receipt', $receiptId, $receipt['notes'], ['status' => $receipt['status']], ['status' => 'approved', 'total' => array_sum(array_map(static fn (array $line): int => Money::cents($line['line_total']), $database->table('goods_receipt_items')->where('goods_receipt_id', $receiptId)->get()->getResultArray()))]);
             $database->transComplete();
         } catch (\Throwable $exception) {
             $database->transRollback();
@@ -301,6 +325,7 @@ class InventoryController extends BaseController
                 'review_notes' => $reviewNotes,
                 'updated_at' => $reviewedAt,
             ]);
+            (new AuditLogService($database))->record((int) session('user_id'), 'inventory.receipt.rejected', 'goods_receipt', $receiptId, $reviewNotes, ['status' => $receipt['status']], ['status' => 'rejected', 'review_notes' => $reviewNotes]);
             $database->transComplete();
         } catch (\Throwable $exception) {
             $database->transRollback();
@@ -362,6 +387,12 @@ class InventoryController extends BaseController
                 ['account_key' => $creditAccount, 'debit' => 0, 'credit' => Money::decimal($receiptTotalCents)],
             ], (int) session('user_id'));
             $database->table('goods_receipts')->where('id', $receiptId)->update(['status' => 'posted', 'posted_by' => (int) session('user_id'), 'posted_at' => $postedAt, 'updated_at' => $postedAt]);
+            (new AuditLogService($database))->record((int) session('user_id'), 'inventory.receipt.posted', 'goods_receipt', $receiptId, $receipt['notes'], ['status' => 'approved'], [
+                'status' => 'posted', 'payment_source' => $receipt['payment_source'], 'total' => Money::decimal($receiptTotalCents),
+                'items' => array_map(static fn (array $line): array => [
+                    'inventory_item_id' => (int) $line['inventory_item_id'], 'base_quantity' => $line['base_quantity'], 'line_total' => $line['line_total'],
+                ], $lines),
+            ]);
             $database->transComplete();
         } catch (\Throwable $exception) {
             $database->transRollback();

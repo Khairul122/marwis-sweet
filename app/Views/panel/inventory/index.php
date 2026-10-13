@@ -22,7 +22,7 @@ $receiptRows = array_map(static fn (array $r): array => [
     panel_actions(['links' => [$receiptLabels[$r['status']][2] ?? 'Lihat' => 'panel/inventory/receipts/' . $r['id']]]),
 ], $receipts);
 
-$types = ['receipt' => 'Penerimaan', 'sale' => 'Penjualan', 'opname' => 'Opname', 'return' => 'Retur'];
+$types = ['opening' => 'Saldo awal', 'receipt' => 'Penerimaan', 'sale' => 'Penjualan', 'opname' => 'Opname', 'return' => 'Retur', 'damage' => 'Kerusakan', 'correction' => 'Koreksi'];
 $moveRows = array_map(static fn (array $m): array => [
     esc(date('d/m/Y H:i', strtotime($m['posted_at']))), '<strong>' . esc($m['item_name']) . '</strong>', esc($types[$m['movement_type']] ?? $m['movement_type']),
     ((float) $m['quantity'] > 0 ? '+' : '') . panel_qty($m['quantity']) . ' ' . esc($m['base_unit']), ...($isOwner ? [panel_rupiah($m['total_cost'])] : []), esc($m['notes'] ?: '-'),
@@ -44,7 +44,10 @@ $movementHead[] = 'Referensi';
 
 <div class="mb-6 flex flex-col gap-3 border border-brand-cocoa bg-[#FFFCF4] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
     <p class="max-w-2xl text-sm leading-6">Persetujuan memeriksa bahan, jumlah, dan biaya. Pengajuan yang belum disetujui tidak masuk ke saldo stok maupun jurnal.</p>
-    <a class="button-primary justify-center" href="<?= site_url('panel/inventory/receipts/new') ?>">Buat draft penerimaan</a>
+    <div class="flex flex-col gap-2 sm:flex-row">
+        <a class="button-secondary justify-center" href="<?= site_url('panel/inventory/adjustments') ?>">Saldo awal dan koreksi</a>
+        <a class="button-primary justify-center" href="<?= site_url('panel/inventory/receipts/new') ?>">Buat draft penerimaan</a>
+    </div>
 </div>
 <?= panel_table($isOwner ? 'Penerimaan untuk diperiksa' : 'Draft dan penerimaan saya', ['Nomor referensi', 'Tanggal', 'Supplier', 'Dibuat oleh', '>Total', 'Status', '>Aksi'], $receiptRows, ['width' => '54rem', 'empty' => 'Belum ada penerimaan. Buat draft untuk mencatat barang yang diterima.']) ?>
 <?= panel_table('Posisi stok bahan', $stockHead, $stockRows, ['width' => '48rem', 'empty' => 'Belum ada bahan aktif.']) ?>

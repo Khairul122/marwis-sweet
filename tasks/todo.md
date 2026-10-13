@@ -231,24 +231,28 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P2 · Ketergantungan:** skema status persetujuan dan role.
 
-- [ ] Izinkan kasir melihat stok/kartu stok dan menyusun penerimaan sesuai kebijakan.
-- [ ] Owner menyetujui item/biaya sebelum kasir dapat mem-posting; perubahan yang belum disetujui tidak memengaruhi stok/jurnal.
+- [x] Izinkan kasir melihat stok/kartu stok dan menyusun penerimaan sesuai kebijakan.
+- [x] Owner menyetujui item/biaya sebelum kasir dapat mem-posting; perubahan yang belum disetujui tidak memengaruhi stok/jurnal.
 
-**Terima bila:** kasir dapat melihat operasional yang diizinkan; biaya yang belum disetujui tidak bisa diposting lewat UI atau URL langsung.
+**Hasil penerimaan:** kasir hanya melihat kartu stok tanpa valuasi usaha; draft miliknya dapat diajukan, diperbaiki setelah ditolak, dan diposting setelah disetujui. Owner meninjau nilai serta menyetujui/menolak. Status selain `approved` tidak dapat mengubah stok atau jurnal, termasuk lewat URL langsung.
 
-**Verifikasi nanti:** AC-15 dan akses langsung untuk kasir/owner.
+**Verifikasi backend dan UI (2026-10-14, MySQL salinan terisolasi):** `InventoryReceiptApprovalTest` lulus (3 tes, 59 assertion); mencakup tampilan owner/kasir, jalur URL langsung, penolakan dan pengajuan ulang, posting setelah persetujuan, perubahan kuantitas/nilai stok, satu mutasi stok, serta jurnal seimbang. Migrasi `2026-10-14-000021` juga diterapkan ke database utama dan tercatat pada batch 18. Lint PHP dan `git diff --check` lulus; CSS berhasil dibangun.
+
+**Pemeriksaan visual:** konten hasil render diuji untuk menyembunyikan kolom valuasi dari kasir dan menampilkan nilai pada owner. Screenshot viewport desktop/mobile belum dapat dilakukan karena kebijakan browser menolak localhost; atas arahan pengguna, pekerjaan berlanjut sambil mencatat batas tersebut.
 
 ### Tugas 17 — Tambahkan saldo awal, kerusakan, koreksi, dan pembalik stok (B-04)
 
 **P2 · Ketergantungan:** valuasi stok/jurnal dari Tugas 8–9.
 
-- [ ] Sediakan alur saldo awal dengan biaya dan akun lawan yang seimbang.
-- [ ] Sediakan pencatatan kerusakan/koreksi dengan alasan dan persetujuan sesuai role.
-- [ ] Mutasi ter-posting tidak diedit atau dihapus; koreksi memakai mutasi pembalik yang terlacak.
+- [x] Sediakan alur saldo awal dengan biaya dan akun lawan yang seimbang.
+- [x] Sediakan pencatatan kerusakan/koreksi dengan alasan dan persetujuan sesuai role.
+- [x] Mutasi ter-posting tidak diedit atau dihapus; koreksi memakai mutasi pembalik yang terlacak.
 
 **Terima bila:** setiap perubahan stok punya sumber, pelaksana, waktu, jumlah, biaya, dan alasan.
 
-**Verifikasi nanti:** rekonsiliasi kartu stok ke akun persediaan setelah setiap jenis mutasi.
+**Verifikasi backend (2026-10-14, MySQL salinan terisolasi):** `StockAdjustmentWorkflowTest` lulus (2 tes, 65 assertion): saldo awal mencatat jumlah/nilai dan jurnal seimbang; kerusakan memakai nilai buku proporsional; koreksi berlebih ditolak; draft tidak mengubah stok/jurnal; owner-only approval/reversal dijaga; pembalik memulihkan stok dan menautkan jurnal asal. Migrasi `2026-10-14-000022` diterapkan ke MySQL utama, batch 19.
+
+**Verifikasi UI:** halaman daftar, form baru, dan detail diuji melalui hasil render untuk akun owner/kasir. Screenshot ukuran layar langsung belum dapat diambil karena batas browser localhost yang sudah dijelaskan.
 
 ### Tugas 18 — Buat audit trail tindakan sensitif (B-14)
 

@@ -112,8 +112,7 @@ class AccountingController extends BaseController
             return redirect()->route('panel.accounting')->with('error', 'Data saldo awal tidak valid.');
         }
         if ($debit['system_key'] === 'inventory') {
-            $inventoryValueCents = Money::cents($database->table('inventory_items')->selectSum('inventory_value', 'total')->get()->getRow('total') ?? 0);
-            if ($inventoryValueCents !== $amountCents) { return redirect()->route('panel.accounting')->with('error', 'Saldo awal persediaan harus sama dengan nilai kartu stok: Rp' . Money::decimal($inventoryValueCents)); }
+            return redirect()->route('panel.accounting')->with('error', 'Catat saldo awal persediaan melalui Penyesuaian stok agar jumlah fisik, nilai stok, dan jurnal bergerak bersama.');
         }
         try {
             $database->transException(true)->transStart();

@@ -14,7 +14,7 @@ class AccountingService
         $this->database ??= db_connect();
     }
 
-    public function post(string $sourceType, int $sourceId, string $entryDate, string $description, array $lines, int $userId): int
+    public function post(string $sourceType, int $sourceId, string $entryDate, string $description, array $lines, int $userId, ?int $reversalOfId = null): int
     {
         $sourceKey = $sourceType . ':' . $sourceId;
         $existing = $this->database->table('journal_entries')->where('source_key', $sourceKey)->get()->getRowArray();
@@ -57,7 +57,7 @@ class AccountingService
         $this->database->table('journal_entries')->insert([
             'journal_number' => 'JRN-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2))),
             'entry_date' => $entryDate, 'description' => $description, 'source_type' => $sourceType,
-            'source_id' => $sourceId, 'source_key' => $sourceKey, 'status' => 'posted', 'created_by' => $userId,
+            'source_id' => $sourceId, 'source_key' => $sourceKey, 'status' => 'posted', 'reversal_of_id' => $reversalOfId, 'created_by' => $userId,
             'created_at' => $now, 'updated_at' => $now,
         ]);
         $journalId = (int) $this->database->insertID();
