@@ -22,7 +22,7 @@
     <?php else: ?>
         <div class="xl:grid xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_25rem] xl:overflow-hidden">
             <section class="px-4 pb-28 sm:px-6 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:px-8 xl:pb-8" aria-labelledby="pos-heading">
-                <header class="sticky top-0 z-20 -mx-4 border-b border-border-warm bg-[#F7F2E8] px-4 py-4 sm:-mx-6 sm:px-6 xl:-mx-8 xl:px-8">
+                <header class="sticky top-0 z-20 -mx-4 border-b border-border-warm bg-white px-4 py-4 sm:-mx-6 sm:px-6 xl:-mx-8 xl:px-8">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <div class="flex items-center gap-3"><h1 id="pos-heading" class="font-display text-2xl sm:text-3xl">Pilih menu</h1><span class="status-label bg-brand-sun text-brand-cocoa"><?= esc($shift['shift_number']) ?></span></div>

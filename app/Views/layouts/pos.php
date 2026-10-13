@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>">
     <script src="<?= base_url('assets/js/app.js') ?>" defer></script>
 </head>
-<body class="min-h-screen bg-[#F7F2E8] text-brand-cocoa antialiased xl:h-dvh xl:overflow-hidden">
+<body class="min-h-screen bg-white text-brand-cocoa antialiased xl:h-dvh xl:overflow-hidden">
     <a class="skip-link" href="#pos-content">Lewati ke area penjualan</a>
     <div class="min-h-screen xl:h-dvh xl:overflow-hidden">
         <header class="border-b border-brand-cocoa bg-surface-white xl:h-[4.5rem]">

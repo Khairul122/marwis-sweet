@@ -249,6 +249,9 @@
     }
 
     .order-drawer {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         margin: 0 0 0 auto;
         height: 100dvh;
         max-height: none;
@@ -267,6 +270,11 @@
 
     .order-drawer::backdrop {
         background: rgb(45 27 18 / .55);
+    }
+
+    .order-drawer-footer {
+        max-height: 72dvh;
+        overflow-y: auto;
     }
 
     /* ---- landing publik */

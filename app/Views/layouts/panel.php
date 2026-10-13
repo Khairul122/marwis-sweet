@@ -8,11 +8,11 @@
     <script src="<?= base_url('assets/js/app.js') ?>" defer></script>
 </head>
 <?php $panelPath = trim(uri_string(), '/'); ?>
-<body class="min-h-screen bg-[#F7F2E8] text-brand-cocoa antialiased">
+<body class="min-h-screen bg-white text-brand-cocoa antialiased">
     <a class="skip-link" href="#panel-content">Lewati ke konten</a>
     <div class="min-h-screen lg:grid lg:grid-cols-[17.5rem_1fr]">
         <div class="fixed inset-0 z-40 hidden bg-brand-cocoa/45 lg:hidden" data-drawer-overlay></div>
-        <aside id="panel-navigation" class="fixed inset-y-0 left-0 z-50 w-[17.5rem] -translate-x-full border-r border-brand-cocoa bg-surface-cream transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0" data-drawer aria-label="Navigasi panel">
+        <aside id="panel-navigation" class="fixed inset-y-0 left-0 z-50 w-[17.5rem] -translate-x-full border-r border-brand-cocoa bg-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0" data-drawer aria-label="Navigasi panel">
             <div class="flex h-full flex-col">
                 <div class="flex items-center justify-between border-b border-border-warm p-5">
                     <a class="flex items-center gap-3 focus-ring" href="<?= site_url('panel') ?>">

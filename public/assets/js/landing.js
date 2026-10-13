@@ -11,6 +11,7 @@
 
     // ---- pesanan: [{variantId, qty, toppings: [id]}]
     let lines = [];
+    const expandedToppingLines = new Set();
     try {
         const saved = JSON.parse(window.localStorage.getItem(STORE) || '[]');
         lines = saved
@@ -49,7 +50,11 @@
         return parts.join('\n');
     };
 
-    const say = (text) => { if (status) status.textContent = text; };
+    const say = (text) => {
+        if (!status) return;
+        status.textContent = text;
+        status.hidden = !text;
+    };
 
     const render = () => {
         document.querySelectorAll('[data-order-count]').forEach((node) => { node.textContent = String(count()); });
@@ -60,23 +65,35 @@
         list.replaceChildren(...lines.map((line, index) => {
             const variant = variants.get(line.variantId);
             const item = document.createElement('li');
-            item.className = 'rounded-2xl border border-border-warm bg-white p-4 shadow-sm';
+            item.className = 'border-b border-border-warm py-3 last:border-b-0';
             const head = document.createElement('div');
             head.className = 'flex items-start justify-between gap-3';
-            head.innerHTML = '<div><p class="font-bold"></p><p class="text-sm text-ink-muted"></p></div><p class="font-bold tabular-nums"></p>';
+            head.innerHTML = '<div class="min-w-0"><p class="text-sm font-bold leading-5"></p><p class="mt-0.5 text-xs text-ink-muted"></p></div><p class="shrink-0 text-sm font-bold tabular-nums"></p>';
             head.querySelector('p.font-bold').textContent = variant.product;
-            head.querySelector('p.text-sm').textContent = `${variant.name} · ${rupiah(unitPrice(line))}`;
+            head.querySelector('p.text-xs').textContent = `${variant.name} · ${rupiah(unitPrice(line))} / porsi`;
             head.querySelector('p.tabular-nums').textContent = rupiah(unitPrice(line) * line.qty);
             item.append(head);
 
             if (variant.recipe && catalog.toppings.length) {
+                const toppingDetails = document.createElement('details');
+                toppingDetails.className = 'mt-2 border-t border-dashed border-border-warm pt-1';
+                toppingDetails.open = expandedToppingLines.has(line);
+                toppingDetails.addEventListener('toggle', () => {
+                    if (toppingDetails.open) expandedToppingLines.add(line);
+                    else expandedToppingLines.delete(line);
+                });
+                const toppingSummary = document.createElement('summary');
+                toppingSummary.className = 'flex min-h-11 cursor-pointer items-center text-xs font-bold text-ink-muted';
+                toppingSummary.textContent = line.toppings.length
+                    ? `${line.toppings.length} topping dipilih · ${line.toppings.map((id) => toppingById.get(id).name).join(', ')}`
+                    : 'Tambah topping (opsional)';
                 const group = document.createElement('fieldset');
-                group.className = 'mt-4 border-t border-dashed border-border-warm pt-3';
+                group.className = 'grid grid-cols-2 gap-2 pb-2';
                 const legend = document.createElement('legend');
-                legend.className = 'float-left mb-2 w-full text-xs font-extrabold uppercase tracking-[0.12em] text-ink-muted';
-                legend.textContent = line.toppings.length ? `Topping · ${line.toppings.length} dipilih` : 'Tambah topping';
+                legend.className = 'col-span-2 pb-2 text-xs font-bold text-ink-muted';
+                legend.textContent = 'Pilih topping';
                 const grid = document.createElement('div');
-                grid.className = 'clear-both grid grid-cols-2 gap-2';
+                grid.className = 'col-span-2 grid grid-cols-2 gap-2';
                 group.append(legend, grid);
                 catalog.toppings.forEach((topping) => {
                     const on = line.toppings.includes(topping.id);
@@ -122,33 +139,34 @@
                     label.append(box, tile);
                     grid.append(label);
                 });
-                item.append(group);
+                toppingDetails.append(toppingSummary, group);
+                item.append(toppingDetails);
             }
 
             const controls = document.createElement('div');
-            controls.className = 'mt-3 flex items-center justify-between gap-3';
+            controls.className = 'mt-2 flex items-center justify-between gap-3';
             const stepper = document.createElement('div');
-            stepper.className = 'flex items-center overflow-hidden rounded-full border border-brand-cocoa';
+            stepper.className = 'flex items-center overflow-hidden rounded-lg border border-border-warm';
             const button = (label, aria, handler) => {
                 const node = document.createElement('button');
                 node.type = 'button';
-                node.className = 'h-11 w-11 text-lg font-bold hover:bg-brand-sun';
+                node.className = 'h-11 w-11 text-lg font-bold hover:bg-surface-soft-yellow';
                 node.textContent = label;
                 node.setAttribute('aria-label', `${aria} ${variant.product}`);
                 node.addEventListener('click', handler);
                 return node;
             };
             const qty = document.createElement('span');
-            qty.className = 'w-10 text-center font-bold tabular-nums';
+            qty.className = 'w-8 text-center text-sm font-bold tabular-nums';
             qty.textContent = String(line.qty);
             qty.setAttribute('aria-live', 'polite');
             stepper.append(button('−', 'Kurangi', () => { line.qty = Math.max(1, line.qty - 1); persist(); render(); }), qty, button('+', 'Tambah', () => { line.qty = Math.min(99, line.qty + 1); persist(); render(); }));
             const remove = document.createElement('button');
             remove.type = 'button';
-            remove.className = 'min-h-11 px-2 text-sm font-bold text-status-danger underline underline-offset-4';
+            remove.className = 'min-h-11 px-2 text-xs font-bold text-ink-muted underline underline-offset-4';
             remove.textContent = 'Hapus';
             remove.setAttribute('aria-label', `Hapus ${variant.product} dari pesanan`);
-            remove.addEventListener('click', () => { lines.splice(index, 1); persist(); render(); say(`${variant.product} dihapus dari pesanan.`); });
+            remove.addEventListener('click', () => { expandedToppingLines.delete(line); lines.splice(index, 1); persist(); render(); say(`${variant.product} dihapus dari pesanan.`); });
             controls.append(stepper, remove);
             item.append(controls);
             return item;
