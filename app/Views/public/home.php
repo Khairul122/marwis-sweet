@@ -310,15 +310,75 @@ $perks = [
         <?php endif ?>
 
         <!-- Ajakan akhir -->
-        <section class="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-24 lg:px-8">
-            <div class="reveal relative overflow-hidden rounded-[2.5rem] bg-brand-chili px-6 py-12 text-center text-white sm:px-12 sm:py-16">
-                <div class="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-brand-sun/30" aria-hidden="true"></div>
-                <div class="pointer-events-none absolute -bottom-20 -right-10 h-64 w-64 rounded-full bg-brand-cocoa/30" aria-hidden="true"></div>
-                <h2 class="relative mx-auto max-w-2xl font-brand text-4xl font-extrabold leading-tight sm:text-5xl">Lagi pengen yang <span class="whitespace-nowrap">manis-manis?</span></h2>
-                <p class="relative mx-auto mt-4 max-w-xl leading-7 text-white/90">Susun pesananmu sekarang, martabak langsung kami masak.</p>
-                <div class="relative mt-8 flex flex-wrap justify-center gap-3">
-                    <a class="lp-btn lp-btn-sun" href="#menu">Pilih menu sekarang</a>
-                    <?php if ($waChat !== ''): ?><a class="lp-btn border-2 border-white text-white hover:bg-white hover:text-brand-chili" href="<?= esc($waChat) ?>" target="_blank" rel="noopener"><?= sf_wa_icon() ?>Tanya lewat WhatsApp<span class="sr-only"> (tab baru)</span></a><?php endif ?>
+        <section class="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-24 lg:px-8" aria-labelledby="cta-title">
+            <div class="reveal relative overflow-hidden rounded-[2.5rem] border-2 border-brand-cocoa bg-brand-chili px-6 py-10 shadow-[0_24px_50px_-16px_rgb(45_27_18/.45)] sm:px-10 sm:py-14 lg:px-12 lg:py-16">
+                <!-- Warm ambient glow & street food atmosphere -->
+                <div class="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-brand-sun/20 blur-3xl" aria-hidden="true"></div>
+                <div class="pointer-events-none absolute -bottom-20 -left-16 h-72 w-72 rounded-full bg-brand-cocoa/40 blur-2xl" aria-hidden="true"></div>
+
+                <div class="relative grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
+                    <!-- Copy & Actions -->
+                    <div class="text-left text-white">
+                        <div class="inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-brand-sun">
+                            <span class="inline-block h-2 w-2 rounded-full bg-brand-sun" aria-hidden="true"></span>
+                            Martabak Hangat Marwis Sweet
+                        </div>
+
+                        <h2 id="cta-title" class="mt-4 font-brand text-3xl font-extrabold leading-[1.08] sm:text-4xl lg:text-5xl">
+                            Lagi pengen yang <span class="text-brand-sun">manis-manis?</span>
+                        </h2>
+
+                        <p class="mt-4 max-w-xl text-base leading-relaxed text-white/95 sm:text-lg">
+                            Susun pesananmu sekarang. Adonan baru dituang ke wajan setelah pesanan masuk, sampai di tanganmu masih hangat, tebal, dan toppingnya melimpah.
+                        </p>
+
+                        <!-- Value badges -->
+                        <div class="mt-6 flex flex-wrap gap-2 text-xs font-bold sm:text-sm">
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-white">
+                                <?= sf_icon('flame', 'h-4 w-4 text-brand-sun') ?>
+                                Dimasak saat dipesan
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-white">
+                                <?= sf_icon('cookie', 'h-4 w-4 text-brand-sun') ?>
+                                Topping pilih sendiri
+                            </span>
+                            <?php if ($minPrice !== null): ?>
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-white">
+                                    <?= sf_icon('receipt-text', 'h-4 w-4 text-brand-sun') ?>
+                                    Mulai <?= sf_rp($minPrice) ?>
+                                </span>
+                            <?php endif ?>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="mt-8 flex flex-wrap items-center gap-3">
+                            <a class="lp-btn lp-btn-sun border-2 border-brand-cocoa text-brand-cocoa shadow-xl" href="#menu">
+                                <span>Pilih menu sekarang</span>
+                                <?= sf_icon('arrow-right', 'h-5 w-5') ?>
+                            </a>
+                            <?php if ($waChat !== ''): ?>
+                                <a class="lp-btn border-2 border-white/80 bg-brand-cocoa text-white shadow-lg transition hover:bg-black" href="<?= esc($waChat) ?>" target="_blank" rel="noopener">
+                                    <?= sf_wa_icon('h-5 w-5 text-[#25D366]') ?>
+                                    <span>Tanya lewat WhatsApp</span>
+                                    <span class="sr-only"> (tab baru)</span>
+                                </a>
+                            <?php endif ?>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Visual Plate & Floating Stamp Badge -->
+                    <div class="relative mx-auto w-full max-w-sm lg:max-w-none">
+                        <div class="relative flex items-center justify-center">
+                            <!-- Visual Martabak Plate with warm drop shadow -->
+                            <img class="relative w-full max-w-[320px] rotate-[-4deg] object-contain drop-shadow-[0_24px_30px_rgb(0_0_0/.55)] transition duration-300 hover:rotate-[-1deg] hover:scale-105 sm:max-w-[360px] lg:max-w-[400px]" src="<?= base_url('assets/img/martabak-piring.webp') ?>" alt="Seporsi martabak manis hangat isi melimpah siap santap" loading="lazy" width="1400" height="941">
+
+                            <!-- Floating Warung Poster Stamp Badge -->
+                            <div class="label-cut absolute -top-3 right-2 rotate-6 border border-brand-cocoa bg-brand-sun px-4 py-2.5 text-center text-brand-cocoa shadow-xl ring-2 ring-white sm:-top-5 sm:right-6">
+                                <span class="block text-[10px] font-extrabold uppercase tracking-wider text-brand-chili">Pasti Puas</span>
+                                <span class="block font-brand text-lg font-extrabold leading-none sm:text-xl">Fresh &amp; Lembut</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

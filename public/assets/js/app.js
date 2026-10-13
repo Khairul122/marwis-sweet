@@ -1,4 +1,60 @@
 (() => {
+    const receiptPaperSelect = document.querySelector('[data-receipt-paper-size]');
+    const receiptPageStyle = document.querySelector('[data-receipt-print-page-css]');
+    const setReceiptPaperSize = () => {
+        if (!receiptPaperSelect) return;
+        const width = receiptPaperSelect.value === '58' ? '58mm' : '80mm';
+        document.documentElement.dataset.receiptPaper = receiptPaperSelect.value === '58' ? '58' : '80';
+        if (receiptPageStyle) receiptPageStyle.textContent = `@media print { @page { size: ${width} auto; margin: 2mm; } }`;
+    };
+    receiptPaperSelect?.addEventListener('change', setReceiptPaperSize);
+    setReceiptPaperSize();
+
+    document.querySelectorAll('[data-image-preview-input]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const group = input.closest('[data-image-preview-group]');
+            const file = input.files?.[0];
+            if (!group || !file) return;
+            if (input.dataset.previewUrl) URL.revokeObjectURL(input.dataset.previewUrl);
+            const previewUrl = URL.createObjectURL(file);
+            input.dataset.previewUrl = previewUrl;
+            group.querySelectorAll('[data-image-preview]').forEach((image) => {
+                image.src = previewUrl;
+                image.classList.remove('hidden');
+            });
+            group.querySelectorAll('[data-image-preview-empty]').forEach((placeholder) => placeholder.classList.add('hidden'));
+        });
+    });
+
+    document.querySelectorAll('#panel-content table:not(.panel-data-table)').forEach((table) => {
+        const headers = [...table.querySelectorAll('thead tr:last-child th')].map((cell) => cell.textContent.trim());
+        if (headers.length === 0) return;
+        table.classList.add('panel-data-table');
+        table.querySelectorAll('thead th').forEach((header) => header.setAttribute('scope', 'col'));
+        const scrollArea = table.parentElement;
+        if (scrollArea) scrollArea.classList.add('panel-table-scroll');
+        table.querySelectorAll('tbody tr, tfoot tr').forEach((row) => {
+            if (row.cells.length === 1 && row.cells[0].colSpan > 1) return;
+            let columnIndex = 0;
+            [...row.cells].forEach((cell) => {
+                if (cell.tagName !== 'TD' || cell.colSpan > 1) {
+                    columnIndex += cell.colSpan || 1;
+                    return;
+                }
+                const label = headers[columnIndex] || '';
+                if (!cell.hasAttribute('data-label') && label) {
+                    cell.dataset.label = label;
+                    const labelNode = document.createElement('span');
+                    labelNode.className = 'panel-data-label';
+                    labelNode.setAttribute('aria-hidden', 'true');
+                    labelNode.textContent = label;
+                    cell.prepend(labelNode);
+                }
+                columnIndex += 1;
+            });
+        });
+    });
+
     const menuToggle = document.querySelector('[data-menu-toggle]');
     const mobileMenu = document.querySelector('[data-menu-mobile]');
     if (menuToggle && mobileMenu) {
@@ -16,18 +72,24 @@
     const drawerOverlay = document.querySelector('[data-drawer-overlay]');
     const drawerOpen = document.querySelector('[data-drawer-open]');
     const drawerClose = document.querySelector('[data-drawer-close]');
+    const drawerDesktop = window.matchMedia('(min-width: 1024px)');
     let drawerReturnFocus = null;
+    const drawerFocusables = () => drawer ? [...drawer.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((element) => element.getClientRects().length > 0) : [];
     const closeDrawer = () => {
-        if (!drawer || !drawerOverlay) return;
+        if (!drawer || !drawerOverlay || drawerDesktop.matches) return;
         drawer.classList.add('-translate-x-full');
         drawerOverlay.classList.add('hidden');
+        drawer.inert = true;
+        drawer.setAttribute('aria-hidden', 'true');
         drawerOpen?.setAttribute('aria-expanded', 'false');
         document.body.classList.remove('overflow-hidden');
-        drawerReturnFocus?.focus();
+        if (drawerReturnFocus?.isConnected) drawerReturnFocus.focus();
     };
     const openDrawer = () => {
-        if (!drawer || !drawerOverlay) return;
+        if (!drawer || !drawerOverlay || drawerDesktop.matches) return;
         drawerReturnFocus = document.activeElement;
+        drawer.inert = false;
+        drawer.setAttribute('aria-hidden', 'false');
         drawer.classList.remove('-translate-x-full');
         drawerOverlay.classList.remove('hidden');
         drawerOpen?.setAttribute('aria-expanded', 'true');
@@ -37,8 +99,37 @@
     drawerOpen?.addEventListener('click', openDrawer);
     drawerClose?.addEventListener('click', closeDrawer);
     drawerOverlay?.addEventListener('click', closeDrawer);
+    const syncDrawerForViewport = () => {
+        if (!drawer || !drawerOverlay) return;
+        if (drawerDesktop.matches) {
+            drawer.classList.remove('-translate-x-full');
+            drawerOverlay.classList.add('hidden');
+            drawer.inert = false;
+            drawer.setAttribute('aria-hidden', 'false');
+            drawerOpen?.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('overflow-hidden');
+        } else {
+            drawer.classList.add('-translate-x-full');
+            drawerOverlay.classList.add('hidden');
+            drawer.inert = true;
+            drawer.setAttribute('aria-hidden', 'true');
+            drawerOpen?.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('overflow-hidden');
+        }
+    };
+    drawerDesktop.addEventListener('change', syncDrawerForViewport);
+    syncDrawerForViewport();
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && drawer && !drawer.classList.contains('-translate-x-full')) closeDrawer();
+        const isOpen = drawer && !drawerDesktop.matches && !drawer.classList.contains('-translate-x-full');
+        if (event.key === 'Escape' && isOpen) closeDrawer();
+        if (event.key === 'Tab' && isOpen) {
+            const focusables = drawerFocusables();
+            if (focusables.length === 0) { event.preventDefault(); drawerClose?.focus(); return; }
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+        }
     });
 
     const filterButtons = [...document.querySelectorAll('[data-category-filter]')];
@@ -257,6 +348,8 @@
         const customerName = posRoot.querySelector('[data-customer-name]');
         const orderIdInput = posRoot.querySelector('[data-pos-order-id]');
         let cartReturnFocus = null;
+        const cartDesktop = window.matchMedia('(min-width: 1280px)');
+        const cartFocusables = () => [...cartPanel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((element) => element.getClientRects().length > 0);
         let currentTotal = 0;
         let discountInvalid = false;
         let discountNeedsOwnerApproval = false;
@@ -513,17 +606,23 @@
         renderCart();
 
         const closeCart = () => {
-            if (!cartPanel || !cartOverlay) return;
+            if (!cartPanel || !cartOverlay || cartDesktop.matches) return;
             cartPanel.classList.add('translate-x-full');
+            cartPanel.classList.add('max-md:translate-y-full');
             cartOverlay.classList.add('hidden');
+            cartPanel.inert = true;
+            cartPanel.setAttribute('aria-hidden', 'true');
             cartOpen?.setAttribute('aria-expanded', 'false');
             document.body.classList.remove('overflow-hidden');
-            cartReturnFocus?.focus();
+            if (cartReturnFocus?.isConnected) cartReturnFocus.focus();
         };
         const openCart = () => {
-            if (!cartPanel || !cartOverlay) return;
+            if (!cartPanel || !cartOverlay || cartDesktop.matches) return;
             cartReturnFocus = document.activeElement;
+            cartPanel.inert = false;
+            cartPanel.setAttribute('aria-hidden', 'false');
             cartPanel.classList.remove('translate-x-full');
+            cartPanel.classList.remove('max-md:translate-y-full');
             cartOverlay.classList.remove('hidden');
             cartOpen?.setAttribute('aria-expanded', 'true');
             document.body.classList.add('overflow-hidden');
@@ -532,8 +631,37 @@
         cartOpen?.addEventListener('click', openCart);
         cartClose?.addEventListener('click', closeCart);
         cartOverlay?.addEventListener('click', closeCart);
+        const syncCartForViewport = () => {
+            if (!cartPanel || !cartOverlay) return;
+            if (cartDesktop.matches) {
+                cartPanel.classList.remove('translate-x-full', 'max-md:translate-y-full');
+                cartPanel.inert = false;
+                cartPanel.setAttribute('aria-hidden', 'false');
+                cartOverlay.classList.add('hidden');
+                cartOpen?.setAttribute('aria-expanded', 'false');
+                document.body.classList.remove('overflow-hidden');
+            } else {
+                cartPanel.classList.add('translate-x-full', 'max-md:translate-y-full');
+                cartPanel.inert = true;
+                cartPanel.setAttribute('aria-hidden', 'true');
+                cartOverlay.classList.add('hidden');
+                cartOpen?.setAttribute('aria-expanded', 'false');
+                document.body.classList.remove('overflow-hidden');
+            }
+        };
+        cartDesktop.addEventListener('change', syncCartForViewport);
+        syncCartForViewport();
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && cartPanel && !cartPanel.classList.contains('translate-x-full') && window.innerWidth < 1280) closeCart();
+            const isOpen = cartPanel && !cartDesktop.matches && !cartPanel.classList.contains('translate-x-full');
+            if (event.key === 'Escape' && isOpen) closeCart();
+            if (event.key === 'Tab' && isOpen) {
+                const focusables = cartFocusables();
+                if (focusables.length === 0) { event.preventDefault(); cartClose?.focus(); return; }
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                if (event.shiftKey && (document.activeElement === first || !cartPanel.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+                else if (!event.shiftKey && (document.activeElement === last || !cartPanel.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+            }
         });
 
         checkout?.addEventListener('submit', (event) => {

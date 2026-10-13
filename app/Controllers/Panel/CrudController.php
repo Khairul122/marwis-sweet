@@ -220,6 +220,7 @@ class CrudController extends BaseController
                     ['name' => 'title', 'label' => 'Judul internal', 'max' => 140, 'required' => true],
                     ['name' => 'alt_text', 'label' => 'Teks alternatif', 'max' => 180, 'min' => 5, 'required' => true, 'placeholder' => 'Jelaskan isi gambar'],
                     ['name' => 'image', 'label' => 'Gambar (maksimal 3 MB)', 'type' => 'file', 'required' => true, 'only' => 'create', 'wide' => true],
+                    ['name' => 'image', 'label' => 'Ganti gambar (opsional, maksimal 3 MB)', 'type' => 'file', 'only' => 'edit', 'wide' => true, 'hint' => 'Gambar lama tetap digunakan jika tidak memilih file baru.'],
                     ['name' => 'link_url', 'label' => 'Tautan', 'placeholder' => '/menu atau https://...'],
                     ['name' => 'sort_order', 'label' => 'Urutan', 'type' => 'number', 'default' => '0', 'required' => true],
                     ['name' => 'starts_at', 'label' => 'Mulai tampil', 'type' => 'datetime-local'],

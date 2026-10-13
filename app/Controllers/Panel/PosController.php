@@ -3,11 +3,15 @@
 namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
+use App\Models\SettingModel;
 use App\Services\SaleService;
 use App\Services\ReviewService;
 use App\Services\SalesPolicyService;
 use App\Services\PosOrderService;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class PosController extends BaseController
 {
@@ -114,9 +118,30 @@ class PosController extends BaseController
 
     public function receipt(int $saleId): string
     {
+        return view('panel/transactions/receipt', $this->receiptPayload($saleId));
+    }
+
+    public function receiptPdf(int $saleId): ResponseInterface
+    {
+        $data = $this->receiptPayload($saleId);
+        $options = new Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('isHtml5ParserEnabled', true);
+        $pdf = new Dompdf($options);
+        $pdf->loadHtml(view('panel/transactions/receipt_pdf', $data), 'UTF-8');
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'attachment; filename="struk-' . preg_replace('/[^A-Za-z0-9_-]/', '-', $data['sale']['sale_number']) . '.pdf"')
+            ->setBody($pdf->output());
+    }
+
+    private function receiptPayload(int $saleId): array
+    {
         $database = db_connect();
         $sale = $database->table('sales')->select('sales.*, users.name AS cashier_name, shifts.shift_number')->join('users', 'users.id = sales.cashier_id')->join('shifts', 'shifts.id = sales.shift_id')->where('sales.id', $saleId)->get()->getRowArray();
-        if (!$sale) {
+        if (!$sale || ((session('user')['role'] ?? '') === 'cashier' && (int) $sale['cashier_id'] !== (int) session('user_id'))) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Transaksi tidak ditemukan.');
         }
         try { $reviewToken = (new ReviewService())->activeToken($saleId); }
@@ -127,24 +152,21 @@ class PosController extends BaseController
             $item['reserved_refund_quantity'] = (float) ($database->table('refund_items')->selectSum('refund_items.quantity', 'total')->join('refunds', 'refunds.id = refund_items.refund_id')->where('refund_items.sale_item_id', $item['id'])->whereIn('refunds.status', ['submitted', 'posted'])->get()->getRow('total') ?? 0);
         }
         unset($item);
-        $refunds = $database->table('refunds')
-            ->select('refunds.*, requester.name AS requester_name, approver.name AS approver_name, rejecter.name AS rejecter_name')
-            ->join('users requester', 'requester.id = refunds.requested_by')
-            ->join('users approver', 'approver.id = refunds.approved_by', 'left')
-            ->join('users rejecter', 'rejecter.id = refunds.rejected_by', 'left')
+        $refunds = $database->table('refunds')->select('refunds.*, requester.name AS requester_name, approver.name AS approver_name, rejecter.name AS rejecter_name')
+            ->join('users requester', 'requester.id = refunds.requested_by')->join('users approver', 'approver.id = refunds.approved_by', 'left')->join('users rejecter', 'rejecter.id = refunds.rejected_by', 'left')
             ->where('refunds.sale_id', $saleId)->orderBy('refunds.id', 'DESC')->get()->getResultArray();
         foreach ($refunds as &$refund) {
             $refund['items'] = $database->table('refund_items')->select('refund_items.*, sale_items.product_name, sale_items.variant_name')->join('sale_items', 'sale_items.id = refund_items.sale_item_id')->where('refund_items.refund_id', $refund['id'])->get()->getResultArray();
         }
         unset($refund);
-        return view('panel/transactions/receipt', [
-            'title' => 'Struk ' . $sale['sale_number'], 'user' => session('user'), 'sale' => $sale,
-            'items' => $items,
-            'payments' => $database->table('payments')->where('sale_id', $saleId)->get()->getResultArray(),
-            'refunds' => $refunds,
+        $settings = [];
+        foreach ((new SettingModel())->findAll() as $row) { $settings[$row['setting_key']] = $row['setting_value']; }
+        return [
+            'title' => 'Struk ' . $sale['sale_number'], 'user' => session('user'), 'sale' => $sale, 'items' => $items,
+            'payments' => $database->table('payments')->where('sale_id', $saleId)->get()->getResultArray(), 'refunds' => $refunds,
             'postedRefundTotal' => (float) ($database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $saleId)->where('status', 'posted')->get()->getRow('total') ?? 0),
-            'reviewToken' => $reviewToken,
-        ]);
+            'reviewToken' => $reviewToken, 'businessSettings' => $settings,
+        ];
     }
 
     public function reviewLink(int $saleId): RedirectResponse

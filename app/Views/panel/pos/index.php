@@ -68,7 +68,7 @@
             </section>
 
             <div class="fixed inset-0 z-40 hidden bg-brand-cocoa/50 xl:hidden" data-pos-cart-overlay></div>
-            <aside class="fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-md translate-x-full flex-col border-l border-brand-cocoa bg-surface-white transition-transform duration-200 xl:relative xl:z-auto xl:h-full xl:min-h-0 xl:w-auto xl:translate-x-0 xl:overflow-hidden" data-pos-cart aria-label="Keranjang dan pembayaran">
+            <aside class="fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-md translate-x-full flex-col border-l border-brand-cocoa bg-surface-white transition-transform duration-200 max-md:top-auto max-md:bottom-0 max-md:h-[min(88dvh,48rem)] max-md:max-w-none max-md:translate-y-full max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t md:translate-y-0 xl:relative xl:z-auto xl:h-full xl:min-h-0 xl:w-auto xl:translate-x-0 xl:translate-y-0 xl:overflow-hidden" data-pos-cart aria-label="Keranjang dan pembayaran" aria-hidden="true" inert>
                 <div class="flex shrink-0 items-center justify-between border-b border-brand-cocoa bg-brand-sun px-5 py-4">
                     <div><h2 class="font-display text-xl">Pesanan</h2><p class="mt-1 text-sm" data-cart-count>0 item</p></div>
                     <button class="button-icon xl:hidden" type="button" data-pos-cart-close><span class="sr-only">Tutup keranjang</span><svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>

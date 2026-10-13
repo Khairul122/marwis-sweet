@@ -1,5 +1,6 @@
 <?= $this->extend('layouts/panel') ?>
 <?= $this->section('content') ?>
+<style data-receipt-print-page-css>@media print { @page { size: 80mm auto; margin: 2mm; } }</style>
 <?php
 $statusLabels = ['paid' => 'Lunas', 'partially_refunded' => 'Refund sebagian', 'refunded' => 'Refund penuh', 'cancelled' => 'Dibatalkan'];
 $refundStatusLabels = ['submitted' => 'Menunggu owner', 'posted' => 'Dibukukan', 'rejected' => 'Ditolak'];
@@ -15,13 +16,19 @@ foreach ($items as $item) {
 <div class="mx-auto max-w-5xl">
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <a class="button-secondary" href="<?= site_url('panel/transactions') ?>">Kembali ke transaksi</a>
+        <div class="flex flex-wrap items-end gap-2">
+            <div><label class="form-label" for="receipt-paper-size">Ukuran kertas</label><select class="form-input min-h-11" id="receipt-paper-size" data-receipt-paper-size><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+            <a class="button-secondary" href="<?= site_url('panel/transactions/' . $sale['id'] . '.pdf') ?>">Unduh PDF</a>
         <button class="button-primary" type="button" onclick="window.print()">Cetak struk</button>
+        </div>
     </div>
 
     <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <article class="border-2 border-brand-cocoa bg-white p-5 sm:p-8" id="receipt">
             <header class="text-center">
-                <p class="font-display text-2xl"><?= esc(env('BUSINESS_NAME', 'Marwis Sweet')) ?></p>
+                <p class="font-display text-2xl"><?= esc($businessSettings['business_name'] ?? env('BUSINESS_NAME', 'Marwis Sweet')) ?></p>
+                <?php if (!empty($businessSettings['address'])): ?><p class="mt-1 text-xs leading-5"><?= nl2br(esc($businessSettings['address'])) ?></p><?php endif ?>
+                <?php if (!empty($businessSettings['phone'])): ?><p class="mt-1 text-xs">Tel. <?= esc($businessSettings['phone']) ?></p><?php endif ?>
                 <p class="mt-2 text-sm">Struk penjualan</p>
                 <p class="mt-4 font-bold"><?= esc($sale['sale_number']) ?></p>
                 <span class="status-label mt-3 <?= $sale['status'] === 'paid' ? 'bg-[#F0FDF4] text-status-success' : 'bg-surface-soft-yellow text-brand-chili' ?>"><?= esc($statusLabels[$sale['status']] ?? $sale['status']) ?></span>

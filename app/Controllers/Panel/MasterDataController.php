@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\InventoryItemModel;
 use App\Models\ProductVariantModel;
 use App\Models\SupplierModel;
+use App\Services\AuditLogService;
 use CodeIgniter\HTTP\RedirectResponse;
 
 class MasterDataController extends BaseController
@@ -316,12 +317,20 @@ class MasterDataController extends BaseController
         }
         $existing = $database->table('recipe_items')->where('recipe_id', $recipe['id'])->where('inventory_item_id', $itemId)->get()->getRowArray();
         $data = ['recipe_id' => $recipe['id'], 'inventory_item_id' => $itemId, 'quantity' => (string) $this->request->getPost('quantity'), 'updated_at' => date('Y-m-d H:i:s')];
+        $variantInfo = $database->table('product_variants')->select('product_variants.name AS variant_name, products.name AS product_name')->join('products', 'products.id = product_variants.product_id')->where('product_variants.id', $variantId)->get()->getRowArray();
         if ($existing) {
             $database->table('recipe_items')->where('id', $existing['id'])->update($data);
         } else {
             $data['created_at'] = date('Y-m-d H:i:s');
             $database->table('recipe_items')->insert($data);
         }
+        $recipeItemId = $existing ? (int) $existing['id'] : (int) $database->insertID();
+        (new AuditLogService($database))->record((int) session('user_id'), 'recipe.item.saved', 'recipe_item', $recipeItemId, 'Komposisi resep diperbarui.', $existing ? [
+            'product_variant_id' => $variantId, 'inventory_item_id' => $itemId, 'quantity' => $existing['quantity'],
+        ] : [], [
+            'product_name' => $variantInfo['product_name'] ?? null, 'variant_name' => $variantInfo['variant_name'] ?? null,
+            'inventory_item_id' => $itemId, 'quantity' => $data['quantity'],
+        ]);
         $database->transComplete();
         if (!$database->transStatus()) {
             return redirect()->route('panel.master')->with('error', 'Resep belum dapat disimpan.');
@@ -332,8 +341,21 @@ class MasterDataController extends BaseController
     public function removeRecipeItem(): RedirectResponse
     {
         $id = filter_var($this->request->getPost('recipe_item_id'), FILTER_VALIDATE_INT);
-        if (!$id || !db_connect()->table('recipe_items')->where('id', $id)->delete()) {
+        $database = db_connect();
+        $item = $id ? $database->table('recipe_items')->where('id', $id)->get()->getRowArray() : null;
+        if (!$item) {
             return redirect()->route('panel.master')->with('error', 'Bahan resep tidak ditemukan.');
+        }
+        try {
+            $database->transException(true)->transStart();
+            $database->table('recipe_items')->where('id', $id)->delete();
+            (new AuditLogService($database))->record((int) session('user_id'), 'recipe.item.removed', 'recipe_item', $id, 'Bahan dihapus dari resep.', [
+                'recipe_id' => (int) $item['recipe_id'], 'inventory_item_id' => (int) $item['inventory_item_id'], 'quantity' => $item['quantity'],
+            ], []);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.master')->with('error', 'Bahan resep belum dapat dihapus: ' . $exception->getMessage());
         }
         return redirect()->route('panel.master')->with('success', 'Bahan dihapus dari resep.');
     }

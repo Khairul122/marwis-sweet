@@ -4,6 +4,7 @@ namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
 use App\Services\ExpenseService;
+use App\Services\AuditLogService;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 
@@ -75,7 +76,7 @@ class ExpenseController extends BaseController
 
     public function reject(int $expenseId): RedirectResponse
     {
-        return $this->runAction(fn () => (new ExpenseService())->reject($expenseId, (string) $this->request->getPost('review_notes')), 'Pengeluaran dikembalikan untuk diperbaiki.');
+        return $this->runAction(fn () => (new ExpenseService())->reject($expenseId, (string) $this->request->getPost('review_notes'), (int) session('user_id')), 'Pengeluaran dikembalikan untuk diperbaiki.');
     }
 
     public function cancel(int $expenseId): RedirectResponse
@@ -99,10 +100,14 @@ class ExpenseController extends BaseController
         $now = date('Y-m-d H:i:s');
         $lastCode = (int) ($database->table('accounts')->selectMax('code', 'code')->where('account_type', 'expense')->get()->getRow('code') ?? 6000);
         $accountCode = (string) (max(6000, $lastCode) + 10);
-        $database->transStart();
+        $database->transException(true)->transStart();
         $database->table('accounts')->insert(['code' => $accountCode, 'name' => 'Beban ' . $name, 'account_type' => 'expense', 'normal_balance' => 'debit', 'system_key' => 'expense_' . str_replace('-', '_', $slug), 'allow_manual' => true, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now]);
         $accountId = (int) $database->insertID();
         $builder->insert(['name' => $name, 'slug' => $slug, 'account_id' => $accountId, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now]);
+        $categoryId = (int) $database->insertID();
+        (new AuditLogService($database))->record((int) session('user_id'), 'account.expense_category.created', 'expense_category', $categoryId, 'Kategori dan akun beban dibuat.', [], [
+            'name' => $name, 'slug' => $slug, 'account_id' => $accountId, 'account_code' => $accountCode,
+        ]);
         $database->transComplete();
         if (!$database->transStatus()) {
             return redirect()->route('panel.expenses')->with('error', 'Kategori dan akun bebannya belum berhasil dibuat.');
@@ -118,7 +123,12 @@ class ExpenseController extends BaseController
         if (!$category) {
             return redirect()->route('panel.expenses')->with('error', 'Kategori tidak ditemukan.');
         }
-        $builder->where('id', $categoryId)->update(['is_active' => !$category['is_active'], 'updated_at' => date('Y-m-d H:i:s')]);
+        $newStatus = !(bool) $category['is_active'];
+        $database = db_connect();
+        $database->transException(true)->transStart();
+        $builder->where('id', $categoryId)->update(['is_active' => $newStatus, 'updated_at' => date('Y-m-d H:i:s')]);
+        (new AuditLogService($database))->record((int) session('user_id'), 'account.expense_category.status_changed', 'expense_category', $categoryId, null, ['is_active' => (bool) $category['is_active']], ['is_active' => $newStatus]);
+        $database->transComplete();
         return redirect()->route('panel.expenses')->with('success', $category['is_active'] ? 'Kategori dinonaktifkan.' : 'Kategori diaktifkan.');
     }
 

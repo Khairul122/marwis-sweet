@@ -7,6 +7,7 @@ use App\Models\CategoryModel;
 use App\Models\ProductModel;
 use App\Models\ProductVariantModel;
 use App\Services\ImageUploadService;
+use App\Services\AuditLogService;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
 
@@ -246,14 +247,30 @@ class CatalogController extends BaseController
         if ($stockMode === 'direct' && !$directItemId) {
             return redirect()->route('panel.catalog')->with('error', 'Pilih item persediaan untuk varian dengan stok langsung.');
         }
-        $model->update($variant['id'], [
+        $data = [
             'name' => trim((string) $this->request->getPost('variant_name')),
             'sku' => strtoupper(trim((string) $this->request->getPost('sku'))),
             'price' => (string) $this->request->getPost('price'),
             'stock_mode' => $stockMode,
             'direct_inventory_item_id' => $directItemId,
             'is_active' => $this->request->getPost('is_active') === '1',
-        ]);
+        ];
+        $database = db_connect();
+        try {
+            $database->transException(true)->transStart();
+            $model->update($variant['id'], $data);
+            (new AuditLogService($database))->record((int) session('user_id'), 'catalog.variant.updated', 'product_variant', $variant['id'], 'Detail atau harga varian diperbarui.', [
+                'name' => $variant['name'], 'sku' => $variant['sku'], 'price' => $variant['price'],
+                'stock_mode' => $variant['stock_mode'], 'direct_inventory_item_id' => $variant['direct_inventory_item_id'], 'is_active' => (bool) $variant['is_active'],
+            ], [
+                'name' => $data['name'], 'sku' => $data['sku'], 'price' => $data['price'],
+                'stock_mode' => $data['stock_mode'], 'direct_inventory_item_id' => $data['direct_inventory_item_id'], 'is_active' => $data['is_active'],
+            ]);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.catalog')->with('error', 'Perubahan varian belum tersimpan: ' . $exception->getMessage());
+        }
         return redirect()->route('panel.catalog')->with('success', 'Varian berhasil diperbarui.');
     }
 
@@ -283,27 +300,109 @@ class CatalogController extends BaseController
             return redirect()->back()->withInput()->with('error', 'Teks alternatif foto harus berisi 5 sampai 180 karakter.');
         }
         $database = db_connect();
-        $imageCount = $database->table('product_images')->where('product_id', $product['id'])->countAllResults();
-        if ($imageCount >= 5) {
-            return redirect()->back()->with('error', 'Satu produk dapat memiliki maksimal 5 foto.');
-        }
         try {
             $imagePath = (new ImageUploadService())->store($this->request->getFile('image'), 'products', 2 * 1024 * 1024);
         } catch (RuntimeException $exception) {
             return redirect()->back()->with('error', $exception->getMessage());
         }
-        $database->table('product_images')->insert([
-            'product_id' => $product['id'],
-            'image_path' => $imagePath,
-            'alt_text' => $altText,
-            'sort_order' => $imageCount,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
-        if (!$product['image_path']) {
-            $productModel->update($product['id'], ['image_path' => $imagePath]);
+        try {
+            $database->transException(true)->transStart();
+            $lockedProduct = $database->query('SELECT id, image_path FROM products WHERE id = ? FOR UPDATE', [$product['id']])->getRowArray();
+            $imageCount = $database->table('product_images')->where('product_id', $product['id'])->countAllResults();
+            if (!$lockedProduct || $imageCount >= 5) { throw new RuntimeException('Satu produk dapat memiliki maksimal 5 foto.'); }
+            $sortOrder = (int) ($database->table('product_images')->selectMax('sort_order', 'sort_order')->where('product_id', $product['id'])->get()->getRow('sort_order') ?? -1) + 1;
+            $now = date('Y-m-d H:i:s');
+            $database->table('product_images')->insert([
+                'product_id' => $product['id'], 'image_path' => $imagePath, 'alt_text' => $altText,
+                'sort_order' => $sortOrder, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            if (!$lockedProduct['image_path']) { $productModel->update($product['id'], ['image_path' => $imagePath]); }
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            $this->deleteMediaIfUnused($imagePath);
+            return redirect()->to(site_url('panel/data/product/' . $product['id'] . '/edit'))->with('error', $exception->getMessage());
         }
-        return redirect()->route('panel.catalog')->with('success', 'Foto produk berhasil ditambahkan.');
+        return redirect()->to(site_url('panel/data/product/' . $product['id'] . '/edit'))->with('success', 'Foto produk berhasil ditambahkan.');
+    }
+
+    public function updateImage(): RedirectResponse
+    {
+        $imageId = filter_var($this->request->getPost('image_id'), FILTER_VALIDATE_INT);
+        $database = db_connect();
+        $image = $imageId ? $database->table('product_images')->where('id', $imageId)->get()->getRowArray() : null;
+        if (!$image) { return redirect()->route('panel.catalog')->with('error', 'Foto produk tidak ditemukan.'); }
+        $altText = trim((string) $this->request->getPost('alt_text'));
+        if (mb_strlen($altText) < 5 || mb_strlen($altText) > 180) {
+            return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->withInput()->with('error', 'Teks alternatif foto harus berisi 5 sampai 180 karakter.');
+        }
+        $file = $this->request->getFile('image');
+        $newPath = null;
+        if ($file && $file->getError() !== UPLOAD_ERR_NO_FILE) {
+            try { $newPath = (new ImageUploadService())->store($file, 'products', 2 * 1024 * 1024); }
+            catch (RuntimeException $exception) { return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->withInput()->with('error', $exception->getMessage()); }
+        }
+        try {
+            $database->transException(true)->transStart();
+            $database->table('product_images')->where('id', $imageId)->update(array_filter([
+                'alt_text' => $altText, 'image_path' => $newPath, 'updated_at' => date('Y-m-d H:i:s'),
+            ], static fn ($value): bool => $value !== null));
+            $this->syncProductPrimaryImage((int) $image['product_id']);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            if ($newPath) { $this->deleteMediaIfUnused($newPath); }
+            return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->with('error', 'Foto produk belum berhasil diperbarui.');
+        }
+        if ($newPath) { $this->deleteMediaIfUnused($image['image_path']); }
+        return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->with('success', 'Foto produk berhasil diperbarui.');
+    }
+
+    public function moveImage(): RedirectResponse
+    {
+        $imageId = filter_var($this->request->getPost('image_id'), FILTER_VALIDATE_INT);
+        $direction = (string) $this->request->getPost('direction');
+        $database = db_connect();
+        $image = $imageId ? $database->table('product_images')->where('id', $imageId)->get()->getRowArray() : null;
+        if (!$image || !in_array($direction, ['up', 'down'], true)) { return redirect()->route('panel.catalog')->with('error', 'Urutan foto tidak valid.'); }
+        $images = $database->table('product_images')->where('product_id', $image['product_id'])->orderBy('sort_order')->orderBy('id')->get()->getResultArray();
+        $position = array_search((int) $imageId, array_map(static fn (array $row): int => (int) $row['id'], $images), true);
+        $target = $direction === 'up' ? $position - 1 : $position + 1;
+        if ($position === false || !isset($images[$target])) { return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit')); }
+        $moved = $images[$position];
+        array_splice($images, $position, 1);
+        array_splice($images, $target, 0, [$moved]);
+        try {
+            $database->transException(true)->transStart();
+            foreach ($images as $sortOrder => $row) {
+                $database->table('product_images')->where('id', $row['id'])->update(['sort_order' => $sortOrder, 'updated_at' => date('Y-m-d H:i:s')]);
+            }
+            $this->syncProductPrimaryImage((int) $image['product_id']);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->with('error', 'Urutan foto belum berhasil diperbarui.');
+        }
+        return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->with('success', 'Urutan foto produk diperbarui.');
+    }
+
+    public function deleteImage(): RedirectResponse
+    {
+        $imageId = filter_var($this->request->getPost('image_id'), FILTER_VALIDATE_INT);
+        $database = db_connect();
+        $image = $imageId ? $database->table('product_images')->where('id', $imageId)->get()->getRowArray() : null;
+        if (!$image) { return redirect()->route('panel.catalog')->with('error', 'Foto produk tidak ditemukan.'); }
+        try {
+            $database->transException(true)->transStart();
+            $database->table('product_images')->where('id', $imageId)->delete();
+            $this->syncProductPrimaryImage((int) $image['product_id']);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->with('error', 'Foto produk belum dapat dihapus.');
+        }
+        $this->deleteMediaIfUnused($image['image_path']);
+        return redirect()->to(site_url('panel/data/product/' . $image['product_id'] . '/edit'))->with('success', 'Foto produk dihapus.');
     }
 
     public function deleteCategory(): RedirectResponse
@@ -330,12 +429,7 @@ class CatalogController extends BaseController
         $images = db_connect()->table('product_images')->select('image_path')->where('product_id', $id)->get()->getResultArray();
         $response = $this->deleteRow('products', $id, 'Produk berhasil dihapus.', 'Produk sudah punya riwayat transaksi atau ulasan dan tidak dapat dihapus. Sembunyikan dari katalog dengan menonaktifkannya.');
         if (session()->has('success')) {
-            foreach ($images as $image) {
-                $path = realpath(FCPATH . $image['image_path']);
-                if ($path && str_starts_with($path, realpath(FCPATH . 'uploads') ?: "\0")) {
-                    @unlink($path);
-                }
-            }
+            foreach ($images as $image) { $this->deleteMediaIfUnused($image['image_path']); }
         }
 
         return $response;
@@ -350,6 +444,23 @@ class CatalogController extends BaseController
         }
 
         return redirect()->route('panel.catalog')->with('success', $success);
+    }
+
+    private function syncProductPrimaryImage(int $productId): void
+    {
+        $first = db_connect()->table('product_images')->where('product_id', $productId)->orderBy('sort_order')->orderBy('id')->get()->getRowArray();
+        (new ProductModel())->update($productId, ['image_path' => $first['image_path'] ?? null]);
+    }
+
+    private function deleteMediaIfUnused(string $relativePath): void
+    {
+        $database = db_connect();
+        foreach (['product_images', 'products', 'banners'] as $table) {
+            if ($database->table($table)->where('image_path', $relativePath)->countAllResults() > 0) { return; }
+        }
+        $uploadsRoot = realpath(FCPATH . 'uploads');
+        $path = realpath(FCPATH . str_replace('/', DIRECTORY_SEPARATOR, $relativePath));
+        if ($uploadsRoot && $path && str_starts_with($path, $uploadsRoot . DIRECTORY_SEPARATOR) && is_file($path)) { @unlink($path); }
     }
 
     private function findCategory(): ?array

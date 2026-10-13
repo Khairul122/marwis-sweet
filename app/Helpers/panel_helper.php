@@ -72,19 +72,20 @@ if (! function_exists('panel_table')) {
         $th = '<th class="' . $cell . ' font-bold">No</th>';
         foreach ($head as $label) {
             $right = str_starts_with($label, '>');
-            $th .= '<th class="' . $cell . ' font-bold' . ($right ? ' text-right' : '') . '">' . esc(ltrim($label, '>')) . '</th>';
+            $th .= '<th scope="col" class="' . $cell . ' font-bold' . ($right ? ' text-right' : '') . '">' . esc(ltrim($label, '>')) . '</th>';
         }
         $body = '';
         foreach ($rows as $i => $cells) {
-            $body .= '<tr><td class="' . $cell . ' tabular-nums" data-dt-no>' . ($i + 1) . '</td>';
+            $body .= '<tr><td class="' . $cell . ' tabular-nums" data-label="No" data-dt-no>' . ($i + 1) . '</td>';
             foreach ($cells as $index => $html) {
                 $right = str_starts_with($head[$index] ?? '', '>');
-                $body .= '<td class="' . $cell . ($right ? ' text-right tabular-nums' : '') . '">' . $html . '</td>';
+                $label = ltrim($head[$index] ?? '', '>');
+                $body .= '<td class="' . $cell . ($right ? ' text-right tabular-nums' : '') . '" data-label="' . esc($label, 'attr') . '"><span class="panel-data-label" aria-hidden="true">' . esc($label) . '</span>' . $html . '</td>';
             }
             $body .= '</tr>';
         }
         if ($rows === []) {
-            $body = '<tr><td class="px-4 py-6 text-ink-muted" colspan="' . (count($head) + 1) . '">' . esc($o['empty'] ?? 'Belum ada data.') . '</td></tr>';
+            $body = '<tr class="panel-table-empty"><td class="px-4 py-6 text-ink-muted" colspan="' . (count($head) + 1) . '">' . esc($o['empty'] ?? 'Belum ada data.') . '</td></tr>';
         }
         $create = isset($o['createUrl'])
             ? '<a class="button-primary" href="' . site_url($o['createUrl']) . '">' . esc($o['create'] ?? 'Tambah data') . '</a>'
@@ -92,7 +93,7 @@ if (! function_exists('panel_table')) {
 
         return '<section class="panel-card mb-8 overflow-hidden"><div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-warm px-5 py-4">'
             . '<h2 class="font-bold uppercase tracking-wide">' . esc($title) . '</h2>' . $create . '</div>'
-            . '<div class="overflow-x-auto"><table class="w-full min-w-[' . ($o['width'] ?? '40rem') . '] text-left text-sm"' . (($o['search'] ?? true) ? ' data-datatable' : '') . '>'
+            . '<div class="panel-table-scroll max-h-[72vh] overflow-auto"><table class="panel-data-table w-full min-w-[' . ($o['width'] ?? '40rem') . '] text-left text-sm"' . (($o['search'] ?? true) ? ' data-datatable' : '') . '>'
             . '<thead class="bg-surface-soft-yellow"><tr>' . $th . '</tr></thead><tbody class="divide-y divide-border-warm">' . $body . '</tbody></table></div></section>';
     }
 }

@@ -25,7 +25,7 @@
             <?php elseif ($type === 'money'): ?>
                 <div class="input-prefix"><span>Rp</span><input <?= $common ?> type="number" min="<?= esc($field['minv'] ?? 0) ?>" step="<?= esc($field['step'] ?? '1') ?>" value="<?= esc(($field['step'] ?? '') === '0.01' ? (string) $value : ($value !== '' ? (string) (int) $value : '')) ?>"></div>
             <?php elseif ($type === 'file'): ?>
-                <input class="form-input file:mr-3 file:border-0 file:bg-brand-sun file:px-3 file:py-1 file:font-bold" <?= $common ?> type="file" accept="<?= esc($field['accept'] ?? 'image/jpeg,image/png,image/webp') ?>">
+                <input class="form-input file:mr-3 file:border-0 file:bg-brand-sun file:px-3 file:py-1 file:font-bold" <?= $common ?> type="file" accept="<?= esc($field['accept'] ?? 'image/jpeg,image/png,image/webp') ?>" <?= $entity === 'banner' && $name === 'image' ? 'data-image-preview-input' : '' ?>>
             <?php else: ?>
                 <input class="form-input <?= !empty($field['upper']) ? 'uppercase' : '' ?>" <?= $common ?> type="<?= esc($type) ?>" value="<?= $type === 'password' ? '' : esc($value) ?>"
                     <?= isset($field['max']) ? 'maxlength="' . (int) $field['max'] . '"' : '' ?> <?= isset($field['min']) && $type !== 'number' ? 'minlength="' . (int) $field['min'] . '"' : '' ?>

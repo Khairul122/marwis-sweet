@@ -32,6 +32,9 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
         $routes->post('products/update', 'Panel\CatalogController::updateProduct');
         $routes->post('products/delete', 'Panel\CatalogController::deleteProduct');
         $routes->post('products/images', 'Panel\CatalogController::addImage');
+        $routes->post('products/images/update', 'Panel\CatalogController::updateImage');
+        $routes->post('products/images/order', 'Panel\CatalogController::moveImage');
+        $routes->post('products/images/delete', 'Panel\CatalogController::deleteImage');
         $routes->post('variants', 'Panel\CatalogController::addVariant', ['as' => 'panel.catalog.variants.create']);
         $routes->post('variants/update', 'Panel\CatalogController::updateVariant');
     });
@@ -144,6 +147,7 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
         $routes->post('finalize', 'Panel\PosController::finalize');
     });
     $routes->get('transactions', 'Panel\PosController::transactions', ['as' => 'panel.transactions']);
+    $routes->get('transactions/(:num).pdf', 'Panel\PosController::receiptPdf/$1', ['as' => 'panel.transactions.receipt.pdf']);
     $routes->get('transactions/(:num)', 'Panel\PosController::receipt/$1');
     $routes->post('transactions/(:num)/refunds', 'Panel\RefundController::submit/$1');
     $routes->post('transactions/(:num)/review-link', 'Panel\PosController::reviewLink/$1');

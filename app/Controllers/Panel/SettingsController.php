@@ -118,21 +118,34 @@ class SettingsController extends BaseController
         if ($startsAt && $endsAt && $endsAt <= $startsAt) {
             return redirect()->back()->withInput()->with('error', 'Waktu selesai harus setelah waktu mulai.');
         }
+        $file = $this->request->getFile('image');
+        if (!$file || $file->getError() === UPLOAD_ERR_NO_FILE) {
+            return redirect()->back()->withInput()->with('error', 'Pilih gambar untuk banner.');
+        }
         try {
-            $imagePath = (new ImageUploadService())->store($this->request->getFile('image'), 'banners', 3 * 1024 * 1024);
+            $imagePath = (new ImageUploadService())->store($file, 'banners', 3 * 1024 * 1024);
         } catch (RuntimeException $exception) {
             return redirect()->back()->withInput()->with('error', $exception->getMessage());
         }
-        (new BannerModel())->insert([
-            'title' => trim((string) $this->request->getPost('title')),
-            'image_path' => $imagePath,
-            'alt_text' => trim((string) $this->request->getPost('alt_text')),
-            'link_url' => $link ?: null,
-            'sort_order' => (int) ($this->request->getPost('sort_order') ?: 0),
-            'starts_at' => $startsAt,
-            'ends_at' => $endsAt,
-            'is_active' => true,
-        ]);
+        $database = db_connect();
+        try {
+            $database->transException(true)->transStart();
+            (new BannerModel())->insert([
+                'title' => trim((string) $this->request->getPost('title')),
+                'image_path' => $imagePath,
+                'alt_text' => trim((string) $this->request->getPost('alt_text')),
+                'link_url' => $link ?: null,
+                'sort_order' => (int) ($this->request->getPost('sort_order') ?: 0),
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+                'is_active' => true,
+            ]);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            $this->deleteMediaIfUnused($imagePath);
+            return redirect()->back()->withInput()->with('error', 'Banner belum dapat disimpan.');
+        }
         return redirect()->route('panel.settings')->with('success', 'Banner berhasil ditambahkan.');
     }
 
@@ -155,12 +168,16 @@ class SettingsController extends BaseController
         if (!$banner) {
             return redirect()->route('panel.settings')->with('error', 'Banner tidak ditemukan.');
         }
-        (new BannerModel())->delete($id);
-        $uploads = realpath(FCPATH . 'uploads');
-        $path = realpath(FCPATH . $banner['image_path']);
-        if ($uploads && $path && str_starts_with($path, $uploads)) {
-            @unlink($path);
+        $database = db_connect();
+        try {
+            $database->transException(true)->transStart();
+            (new BannerModel())->delete($id);
+            $database->transComplete();
+        } catch (\Throwable) {
+            $database->transRollback();
+            return redirect()->route('panel.settings')->with('error', 'Banner belum dapat dihapus.');
         }
+        $this->deleteMediaIfUnused($banner['image_path']);
 
         return redirect()->route('panel.settings')->with('success', 'Banner berhasil dihapus.');
     }
@@ -193,14 +210,32 @@ class SettingsController extends BaseController
         if ($startsAt && $endsAt && $endsAt <= $startsAt) {
             return redirect()->route('panel.settings')->with('error', 'Waktu selesai harus setelah waktu mulai.');
         }
-        $model->update($banner['id'], [
+        $data = [
             'title' => trim((string) $this->request->getPost('title')),
             'alt_text' => trim((string) $this->request->getPost('alt_text')),
             'link_url' => $link ?: null,
             'sort_order' => (int) $this->request->getPost('sort_order'),
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
-        ]);
+        ];
+        $file = $this->request->getFile('image');
+        $newPath = null;
+        if ($file && $file->getError() !== UPLOAD_ERR_NO_FILE) {
+            try { $newPath = (new ImageUploadService())->store($file, 'banners', 3 * 1024 * 1024); }
+            catch (RuntimeException $exception) { return redirect()->back()->withInput()->with('error', $exception->getMessage()); }
+            $data['image_path'] = $newPath;
+        }
+        $database = db_connect();
+        try {
+            $database->transException(true)->transStart();
+            $model->update($banner['id'], $data);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            if ($newPath) { $this->deleteMediaIfUnused($newPath); }
+            return redirect()->route('panel.settings')->with('error', 'Banner belum dapat diperbarui.');
+        }
+        if ($newPath) { $this->deleteMediaIfUnused($banner['image_path']); }
         return redirect()->route('panel.settings')->with('success', 'Banner berhasil diperbarui.');
     }
 
@@ -220,5 +255,16 @@ class SettingsController extends BaseController
         }
         $date = \DateTimeImmutable::createFromFormat('Y-m-d\TH:i', $value, new \DateTimeZone('Asia/Jakarta'));
         return $date ? $date->format('Y-m-d H:i:s') : null;
+    }
+
+    private function deleteMediaIfUnused(string $relativePath): void
+    {
+        $database = db_connect();
+        foreach (['product_images', 'products', 'banners'] as $table) {
+            if ($database->table($table)->where('image_path', $relativePath)->countAllResults() > 0) { return; }
+        }
+        $uploadsRoot = realpath(FCPATH . 'uploads');
+        $path = realpath(FCPATH . str_replace('/', DIRECTORY_SEPARATOR, $relativePath));
+        if ($uploadsRoot && $path && str_starts_with($path, $uploadsRoot . DIRECTORY_SEPARATOR) && is_file($path)) { @unlink($path); }
     }
 }

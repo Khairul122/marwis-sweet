@@ -353,3 +353,131 @@
         animation-iteration-count: 1 !important;
     }
 }
+
+@media print {
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body * {
+        visibility: hidden !important;
+    }
+
+    #receipt,
+    #receipt * {
+        visibility: visible !important;
+    }
+
+    #receipt {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 76mm !important;
+        max-width: 76mm !important;
+        margin: 0 !important;
+        padding: 2mm !important;
+        border: 0 !important;
+        font-size: 10px !important;
+        box-shadow: none !important;
+    }
+
+    html[data-receipt-paper="58"] #receipt {
+        width: 54mm !important;
+        max-width: 54mm !important;
+        padding: 1mm !important;
+        font-size: 9px !important;
+    }
+
+    html[data-receipt-paper="80"] #receipt {
+        width: 76mm !important;
+        max-width: 76mm !important;
+    }
+}
+
+.panel-data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff8df;
+}
+
+.panel-table-scroll {
+    max-height: 72vh;
+    overflow: auto;
+}
+
+.panel-data-label {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .panel-table-scroll {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .panel-data-table,
+    .panel-data-table tbody,
+    .panel-data-table tfoot,
+    .panel-data-table tbody tr,
+    .panel-data-table tfoot tr,
+    .panel-data-table tbody td,
+    .panel-data-table tfoot td {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    .panel-data-table {
+        table-layout: fixed;
+    }
+
+    .panel-data-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        clip-path: inset(50%);
+    }
+
+    .panel-data-table tbody tr:not(.panel-table-empty) {
+        border-bottom: 1px solid #e6d9c2;
+        padding: 0.7rem 1rem;
+        background: #fff;
+    }
+
+    .panel-data-table tbody td[data-label],
+    .panel-data-table tfoot td[data-label] {
+        display: grid;
+        grid-template-columns: minmax(5.5rem, 36%) minmax(0, 1fr);
+        align-items: start;
+        gap: 0.65rem;
+        overflow-wrap: anywhere;
+        padding: 0.45rem 0 !important;
+        text-align: left !important;
+        border: 0;
+    }
+
+    .panel-data-table tbody td[data-label] .panel-data-label,
+    .panel-data-table tfoot td[data-label] .panel-data-label {
+        display: block;
+        color: #65584e;
+        font-size: 0.72rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .panel-data-table tbody td[colspan],
+    .panel-data-table tfoot td[colspan] {
+        display: block;
+        padding: 1.5rem 1rem;
+    }
+
+    .panel-data-table tbody td[data-label="Aksi"] > div {
+        justify-content: flex-start;
+    }
+}

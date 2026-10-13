@@ -4,6 +4,7 @@ namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
 use App\Services\AccountingService;
+use App\Services\AuditLogService;
 use App\Services\Money;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
@@ -89,8 +90,12 @@ class AccountingController extends BaseController
             return redirect()->route('panel.accounting')->with('error', 'Data jurnal manual tidak valid atau akun tidak mengizinkan posting manual.');
         }
         try {
-            $database->transStart();
-            (new AccountingService($database))->post('manual_journal', random_int(1, PHP_INT_MAX), $date, $description, [['account_id' => $debitId, 'debit' => Money::decimal($amountCents), 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => Money::decimal($amountCents)]], (int) session('user_id'));
+            $database->transException(true)->transStart();
+            $sourceId = random_int(1, PHP_INT_MAX);
+            $journalId = (new AccountingService($database))->post('manual_journal', $sourceId, $date, $description, [['account_id' => $debitId, 'debit' => Money::decimal($amountCents), 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => Money::decimal($amountCents)]], (int) session('user_id'));
+            (new AuditLogService($database))->record((int) session('user_id'), 'accounting.journal.manual_posted', 'journal_entry', $journalId, $description, [], [
+                'entry_date' => $date, 'debit_account_id' => $debitId, 'credit_account_id' => $creditId, 'amount' => Money::decimal($amountCents),
+            ]);
             $database->transComplete();
             if (!$database->transStatus()) { throw new RuntimeException('Jurnal manual gagal disimpan.'); }
         } catch (\Throwable $exception) { return redirect()->route('panel.accounting')->with('error', $exception->getMessage()); }
@@ -133,7 +138,10 @@ class AccountingController extends BaseController
             if ($existingOpening) {
                 throw new RuntimeException('Saldo awal untuk akun aset ini sudah pernah diposting (' . $existingOpening['journal_number'] . '). Pengiriman kedua ditolak; koreksi harus dicatat pada jurnal terpisah.');
             }
-            (new AccountingService($database))->post('opening_balance', $debitId, $date, $description, [['account_id' => $debitId, 'debit' => Money::decimal($amountCents), 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => Money::decimal($amountCents)]], (int) session('user_id'));
+            $journalId = (new AccountingService($database))->post('opening_balance', $debitId, $date, $description, [['account_id' => $debitId, 'debit' => Money::decimal($amountCents), 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => Money::decimal($amountCents)]], (int) session('user_id'));
+            (new AuditLogService($database))->record((int) session('user_id'), 'accounting.journal.opening_balance_posted', 'journal_entry', $journalId, $description, [], [
+                'entry_date' => $date, 'debit_account_id' => $debitId, 'credit_account_id' => $creditId, 'amount' => Money::decimal($amountCents),
+            ]);
             $database->transComplete();
             if (!$database->transStatus()) { throw new RuntimeException('Saldo awal gagal disimpan.'); }
         } catch (\Throwable $exception) { return redirect()->route('panel.accounting')->with('error', $exception->getMessage()); }
@@ -147,11 +155,30 @@ class AccountingController extends BaseController
         $start = \DateTimeImmutable::createFromFormat('!Y-m', $month);
         if (!$start || $start->format('Y-m') !== $month || mb_strlen($reason) < 5 || mb_strlen($reason) > 500) { return redirect()->route('panel.accounting')->with('error', 'Bulan dan alasan penutupan wajib diisi.'); }
         $periodStart = $start->format('Y-m-01'); $periodEnd = $start->modify('last day of this month')->format('Y-m-d');
-        $database = db_connect(); $now = date('Y-m-d H:i:s');
-        $existing = $database->table('accounting_periods')->where('period_start', $periodStart)->where('period_end', $periodEnd)->get()->getRowArray();
-        if ($existing && $existing['status'] === 'closed') { return redirect()->route('panel.accounting')->with('error', 'Periode tersebut sudah ditutup.'); }
-        $data = ['status' => 'closed', 'closed_by' => (int) session('user_id'), 'closed_at' => $now, 'close_reason' => $reason, 'updated_at' => $now];
-        if ($existing) { $database->table('accounting_periods')->where('id', $existing['id'])->update($data); } else { $database->table('accounting_periods')->insert($data + ['period_start' => $periodStart, 'period_end' => $periodEnd, 'created_at' => $now]); }
+        $database = db_connect(); $now = date('Y-m-d H:i:s'); $ownerId = (int) session('user_id');
+        try {
+            $database->transException(true)->transStart();
+            $existing = $database->query('SELECT * FROM accounting_periods WHERE period_start = ? AND period_end = ? FOR UPDATE', [$periodStart, $periodEnd])->getRowArray();
+            if ($existing && $existing['status'] === 'closed') {
+                $database->transRollback();
+                return redirect()->route('panel.accounting')->with('error', 'Periode tersebut sudah ditutup.');
+            }
+            $data = ['status' => 'closed', 'closed_by' => $ownerId, 'closed_at' => $now, 'close_reason' => $reason, 'updated_at' => $now];
+            if ($existing) {
+                $periodId = (int) $existing['id'];
+                $database->table('accounting_periods')->where('id', $periodId)->update($data);
+            } else {
+                $database->table('accounting_periods')->insert($data + ['period_start' => $periodStart, 'period_end' => $periodEnd, 'created_at' => $now]);
+                $periodId = (int) $database->insertID();
+            }
+            (new AuditLogService($database))->record($ownerId, 'accounting.period.closed', 'accounting_period', $periodId, $reason, [
+                'status' => $existing['status'] ?? 'open', 'period_start' => $periodStart, 'period_end' => $periodEnd,
+            ], ['status' => 'closed', 'period_start' => $periodStart, 'period_end' => $periodEnd]);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.accounting')->with('error', 'Periode belum dapat ditutup.');
+        }
         return redirect()->route('panel.accounting')->with('success', 'Periode ' . $month . ' ditutup. Posting baru pada bulan tersebut akan ditolak.');
     }
 
@@ -159,9 +186,24 @@ class AccountingController extends BaseController
     {
         $reason = trim((string) $this->request->getPost('reason'));
         if (mb_strlen($reason) < 5 || mb_strlen($reason) > 500) { return redirect()->route('panel.accounting')->with('error', 'Alasan pembukaan kembali harus berisi 5 sampai 500 karakter.'); }
-        $database = db_connect(); $period = $database->table('accounting_periods')->where('id', $periodId)->where('status', 'closed')->get()->getRowArray();
-        if (!$period) { return redirect()->route('panel.accounting')->with('error', 'Periode tertutup tidak ditemukan.'); }
-        $database->table('accounting_periods')->where('id', $periodId)->update(['status' => 'open', 'reopened_by' => (int) session('user_id'), 'reopened_at' => date('Y-m-d H:i:s'), 'reopen_reason' => $reason, 'updated_at' => date('Y-m-d H:i:s')]);
+        $database = db_connect(); $ownerId = (int) session('user_id');
+        try {
+            $database->transException(true)->transStart();
+            $period = $database->query('SELECT * FROM accounting_periods WHERE id = ? FOR UPDATE', [$periodId])->getRowArray();
+            if (!$period || $period['status'] !== 'closed') {
+                $database->transRollback();
+                return redirect()->route('panel.accounting')->with('error', 'Periode tertutup tidak ditemukan.');
+            }
+            $now = date('Y-m-d H:i:s');
+            $database->table('accounting_periods')->where('id', $periodId)->update(['status' => 'open', 'reopened_by' => $ownerId, 'reopened_at' => $now, 'reopen_reason' => $reason, 'updated_at' => $now]);
+            (new AuditLogService($database))->record($ownerId, 'accounting.period.reopened', 'accounting_period', $periodId, $reason, [
+                'status' => 'closed', 'period_start' => $period['period_start'], 'period_end' => $period['period_end'],
+            ], ['status' => 'open', 'period_start' => $period['period_start'], 'period_end' => $period['period_end']]);
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.accounting')->with('error', 'Periode belum dapat dibuka kembali.');
+        }
         return redirect()->route('panel.accounting')->with('success', 'Periode dibuka kembali dan alasannya tersimpan.');
     }
 

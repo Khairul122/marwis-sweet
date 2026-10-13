@@ -22,20 +22,29 @@ class ExpenseService
         }
         $now = date('Y-m-d H:i:s');
         try {
+            $this->database->transException(true)->transStart();
+            $expenseNumber = 'EXP-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2)));
             $this->database->table('expenses')->insert(array_merge($data, [
-                'expense_number' => 'EXP-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2))),
+                'expense_number' => $expenseNumber,
                 'evidence_path' => $evidence['path'] ?? null,
                 'evidence_name' => $evidence['name'] ?? null,
                 'evidence_mime' => $evidence['mime'] ?? null,
                 'status' => 'draft', 'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
             ]));
+            $expenseId = (int) $this->database->insertID();
+            (new AuditLogService($this->database))->record($userId, 'expense.created', 'expense', $expenseId, null, [], [
+                'expense_number' => $expenseNumber, 'status' => 'draft', 'amount' => $data['amount'],
+                'expense_category_id' => $data['expense_category_id'], 'payment_source' => $data['payment_source'],
+            ]);
+            $this->database->transComplete();
         } catch (\Throwable $exception) {
+            $this->database->transRollback();
             if ($evidence) {
                 @unlink(WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $evidence['path']));
             }
             throw $exception;
         }
-        return (int) $this->database->insertID();
+        return $expenseId;
     }
 
     public function update(int $expenseId, array $payload, int $userId): void
@@ -55,7 +64,21 @@ class ExpenseService
         $data['status'] = 'draft';
         $data['review_notes'] = null;
         $data['updated_at'] = date('Y-m-d H:i:s');
-        $this->database->table('expenses')->where('id', $expenseId)->update($data);
+        $evidence = $file && $file->getError() !== UPLOAD_ERR_NO_FILE ? $evidence : null;
+        try {
+            $this->database->transException(true)->transStart();
+            $this->database->table('expenses')->where('id', $expenseId)->update($data);
+            (new AuditLogService($this->database))->record($userId, 'expense.updated', 'expense', $expenseId, 'Draft pengeluaran diperbarui.', [
+                'status' => $expense['status'], 'amount' => $expense['amount'], 'expense_category_id' => (int) $expense['expense_category_id'], 'payment_source' => $expense['payment_source'],
+            ], [
+                'status' => 'draft', 'amount' => $data['amount'], 'expense_category_id' => (int) $data['expense_category_id'], 'payment_source' => $data['payment_source'],
+            ]);
+            $this->database->transComplete();
+        } catch (\Throwable $exception) {
+            $this->database->transRollback();
+            if ($evidence) { @unlink(WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $evidence['path'])); }
+            throw $exception;
+        }
         if ($oldPath) {
             @unlink(WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, $oldPath));
         }
@@ -68,12 +91,12 @@ class ExpenseService
                 throw new RuntimeException('Pengeluaran ini tidak dapat diajukan oleh akun Anda.');
             }
             return ['submitted_by' => $userId, 'submitted_at' => $now];
-        });
+        }, $userId);
     }
 
     public function approve(int $expenseId, int $ownerId): void
     {
-        $this->transition($expenseId, ['submitted'], 'approved', static fn (array $expense, string $now): array => ['approved_by' => $ownerId, 'approved_at' => $now]);
+        $this->transition($expenseId, ['submitted'], 'approved', static fn (array $expense, string $now): array => ['approved_by' => $ownerId, 'approved_at' => $now], $ownerId);
     }
 
     public function pay(int $expenseId, int $ownerId): void
@@ -95,16 +118,16 @@ class ExpenseService
                 ['account_key' => AccountingService::paymentAccountKey($expense['payment_source']), 'debit' => 0, 'credit' => (float) $expense['amount']],
             ], $ownerId);
             return ['posting_date' => $postingDate, 'paid_by' => $ownerId, 'paid_at' => $now];
-        });
+        }, $ownerId);
     }
 
-    public function reject(int $expenseId, string $reason): void
+    public function reject(int $expenseId, string $reason, int $ownerId): void
     {
         $reason = trim($reason);
         if (mb_strlen($reason) < 5 || mb_strlen($reason) > 500) {
             throw new RuntimeException('Catatan penolakan harus berisi 5 sampai 500 karakter.');
         }
-        $this->transition($expenseId, ['submitted'], 'rejected', static fn (): array => ['review_notes' => $reason]);
+        $this->transition($expenseId, ['submitted'], 'rejected', static fn (): array => ['review_notes' => $reason], $ownerId);
     }
 
     public function cancel(int $expenseId, string $reason, int $userId, string $role): void
@@ -118,7 +141,7 @@ class ExpenseService
                 throw new RuntimeException('Pengeluaran ini tidak dapat dibatalkan oleh akun Anda.');
             }
             return ['cancellation_reason' => $reason, 'cancelled_by' => $userId, 'cancelled_at' => $now];
-        });
+        }, $userId);
     }
 
     private function normalize(array $payload, int $userId): array
@@ -157,7 +180,7 @@ class ExpenseService
         ];
     }
 
-    private function transition(int $expenseId, array $fromStatuses, string $toStatus, callable $extra): void
+    private function transition(int $expenseId, array $fromStatuses, string $toStatus, callable $extra, int $actorUserId): void
     {
         try {
             $this->database->transException(true)->transStart();
@@ -170,6 +193,14 @@ class ExpenseService
             $data['status'] = $toStatus;
             $data['updated_at'] = $now;
             $this->database->table('expenses')->where('id', $expenseId)->update($data);
+            $before = [
+                'status' => $expense['status'], 'amount' => $expense['amount'],
+                'expense_category_id' => (int) $expense['expense_category_id'], 'payment_source' => $expense['payment_source'],
+            ];
+            $after = $before;
+            $after['status'] = $toStatus;
+            $reason = $data['review_notes'] ?? $data['cancellation_reason'] ?? null;
+            (new AuditLogService($this->database))->record($actorUserId, 'expense.' . $toStatus, 'expense', $expenseId, $reason, $before, $after);
             $this->database->transComplete();
         } catch (\Throwable $exception) {
             $this->database->transRollback();

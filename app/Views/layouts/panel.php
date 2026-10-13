@@ -12,7 +12,7 @@
     <a class="skip-link" href="#panel-content">Lewati ke konten</a>
     <div class="min-h-screen lg:grid lg:grid-cols-[17.5rem_1fr]">
         <div class="fixed inset-0 z-40 hidden bg-brand-cocoa/45 lg:hidden" data-drawer-overlay></div>
-        <aside id="panel-navigation" class="panel-sidebar fixed inset-y-0 left-0 z-50 w-[17.5rem] -translate-x-full border-r border-black bg-[#0B0B0B] text-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0" data-drawer aria-label="Navigasi panel">
+        <aside id="panel-navigation" class="panel-sidebar fixed inset-y-0 left-0 z-50 w-[17.5rem] -translate-x-full border-r border-black bg-[#0B0B0B] text-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0" data-drawer aria-label="Navigasi panel" aria-hidden="true" inert>
             <div class="flex h-full flex-col">
                 <div class="flex items-center justify-between p-5">
                     <a class="flex items-center gap-3 focus-ring" href="<?= site_url('panel') ?>">

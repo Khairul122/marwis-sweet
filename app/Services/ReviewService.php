@@ -145,11 +145,21 @@ class ReviewService
     public function moderate(int $reviewId, string $action, string $reason, int $ownerId): void
     {
         if (!in_array($action, ['approve', 'reject', 'hide'], true)) { throw new RuntimeException('Tindakan moderasi tidak valid.'); }
-        $review = $this->database->table('product_reviews')->where('id', $reviewId)->get()->getRowArray();
-        if (!$review || ($action === 'hide' ? $review['status'] !== 'approved' : $review['status'] !== 'pending')) { throw new RuntimeException('Ulasan tidak tersedia untuk tindakan tersebut.'); }
         if ($action !== 'approve' && (mb_strlen(trim($reason)) < 5 || mb_strlen(trim($reason)) > 500)) { throw new RuntimeException('Alasan moderasi harus berisi 5 sampai 500 karakter.'); }
-        $status = ['approve' => 'approved', 'reject' => 'rejected', 'hide' => 'hidden'][$action];
-        $this->database->table('product_reviews')->where('id', $reviewId)->update(['status' => $status, 'moderation_reason' => $action === 'approve' ? null : trim($reason), 'moderated_by' => $ownerId, 'moderated_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]);
+        try {
+            $this->database->transException(true)->transStart();
+            $review = $this->database->query('SELECT id, status FROM product_reviews WHERE id = ? FOR UPDATE', [$reviewId])->getRowArray();
+            if (!$review || ($action === 'hide' ? $review['status'] !== 'approved' : $review['status'] !== 'pending')) { throw new RuntimeException('Ulasan tidak tersedia untuk tindakan tersebut.'); }
+            $status = ['approve' => 'approved', 'reject' => 'rejected', 'hide' => 'hidden'][$action];
+            $moderationReason = $action === 'approve' ? null : trim($reason);
+            $now = date('Y-m-d H:i:s');
+            $this->database->table('product_reviews')->where('id', $reviewId)->update(['status' => $status, 'moderation_reason' => $moderationReason, 'moderated_by' => $ownerId, 'moderated_at' => $now, 'updated_at' => $now]);
+            (new AuditLogService($this->database))->record($ownerId, 'review.' . $status, 'product_review', $reviewId, $moderationReason, ['status' => $review['status']], ['status' => $status]);
+            $this->database->transComplete();
+        } catch (\Throwable $exception) {
+            $this->database->transRollback();
+            throw $exception;
+        }
     }
 
     public function attemptCount(string $token, string $ipAddress): int

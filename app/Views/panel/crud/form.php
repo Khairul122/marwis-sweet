@@ -11,6 +11,7 @@
     <form action="<?= $action ?>" method="post" <?= !empty($config['multipart']) ? 'enctype="multipart/form-data"' : '' ?> class="grid gap-5 sm:grid-cols-2">
         <?= csrf_field() ?>
         <?= $this->include('panel/crud/_fields') ?>
+        <?php if ($entity === 'banner'): ?><?= $this->include('panel/crud/_banner_preview') ?><?php endif ?>
         <div class="flex flex-wrap gap-3 sm:col-span-2">
             <button class="button-primary" type="submit">Simpan</button>
             <a class="button-secondary" href="<?= site_url($config['index']) ?>">Batal</a>

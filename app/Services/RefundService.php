@@ -291,6 +291,16 @@ class RefundService
                 $reviewIds = array_column($this->database->table('product_reviews')->select('product_reviews.id')->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')->where('review_tokens.sale_id', $sale['id'])->get()->getResultArray(), 'id');
                 if ($reviewIds !== []) { $this->database->table('product_reviews')->whereIn('id', $reviewIds)->update(['sale_fully_refunded' => true, 'updated_at' => $now]); }
             }
+            (new AuditLogService($this->database))->record($ownerId, 'refund.posted', 'refund', $refundId, $refund['reason'] ?? null, [
+                'status' => 'submitted', 'amount' => $refund['amount'],
+            ], [
+                'status' => 'posted', 'amount' => $refund['amount'], 'method' => $refund['method'],
+                'sale_status' => $status, 'restocked_cogs' => Money::decimal($restoredCogsCents),
+                'items' => array_map(static fn (array $item): array => [
+                    'sale_item_id' => (int) $item['sale_item_id'], 'quantity' => $item['quantity'],
+                    'restock_decision' => $item['restock_decision'], 'cogs_reversed' => $item['cogs_reversed'],
+                ], $this->database->table('refund_items')->where('refund_id', $refundId)->get()->getResultArray()),
+            ]);
             $this->database->transComplete();
             return (int) $sale['id'];
         } catch (\Throwable $exception) {
@@ -316,6 +326,9 @@ class RefundService
                 'status' => 'rejected', 'rejected_by' => $ownerId, 'rejection_reason' => $reason,
                 'rejected_at' => $now, 'updated_at' => $now,
             ]);
+            (new AuditLogService($this->database))->record($ownerId, 'refund.rejected', 'refund', $refundId, $reason, [
+                'status' => $refund['status'], 'amount' => $refund['amount'],
+            ], ['status' => 'rejected', 'amount' => $refund['amount']]);
             $this->database->transComplete();
             return (int) $refund['sale_id'];
         } catch (\Throwable $exception) {

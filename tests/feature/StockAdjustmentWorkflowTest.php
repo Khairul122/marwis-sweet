@@ -82,7 +82,10 @@ final class StockAdjustmentWorkflowTest extends CIUnitTestCase
                 $this->database->table('stock_adjustments')->whereIn('id', $adjustmentIds)->delete();
             }
             $this->database->table('inventory_items')->where('id', $this->itemId)->delete();
-            $this->database->table('users')->whereIn('id', [$this->ownerId, $this->cashierId])->delete();
+            $hasAuditHistory = $this->database->table('audit_events')->whereIn('actor_user_id', [$this->ownerId, $this->cashierId])->countAllResults() > 0;
+            if (!$hasAuditHistory) {
+                $this->database->table('users')->whereIn('id', [$this->ownerId, $this->cashierId])->delete();
+            }
         }
         parent::tearDown();
     }
