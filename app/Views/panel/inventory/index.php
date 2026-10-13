@@ -21,15 +21,8 @@
 <div class="grid gap-6 xl:grid-cols-[23rem_minmax(0,1fr)] xl:items-start">
     <section class="panel-card p-5 sm:p-6 xl:sticky xl:top-24">
         <h2 class="text-lg font-bold">Buat draft penerimaan</h2>
-        <form action="<?= site_url('panel/inventory/receipts') ?>" method="post" class="mt-5 space-y-4">
-            <?= csrf_field() ?>
-            <div><label class="form-label" for="receipt-reference">Nomor referensi</label><input class="form-input uppercase" id="receipt-reference" name="reference_number" placeholder="Contoh: PB-2026-001" required></div>
-            <div><label class="form-label" for="receipt-date">Tanggal dokumen</label><input class="form-input" id="receipt-date" name="document_date" type="date" value="<?= date('Y-m-d') ?>" required></div>
-            <div><label class="form-label" for="receipt-supplier">Supplier <span class="font-normal text-ink-muted">(opsional)</span></label><select class="form-input" id="receipt-supplier" name="supplier_id"><option value="">Tanpa supplier</option><?php foreach ($suppliers as $supplier): ?><option value="<?= (int) $supplier['id'] ?>"><?= esc($supplier['name']) ?></option><?php endforeach ?></select></div>
-            <div><label class="form-label" for="payment-source">Sumber pembayaran</label><select class="form-input" id="payment-source" name="payment_source"><option value="cash">Kas</option><option value="bank">Bank</option><option value="payable">Utang usaha</option></select></div>
-            <div><label class="form-label" for="receipt-notes">Catatan <span class="font-normal text-ink-muted">(opsional)</span></label><textarea class="form-input min-h-20" id="receipt-notes" name="notes" maxlength="500"></textarea></div>
-            <button class="button-primary w-full" type="submit">Buat draft</button>
-        </form>
+        <p class="mt-1 text-sm text-ink-muted">Catat bahan yang datang, lalu tambahkan itemnya pada dokumen.</p>
+        <a class="button-primary mt-5 w-full" href="<?= site_url('panel/data/receipt/create') ?>">Tambah draft penerimaan</a>
     </section>
 
     <section>

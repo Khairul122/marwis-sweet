@@ -43,7 +43,7 @@ class ExpenseController extends BaseController
         try {
             (new ExpenseService())->create($this->expensePayload(), (int) session('user_id'));
         } catch (\Throwable $exception) {
-            return redirect()->route('panel.expenses')->with('error', $exception->getMessage());
+            return redirect()->back()->withInput()->with('error', $exception->getMessage());
         }
         return redirect()->route('panel.expenses')->with('success', 'Draft pengeluaran berhasil dibuat.');
     }
@@ -53,7 +53,7 @@ class ExpenseController extends BaseController
         try {
             (new ExpenseService())->update($expenseId, $this->expensePayload(), (int) session('user_id'));
         } catch (\Throwable $exception) {
-            return redirect()->route('panel.expenses')->with('error', $exception->getMessage());
+            return redirect()->back()->withInput()->with('error', $exception->getMessage());
         }
         return redirect()->route('panel.expenses')->with('success', 'Draft pengeluaran diperbarui.');
     }

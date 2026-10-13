@@ -1,86 +1,84 @@
 <?= $this->extend('layouts/panel') ?>
 <?= $this->section('content') ?>
-<div class="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+<?php
+$rupiah = static fn ($value): string => 'Rp' . number_format((float) $value, 0, ',', '.');
+$activeBadge = static fn (bool $active): string => $active ? '<span class="status-label bg-[#F0FDF4] text-status-success">Aktif</span>' : '<span class="status-label bg-surface-soft-yellow text-ink-muted">Nonaktif</span>';
+?>
+<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div>
         <p class="section-kicker">Master usaha</p>
         <h1 class="mt-2 font-display text-3xl leading-tight sm:text-4xl">Produk dan kategori</h1>
-        <p class="mt-3 max-w-2xl text-ink-muted">Susun kategori, produk, varian, harga, dan status publik dari satu halaman.</p>
     </div>
-    <div class="flex flex-wrap gap-3 self-start"><a class="button-primary" href="<?= site_url('panel/form/product') ?>">Tambah produk</a><a class="button-secondary" href="<?= site_url('/') ?>" target="_blank" rel="noopener">Buka katalog publik</a></div>
+    <a class="button-secondary self-start" href="<?= site_url('/') ?>" target="_blank" rel="noopener">Buka katalog publik</a>
 </div>
 
-<div class="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start">
-    <aside class="space-y-6 xl:sticky xl:top-24">
-        <section class="panel-card overflow-hidden">
-            <div class="flex items-center justify-between gap-3 border-b border-border-warm px-5 py-4"><h2 class="font-bold">Kategori tersedia</h2><a class="button-primary !min-h-9 !px-3" href="<?= site_url('panel/form/category') ?>">Tambah</a></div>
-            <?php if ($categories === []): ?>
-                <div class="p-5"><p class="font-semibold">Belum ada kategori.</p><p class="mt-1 text-sm text-ink-muted">Tambahkan kategori sebelum membuat produk.</p></div>
-            <?php else: ?>
-                <div class="divide-y divide-border-warm">
-                    <?php foreach ($categories as $category): ?>
-                        <div class="px-5 py-4">
-                            <div class="flex items-center justify-between gap-3"><div class="min-w-0"><p class="truncate font-semibold"><?= esc($category['name']) ?></p><p class="mt-1 text-xs text-ink-muted">Urutan <?= (int) $category['sort_order'] ?></p></div><form action="<?= site_url('panel/catalog/categories/status') ?>" method="post"><?= csrf_field() ?><input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>"><button class="status-button <?= $category['is_active'] ? 'is-active' : '' ?>" type="submit" aria-label="<?= $category['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?> kategori <?= esc($category['name']) ?>"><?= $category['is_active'] ? 'Aktif' : 'Nonaktif' ?></button></form></div>
-                            <a class="mt-3 inline-flex min-h-11 items-center text-sm font-bold underline decoration-brand-sun decoration-2 underline-offset-4" href="<?= site_url('panel/form/category/' . (int) $category['id']) ?>">Edit kategori</a>
-                        </div>
-                    <?php endforeach ?>
-                </div>
-            <?php endif ?>
-        </section>
-    </aside>
-
-    <div class="space-y-6">
-        <section>
-            <div class="mb-4 flex items-end justify-between gap-4"><div><h2 class="text-xl font-bold">Daftar produk</h2><p class="mt-1 text-sm text-ink-muted"><?= count($products) ?> produk tersimpan</p></div></div>
-            <?php if ($products === []): ?>
-                <div class="panel-card p-8"><p class="font-display text-2xl">Belum ada produk.</p><p class="mt-2 text-ink-muted">Pilih "Tambah produk" untuk menerbitkan menu pertama.</p></div>
-            <?php else: ?>
-                <div class="space-y-4">
-                    <?php foreach ($products as $product): ?>
-                        <?php $variants = $variantsByProduct[$product['id']] ?? []; ?>
-                        <?php $images = $imagesByProduct[$product['id']] ?? []; ?>
-                        <article class="panel-card overflow-hidden">
-                            <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                                <div class="min-w-0">
-                                    <div class="flex flex-wrap items-center gap-2"><span class="text-xs font-bold uppercase tracking-wider text-brand-chili"><?= esc($product['category_name']) ?></span><?php if ($product['is_featured']): ?><span class="status-label bg-brand-sun text-brand-cocoa">Unggulan</span><?php endif ?></div>
-                                    <h3 class="mt-2 font-display text-2xl"><?= esc($product['name']) ?></h3>
-                                    <?php if ($product['description']): ?><p class="mt-2 max-w-2xl text-sm leading-6 text-ink-muted"><?= esc($product['description']) ?></p><?php endif ?>
-                                    <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                                        <?php foreach ($variants as $variant): ?><span><strong><?= esc($variant['name']) ?></strong> <span class="tabular-nums text-ink-muted">Rp<?= number_format((float) $variant['price'], 0, ',', '.') ?></span></span><?php endforeach ?>
-                                    </div>
-                                </div>
-                                <form action="<?= site_url('panel/catalog/products/status') ?>" method="post">
-                                    <?= csrf_field() ?><input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-                                    <button class="status-button <?= $product['is_active'] ? 'is-active' : '' ?>" type="submit"><?= $product['is_active'] ? 'Tampil di katalog' : 'Disembunyikan' ?></button>
-                                </form>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-3 border-t border-border-warm bg-[#FFFCF4] px-5 py-4 sm:px-6">
-                                <a class="button-secondary" href="<?= site_url('panel/form/product/' . (int) $product['id']) ?>">Edit produk</a>
-                                <a class="button-secondary" href="<?= site_url('panel/form/variant?product_id=' . (int) $product['id']) ?>">Tambah varian</a>
-                                <?php foreach ($variants as $variant): ?><a class="text-sm font-bold underline decoration-brand-sun decoration-2 underline-offset-4" href="<?= site_url('panel/form/variant/' . (int) $variant['id']) ?>">Edit varian <?= esc($variant['name']) ?></a><?php endforeach ?>
-                            </div>
-                            <details class="border-t border-border-warm bg-[#FFFCF4]">
-                                <summary class="cursor-pointer px-5 py-4 text-sm font-bold focus-ring sm:px-6">Kelola foto produk (<?= count($images) ?>/5)</summary>
-                                <div class="border-t border-border-warm p-5 sm:p-6">
-                                    <?php if ($images !== []): ?>
-                                        <div class="mb-5 flex gap-3 overflow-x-auto pb-2">
-                                            <?php foreach ($images as $image): ?><img class="h-24 w-32 shrink-0 border border-border-warm object-cover" src="<?= base_url($image['image_path']) ?>" alt="<?= esc($image['alt_text']) ?>"><?php endforeach ?>
-                                        </div>
-                                    <?php endif ?>
-                                    <?php if (count($images) < 5): ?>
-                                        <form action="<?= site_url('panel/catalog/products/images') ?>" method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                                            <?= csrf_field() ?><input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-                                            <div><label class="form-label" for="photo-<?= (int) $product['id'] ?>">Foto JPEG, PNG, atau WebP</label><input class="form-input file:mr-3 file:border-0 file:bg-brand-sun file:px-3 file:py-1 file:font-bold" id="photo-<?= (int) $product['id'] ?>" name="image" type="file" accept="image/jpeg,image/png,image/webp" required></div>
-                                            <div><label class="form-label" for="alt-<?= (int) $product['id'] ?>">Deskripsi foto</label><input class="form-input" id="alt-<?= (int) $product['id'] ?>" name="alt_text" placeholder="Contoh: Martabak cokelat keju" minlength="5" maxlength="180" required></div>
-                                            <button class="button-primary" type="submit">Unggah foto</button>
-                                        </form>
-                                    <?php endif ?>
-                                </div>
-                            </details>
-                        </article>
-                    <?php endforeach ?>
-                </div>
-            <?php endif ?>
-        </section>
+<section class="panel-card mb-8 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-warm px-5 py-4">
+        <h2 class="font-bold uppercase tracking-wide">Semua data produk</h2>
+        <a class="button-primary" href="<?= site_url('panel/data/product/create') ?>">Tambah data</a>
     </div>
-</div>
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[56rem] text-left text-sm" data-datatable>
+            <thead class="bg-surface-soft-yellow"><tr>
+                <th class="px-4 py-3 font-bold">No</th><th class="px-4 py-3 font-bold">Kode</th><th class="px-4 py-3 font-bold">Nama produk</th><th class="px-4 py-3 font-bold">Kategori</th><th class="px-4 py-3 font-bold">Jenis</th><th class="px-4 py-3 text-right font-bold">Harga</th><th class="px-4 py-3 font-bold">Foto</th><th class="px-4 py-3 font-bold">Status</th><th class="px-4 py-3 text-right font-bold">Aksi</th>
+            </tr></thead>
+            <tbody class="divide-y divide-border-warm">
+                <?php foreach ($products as $i => $product): ?>
+                    <?php $variants = $variantsByProduct[$product['id']] ?? []; $prices = array_map('floatval', array_column($variants, 'price')); $images = $imagesByProduct[$product['id']] ?? []; ?>
+                    <tr>
+                        <td class="px-4 py-3 tabular-nums" data-dt-no><?= $i + 1 ?></td>
+                        <td class="px-4 py-3"><?= esc($variants[0]['sku'] ?? '-') ?></td>
+                        <td class="px-4 py-3 font-semibold"><?= esc($product['name']) ?><?= $product['is_featured'] ? ' <span class="status-label bg-brand-sun">Unggulan</span>' : '' ?></td>
+                        <td class="px-4 py-3"><?= esc($product['category_name']) ?></td>
+                        <td class="px-4 py-3"><?= $product['product_type'] === 'prepared' ? 'Dari resep' : 'Siap jual' ?></td>
+                        <td class="px-4 py-3 text-right tabular-nums"><?= $prices === [] ? '-' : (min($prices) === max($prices) ? $rupiah(min($prices)) : $rupiah(min($prices)) . ' - ' . $rupiah(max($prices))) ?></td>
+                        <td class="px-4 py-3"><?php if ($images !== []): ?><img class="h-10 w-14 border border-border-warm object-cover" src="<?= base_url($images[0]['image_path']) ?>" alt="<?= esc($images[0]['alt_text']) ?>" loading="lazy"><?php else: ?><span class="text-ink-muted">-</span><?php endif ?></td>
+                        <td class="px-4 py-3"><?= $activeBadge((bool) $product['is_active']) ?></td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap items-center justify-end gap-2">
+                                <a class="button-secondary button-sm" href="<?= site_url('panel/data/product/' . (int) $product['id'] . '/edit') ?>">Edit</a>
+                                <form action="<?= site_url('panel/catalog/products/status') ?>" method="post" data-confirm-form="<?= $product['is_active'] ? 'Sembunyikan' : 'Tampilkan' ?> produk ini di katalog?"><?= csrf_field() ?><input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>"><button class="button-secondary button-sm" type="submit"><?= $product['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?></button></form>
+                                <form action="<?= site_url('panel/catalog/products/delete') ?>" method="post" data-confirm-form="Hapus produk &quot;<?= esc($product['name']) ?>&quot; beserta varian dan fotonya? Tindakan ini tidak dapat dibatalkan."><?= csrf_field() ?><input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>"><button class="button-danger" type="submit">Hapus</button></form>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+                <?php if ($products === []): ?><tr><td class="px-4 py-6 text-ink-muted" colspan="9">Belum ada produk. Pilih "Tambah data" untuk memulai.</td></tr><?php endif ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel-card overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-warm px-5 py-4">
+        <h2 class="font-bold uppercase tracking-wide">Semua data kategori</h2>
+        <a class="button-primary" href="<?= site_url('panel/data/category/create') ?>">Tambah data</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[40rem] text-left text-sm" data-datatable>
+            <thead class="bg-surface-soft-yellow"><tr>
+                <th class="px-4 py-3 font-bold">No</th><th class="px-4 py-3 font-bold">Nama kategori</th><th class="px-4 py-3 font-bold">Keterangan</th><th class="px-4 py-3 font-bold">Urutan</th><th class="px-4 py-3 font-bold">Status</th><th class="px-4 py-3 text-right font-bold">Aksi</th>
+            </tr></thead>
+            <tbody class="divide-y divide-border-warm">
+                <?php foreach ($categories as $i => $category): ?>
+                    <tr>
+                        <td class="px-4 py-3 tabular-nums" data-dt-no><?= $i + 1 ?></td>
+                        <td class="px-4 py-3 font-semibold"><?= esc($category['name']) ?></td>
+                        <td class="px-4 py-3"><?= esc($category['description'] ?: '-') ?></td>
+                        <td class="px-4 py-3 tabular-nums"><?= (int) $category['sort_order'] ?></td>
+                        <td class="px-4 py-3"><?= $activeBadge((bool) $category['is_active']) ?></td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap items-center justify-end gap-2">
+                                <a class="button-secondary button-sm" href="<?= site_url('panel/data/category/' . (int) $category['id'] . '/edit') ?>">Edit</a>
+                                <form action="<?= site_url('panel/catalog/categories/status') ?>" method="post" data-confirm-form="<?= $category['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?> kategori ini?"><?= csrf_field() ?><input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>"><button class="button-secondary button-sm" type="submit"><?= $category['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?></button></form>
+                                <form action="<?= site_url('panel/catalog/categories/delete') ?>" method="post" data-confirm-form="Hapus kategori &quot;<?= esc($category['name']) ?>&quot;? Tindakan ini tidak dapat dibatalkan."><?= csrf_field() ?><input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>"><button class="button-danger" type="submit">Hapus</button></form>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+                <?php if ($categories === []): ?><tr><td class="px-4 py-6 text-ink-muted" colspan="6">Belum ada kategori.</td></tr><?php endif ?>
+            </tbody>
+        </table>
+    </div>
+</section>
 <?= $this->endSection() ?>

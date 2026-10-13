@@ -11,20 +11,23 @@ $routes->get('ulasan/(:segment)', 'ReviewController::form/$1', ['as' => 'reviews
 $routes->post('ulasan/(:segment)', 'ReviewController::submit/$1', ['as' => 'reviews.submit']);
 $routes->post('login', 'AuthController::attempt', ['as' => 'login.attempt']);
 $routes->post('logout', 'AuthController::logout', ['filter' => 'auth', 'as' => 'logout']);
-$routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
+$routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($routes): void {
     $routes->get('/', 'Panel\DashboardController::index', ['as' => 'panel']);
-    $routes->group('form', ['filter' => 'owner'], static function ($routes): void {
-        $routes->get('(:segment)', 'Panel\FormController::show/$1');
-        $routes->get('(:segment)/(:num)', 'Panel\FormController::show/$1/$2');
+    $routes->group('data', static function ($routes): void {
+        $routes->get('(:segment)', 'Panel\CrudController::index/$1');
+        $routes->get('(:segment)/create', 'Panel\CrudController::create/$1');
+        $routes->get('(:segment)/(:num)/edit', 'Panel\CrudController::edit/$1/$2');
     });
     $routes->group('catalog', ['filter' => 'owner'], static function ($routes): void {
         $routes->get('/', 'Panel\CatalogController::index', ['as' => 'panel.catalog']);
         $routes->post('categories', 'Panel\CatalogController::createCategory', ['as' => 'panel.catalog.categories.create']);
         $routes->post('categories/status', 'Panel\CatalogController::toggleCategory', ['as' => 'panel.catalog.categories.status']);
         $routes->post('categories/update', 'Panel\CatalogController::updateCategory');
+        $routes->post('categories/delete', 'Panel\CatalogController::deleteCategory');
         $routes->post('products', 'Panel\CatalogController::createProduct', ['as' => 'panel.catalog.products.create']);
         $routes->post('products/status', 'Panel\CatalogController::toggleProduct', ['as' => 'panel.catalog.products.status']);
         $routes->post('products/update', 'Panel\CatalogController::updateProduct');
+        $routes->post('products/delete', 'Panel\CatalogController::deleteProduct');
         $routes->post('products/images', 'Panel\CatalogController::addImage');
         $routes->post('variants', 'Panel\CatalogController::addVariant', ['as' => 'panel.catalog.variants.create']);
         $routes->post('variants/update', 'Panel\CatalogController::updateVariant');
@@ -34,15 +37,21 @@ $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
         $routes->post('suppliers', 'Panel\MasterDataController::createSupplier');
         $routes->post('suppliers/status', 'Panel\MasterDataController::toggleSupplier');
         $routes->post('suppliers/update', 'Panel\MasterDataController::updateSupplier');
+        $routes->post('suppliers/delete', 'Panel\MasterDataController::deleteSupplier');
         $routes->post('items', 'Panel\MasterDataController::createItem');
         $routes->post('items/status', 'Panel\MasterDataController::toggleItem');
         $routes->post('items/update', 'Panel\MasterDataController::updateItem');
+        $routes->post('items/delete', 'Panel\MasterDataController::deleteItem');
         $routes->post('conversions', 'Panel\MasterDataController::saveConversion');
+        $routes->post('conversions/remove', 'Panel\MasterDataController::removeConversion');
+        $routes->get('recipes/(:num)', 'Panel\MasterDataController::recipe/$1');
         $routes->post('recipes', 'Panel\MasterDataController::saveRecipeItem');
         $routes->post('recipes/remove', 'Panel\MasterDataController::removeRecipeItem');
         $routes->post('toppings', 'Panel\MasterDataController::createTopping');
         $routes->post('toppings/status', 'Panel\MasterDataController::toggleTopping');
         $routes->post('toppings/update', 'Panel\MasterDataController::updateTopping');
+        $routes->post('toppings/delete', 'Panel\MasterDataController::deleteTopping');
+        $routes->post('toppings/items/remove', 'Panel\MasterDataController::removeToppingItem');
         $routes->post('toppings/items', 'Panel\MasterDataController::saveToppingItem');
     });
     $routes->group('settings', ['filter' => 'owner'], static function ($routes): void {
@@ -115,6 +124,7 @@ $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
     $routes->group('users', ['filter' => 'owner'], static function ($routes): void {
         $routes->get('/', 'Panel\UsersController::index', ['as' => 'panel.users']);
         $routes->post('create', 'Panel\UsersController::create', ['as' => 'panel.users.create']);
+        $routes->post('update', 'Panel\UsersController::update');
         $routes->post('status', 'Panel\UsersController::status', ['as' => 'panel.users.status']);
         $routes->post('reset-password', 'Panel\UsersController::resetPassword', ['as' => 'panel.users.reset-password']);
     });

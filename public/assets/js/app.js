@@ -104,6 +104,56 @@
         carousel.querySelector('[data-carousel-next]')?.addEventListener('click', () => show(active + 1));
     });
 
+    document.querySelectorAll('table[data-datatable]').forEach((table) => {
+        const rows = [...table.tBodies[0].rows];
+        const holder = table.parentElement;
+        const bar = document.createElement('div');
+        bar.className = 'flex flex-wrap items-center justify-between gap-3 border-b border-border-warm px-5 py-3 text-sm';
+        bar.innerHTML = '<label class="flex items-center gap-2">Tampilkan <select class="form-input !min-h-9 !w-auto !py-1" data-dt-size><option>10</option><option>25</option><option>50</option><option>100</option></select> data</label><label class="flex items-center gap-2">Cari: <input type="search" class="form-input !min-h-9 !w-48 !py-1" data-dt-search></label>';
+        const foot = document.createElement('div');
+        foot.className = 'flex flex-wrap items-center justify-between gap-3 border-t border-border-warm px-5 py-3 text-sm';
+        foot.innerHTML = '<p data-dt-info role="status"></p><div class="flex flex-wrap gap-1" data-dt-pager></div>';
+        holder.before(bar);
+        holder.after(foot);
+        const size = bar.querySelector('[data-dt-size]');
+        const search = bar.querySelector('[data-dt-search]');
+        const info = foot.querySelector('[data-dt-info]');
+        const pager = foot.querySelector('[data-dt-pager]');
+        let page = 1;
+        const render = () => {
+            const q = search.value.trim().toLowerCase();
+            const per = Number(size.value);
+            const hits = rows.filter((row) => row.textContent.toLowerCase().includes(q));
+            const pages = Math.max(1, Math.ceil(hits.length / per));
+            page = Math.min(page, pages);
+            const start = (page - 1) * per;
+            rows.forEach((row) => { row.hidden = true; });
+            hits.slice(start, start + per).forEach((row, i) => {
+                row.hidden = false;
+                const number = row.querySelector('[data-dt-no]');
+                if (number) number.textContent = String(start + i + 1);
+            });
+            info.textContent = hits.length === 0 ? 'Tidak ada data yang cocok' : `Menampilkan ${start + 1} sampai ${Math.min(start + per, hits.length)} dari ${hits.length} data`;
+            pager.replaceChildren();
+            const add = (label, target, disabled, current) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = label;
+                button.disabled = disabled;
+                button.className = 'filter-chip !min-h-9 !px-3' + (current ? ' is-active' : '');
+                if (current) button.setAttribute('aria-current', 'page');
+                button.addEventListener('click', () => { page = target; render(); });
+                pager.append(button);
+            };
+            add('Sebelumnya', page - 1, page === 1, false);
+            for (let p = 1; p <= pages; p += 1) if (p === 1 || p === pages || Math.abs(p - page) <= 1) add(String(p), p, false, p === page);
+            add('Berikutnya', page + 1, page === pages, false);
+        };
+        size.addEventListener('change', () => { page = 1; render(); });
+        search.addEventListener('input', () => { page = 1; render(); });
+        render();
+    });
+
     const flashDialog = document.querySelector('[data-flash-dialog]');
     if (flashDialog && typeof flashDialog.showModal === 'function') {
         flashDialog.close();

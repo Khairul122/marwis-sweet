@@ -166,6 +166,98 @@ class MasterDataController extends BaseController
         return redirect()->route('panel.master')->with('success', 'Bahan berhasil diperbarui.');
     }
 
+    public function recipe(int $variantId): string
+    {
+        $database = db_connect();
+        $variant = $database->table('product_variants')
+            ->select('product_variants.id, product_variants.name AS variant_name, product_variants.sku, product_variants.stock_mode, products.name AS product_name')
+            ->join('products', 'products.id = product_variants.product_id')
+            ->where('product_variants.id', $variantId)->get()->getRowArray();
+        if (!$variant || $variant['stock_mode'] !== 'recipe') {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
+
+        return view('panel/master/recipe', [
+            'title' => 'Resep ' . $variant['product_name'],
+            'user' => session('user'),
+            'variant' => $variant,
+            'lines' => $database->table('recipe_items')
+                ->select('recipe_items.id, recipe_items.quantity, inventory_items.name AS item_name, inventory_items.base_unit')
+                ->join('recipes', 'recipes.id = recipe_items.recipe_id')
+                ->join('inventory_items', 'inventory_items.id = recipe_items.inventory_item_id')
+                ->where('recipes.product_variant_id', $variantId)->where('recipes.is_active', true)
+                ->orderBy('inventory_items.name')->get()->getResultArray(),
+            'items' => (new InventoryItemModel())->where('is_active', true)->orderBy('name')->findAll(),
+        ]);
+    }
+
+    public function deleteItem(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('item_id'), FILTER_VALIDATE_INT);
+        $item = $id ? (new InventoryItemModel())->find($id) : null;
+        if (!$item) {
+            return redirect()->route('panel.master')->with('error', 'Bahan tidak ditemukan.');
+        }
+        $database = db_connect();
+        $used = (float) $item['quantity_on_hand'] !== 0.0;
+        foreach ([['stock_movements', 'inventory_item_id'], ['goods_receipt_items', 'inventory_item_id'], ['stock_opname_items', 'inventory_item_id'], ['recipe_items', 'inventory_item_id'], ['topping_recipe_items', 'inventory_item_id'], ['product_variants', 'direct_inventory_item_id'], ['sale_items', 'direct_inventory_item_id']] as [$table, $column]) {
+            $used = $used || $database->table($table)->where($column, $id)->countAllResults() > 0;
+        }
+        if ($used) {
+            return redirect()->route('panel.master')->with('error', 'Bahan sudah punya stok, riwayat, atau dipakai pada resep sehingga tidak dapat dihapus. Nonaktifkan saja.');
+        }
+        $database->table('inventory_items')->where('id', $id)->delete();
+
+        return redirect()->route('panel.master')->with('success', 'Bahan berhasil dihapus.');
+    }
+
+    public function deleteSupplier(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('supplier_id'), FILTER_VALIDATE_INT);
+        $database = db_connect();
+        if (!$id || !(new SupplierModel())->find($id)) {
+            return redirect()->route('panel.master')->with('error', 'Supplier tidak ditemukan.');
+        }
+        if ($database->table('goods_receipts')->where('supplier_id', $id)->countAllResults() > 0) {
+            return redirect()->route('panel.master')->with('error', 'Supplier sudah dipakai pada dokumen penerimaan sehingga tidak dapat dihapus. Nonaktifkan saja.');
+        }
+        $database->table('suppliers')->where('id', $id)->delete();
+
+        return redirect()->route('panel.master')->with('success', 'Supplier berhasil dihapus.');
+    }
+
+    public function deleteTopping(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('topping_id'), FILTER_VALIDATE_INT);
+        $database = db_connect();
+        if (!$id || !$database->table('toppings')->where('id', $id)->countAllResults()) {
+            return redirect()->route('panel.master')->with('error', 'Topping tidak ditemukan.');
+        }
+        $database->table('toppings')->where('id', $id)->delete();
+
+        return redirect()->route('panel.master')->with('success', 'Topping berhasil dihapus.');
+    }
+
+    public function removeConversion(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('conversion_id'), FILTER_VALIDATE_INT);
+        if (!$id || !db_connect()->table('unit_conversions')->where('id', $id)->delete()) {
+            return redirect()->route('panel.master')->with('error', 'Konversi tidak ditemukan.');
+        }
+
+        return redirect()->route('panel.master')->with('success', 'Konversi satuan dihapus.');
+    }
+
+    public function removeToppingItem(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('topping_item_id'), FILTER_VALIDATE_INT);
+        if (!$id || !db_connect()->table('topping_recipe_items')->where('id', $id)->delete()) {
+            return redirect()->route('panel.master')->with('error', 'Bahan topping tidak ditemukan.');
+        }
+
+        return redirect()->route('panel.master')->with('success', 'Bahan dihapus dari topping.');
+    }
+
     public function saveConversion(): RedirectResponse
     {
         $rules = [

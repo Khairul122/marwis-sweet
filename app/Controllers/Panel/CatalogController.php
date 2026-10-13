@@ -280,17 +280,17 @@ class CatalogController extends BaseController
         }
         $altText = trim((string) $this->request->getPost('alt_text'));
         if (mb_strlen($altText) < 5 || mb_strlen($altText) > 180) {
-            return redirect()->route('panel.catalog')->with('error', 'Teks alternatif foto harus berisi 5 sampai 180 karakter.');
+            return redirect()->back()->withInput()->with('error', 'Teks alternatif foto harus berisi 5 sampai 180 karakter.');
         }
         $database = db_connect();
         $imageCount = $database->table('product_images')->where('product_id', $product['id'])->countAllResults();
         if ($imageCount >= 5) {
-            return redirect()->route('panel.catalog')->with('error', 'Satu produk dapat memiliki maksimal 5 foto.');
+            return redirect()->back()->with('error', 'Satu produk dapat memiliki maksimal 5 foto.');
         }
         try {
             $imagePath = (new ImageUploadService())->store($this->request->getFile('image'), 'products', 2 * 1024 * 1024);
         } catch (RuntimeException $exception) {
-            return redirect()->route('panel.catalog')->with('error', $exception->getMessage());
+            return redirect()->back()->with('error', $exception->getMessage());
         }
         $database->table('product_images')->insert([
             'product_id' => $product['id'],
@@ -304,6 +304,52 @@ class CatalogController extends BaseController
             $productModel->update($product['id'], ['image_path' => $imagePath]);
         }
         return redirect()->route('panel.catalog')->with('success', 'Foto produk berhasil ditambahkan.');
+    }
+
+    public function deleteCategory(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('category_id'), FILTER_VALIDATE_INT);
+        if (!$id || !(new CategoryModel())->find($id)) {
+            return redirect()->route('panel.catalog')->with('error', 'Kategori tidak ditemukan.');
+        }
+
+        if (db_connect()->table('products')->where('category_id', $id)->countAllResults() > 0) {
+            return redirect()->route('panel.catalog')->with('error', 'Kategori masih dipakai oleh produk dan tidak dapat dihapus. Pindahkan atau hapus produknya lebih dulu, atau nonaktifkan kategori ini.');
+        }
+
+        return $this->deleteRow('categories', $id, 'Kategori berhasil dihapus.', 'Kategori masih dipakai oleh produk dan tidak dapat dihapus. Nonaktifkan saja bila tidak dipakai lagi.');
+    }
+
+    public function deleteProduct(): RedirectResponse
+    {
+        $id = filter_var($this->request->getPost('product_id'), FILTER_VALIDATE_INT);
+        $product = $id ? (new ProductModel())->find($id) : null;
+        if (!$product) {
+            return redirect()->route('panel.catalog')->with('error', 'Produk tidak ditemukan.');
+        }
+        $images = db_connect()->table('product_images')->select('image_path')->where('product_id', $id)->get()->getResultArray();
+        $response = $this->deleteRow('products', $id, 'Produk berhasil dihapus.', 'Produk sudah punya riwayat transaksi atau ulasan dan tidak dapat dihapus. Sembunyikan dari katalog dengan menonaktifkannya.');
+        if (session()->has('success')) {
+            foreach ($images as $image) {
+                $path = realpath(FCPATH . $image['image_path']);
+                if ($path && str_starts_with($path, realpath(FCPATH . 'uploads') ?: "\0")) {
+                    @unlink($path);
+                }
+            }
+        }
+
+        return $response;
+    }
+
+    private function deleteRow(string $table, int $id, string $success, string $blocked): RedirectResponse
+    {
+        try {
+            db_connect()->table($table)->where('id', $id)->delete();
+        } catch (\Throwable) {
+            return redirect()->route('panel.catalog')->with('error', $blocked);
+        }
+
+        return redirect()->route('panel.catalog')->with('success', $success);
     }
 
     private function findCategory(): ?array

@@ -41,6 +41,30 @@ class UsersController extends BaseController
         return redirect()->route('panel.users')->with('success', 'Akun kasir berhasil dibuat.');
     }
 
+    public function update(): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $userId = filter_var($this->request->getPost('user_id'), FILTER_VALIDATE_INT);
+        $cashier = $userId ? (new UserModel())->where('role', 'cashier')->find($userId) : null;
+        if (!$cashier) {
+            return redirect()->route('panel.users')->with('error', 'Akun kasir tidak ditemukan.');
+        }
+        $rules = [
+            'name' => 'required|min_length[2]|max_length[120]',
+            'username' => 'required|alpha_numeric_punct|min_length[3]|max_length[80]|is_unique[users.username,id,' . $cashier['id'] . ']',
+            'email' => 'permit_empty|valid_email|max_length[190]|is_unique[users.email,id,' . $cashier['id'] . ']',
+        ];
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+        (new UserModel())->update($cashier['id'], [
+            'name' => trim((string) $this->request->getPost('name')),
+            'username' => trim((string) $this->request->getPost('username')),
+            'email' => trim((string) $this->request->getPost('email')) ?: null,
+        ]);
+
+        return redirect()->route('panel.users')->with('success', 'Akun kasir berhasil diperbarui.');
+    }
+
     public function status(): \CodeIgniter\HTTP\RedirectResponse
     {
         $userId = filter_var($this->request->getPost('user_id'), FILTER_VALIDATE_INT);
