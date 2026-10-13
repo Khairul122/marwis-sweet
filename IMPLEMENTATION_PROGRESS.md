@@ -1,0 +1,56 @@
+# Progres implementasi PRD Sistem Informasi Martabak
+
+Stack: CodeIgniter 4.7.5, PHP 8.3, Tailwind CSS 4, MySQL, Bahasa Indonesia, zona waktu Asia/Jakarta.
+
+## Tahap 1 — Fondasi
+
+- [x] Scaffold CodeIgniter 4 dan struktur MVC
+- [x] Koneksi MySQL berbasis environment
+- [x] Migrasi tabel akun owner/kasir
+- [x] Login/logout, hash password, rotasi sesi, dan pemeriksaan status akun
+- [x] Pembatasan percobaan login per IP dan identitas
+- [x] Filter autentikasi dan role owner pada route server
+- [x] Owner membuat, menonaktifkan, mengaktifkan, dan mereset akun kasir
+- [x] Layout panel bernuansa kuning dan halaman publik awal
+- [x] Pipeline Tailwind lokal
+- [x] Instal dependency Composer dan npm; lockfile tersimpan
+- [x] Build CSS Tailwind lokal
+- [x] Tambahkan proses pembuatan owner pertama yang aman
+- [x] Jalankan migrasi MySQL lokal (tabel `users` dibuat)
+- [x] Verifikasi HTTP halaman utama, halaman login, CSS, dan pengalihan dashboard saat belum login
+- [ ] Buat akun owner dengan kredensial pilihan pemilik
+
+## Tahap 2 — Master dan publik
+
+- [x] Migrasi MySQL kategori, produk, dan varian
+- [x] Pengelolaan kategori, produk, varian awal, harga, unggulan, dan status publik
+- [x] Katalog publik dinamis dengan filter kategori dan keadaan kosong
+- [x] Sistem visual responsif berdasarkan `DESIGN.md`, termasuk drawer panel dan navigasi keyboard
+- [x] Master bahan dengan satuan dasar, batas minimum, dan konversi pembelian eksplisit
+- [x] Master supplier dan status aktif/nonaktif
+- [x] Resep per varian berbasis bahan dan takaran satuan dasar
+- [x] Foto produk JPEG/PNG/WebP maksimal 2 MB dan maksimal 5 foto per produk
+- [x] Pencarian katalog dan halaman detail produk
+- [x] Banner terjadwal dengan pratinjau, validasi URL, dan upload maksimal 3 MB
+- [x] Pengaturan nama usaha, alamat, kontak, serta jam buka
+- [x] Topping, tambahan harga, status, dan pemakaian bahan topping
+- [x] Form edit kategori, produk, varian, bahan, supplier, topping, dan metadata banner
+
+## Tahap 3 — Operasional
+
+- [x] Draft penerimaan, item dengan konversi satuan, posting atomik, biaya rata-rata, dan kartu stok
+- [ ] Shift, POS, pembayaran, struk, dan refund
+
+## Tahap 4 — Kontrol keuangan
+
+- [ ] Stok opname dan pengeluaran
+- [ ] Jurnal otomatis, saldo awal, buku besar, dan tutup periode
+
+## Tahap 5 — Pelaporan dan ulasan
+
+- [ ] Laporan PDF harian/bulanan/tahunan dan dashboard
+- [ ] Token ulasan, foto, dan moderasi
+
+## Tahap 6 — Stabilisasi
+
+- [ ] UAT, pengujian konkurensi/rollback/akses, HTTP/HTTPS, backup/restore, dan panduan

@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+@source "../../app/Views";
+@source "../../public/assets/js";
+
+@theme {
+    --color-brand-sun: #FACC15;
+    --color-brand-sun-hover: #EAB308;
+    --color-brand-cocoa: #2D1B12;
+    --color-brand-chili: #B93824;
+    --color-surface-cream: #FFF8E7;
+    --color-surface-soft-yellow: #FEFCE8;
+    --color-surface-white: #FFFFFF;
+    --color-ink-muted: #6B4D3A;
+    --color-border-warm: #E8D9BD;
+    --color-status-success: #166534;
+    --color-status-warning: #92400E;
+    --color-status-danger: #B91C1C;
+    --color-status-info: #1E40AF;
+    --font-display: "Arial Black", "Arial Bold", sans-serif;
+    --font-sans: "Segoe UI", Arial, sans-serif;
+}
+
+@layer base {
+    * {
+        border-color: var(--color-border-warm);
+    }
+
+    html {
+        color-scheme: light;
+    }
+
+    body {
+        font-family: var(--font-sans);
+    }
+
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    summary {
+        @apply focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-sun focus-visible:ring-offset-2 focus-visible:ring-offset-surface-cream;
+    }
+
+    button,
+    summary,
+    select {
+        touch-action: manipulation;
+    }
+
+    ::selection {
+        background: var(--color-brand-sun);
+        color: var(--color-brand-cocoa);
+    }
+}
+
+@layer components {
+    .skip-link {
+        @apply fixed left-4 top-4 z-[100] -translate-y-24 bg-brand-cocoa px-4 py-3 font-bold text-white transition-transform focus:translate-y-0;
+    }
+
+    .focus-ring {
+        @apply rounded-sm;
+    }
+
+    .label-cut {
+        clip-path: polygon(0 0, 100% 0, 100% 76%, 84% 100%, 0 100%);
+    }
+
+    .poster-card {
+        box-shadow: 12px 12px 0 var(--color-brand-cocoa);
+    }
+
+    .receipt-rule {
+        border-top: 2px dashed currentColor;
+        opacity: .5;
+    }
+
+    .nav-link {
+        @apply min-h-11 px-4 py-3 text-sm font-bold underline-offset-4 hover:underline;
+    }
+
+    .button-primary,
+    .button-primary-inverse,
+    .button-secondary,
+    .button-icon {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border px-4 py-2.5 text-sm font-bold transition duration-150;
+    }
+
+    .button-primary {
+        @apply border-brand-cocoa bg-brand-sun text-brand-cocoa hover:-translate-y-px hover:bg-brand-sun-hover;
+    }
+
+    .button-primary-inverse {
+        @apply border-brand-cocoa bg-brand-cocoa text-white hover:-translate-y-px hover:bg-brand-chili;
+    }
+
+    .button-secondary {
+        @apply border-border-warm bg-white text-brand-cocoa hover:border-brand-cocoa hover:bg-surface-soft-yellow;
+    }
+
+    .button-icon {
+        @apply h-11 w-11 border-border-warm bg-white p-0 hover:border-brand-cocoa hover:bg-surface-soft-yellow;
+    }
+
+    .section-kicker,
+    .nav-heading {
+        @apply text-xs font-bold uppercase tracking-[0.12em] text-brand-chili;
+    }
+
+    .filter-chip {
+        @apply min-h-11 shrink-0 rounded-full border border-border-warm bg-white px-4 text-sm font-bold transition hover:border-brand-cocoa;
+    }
+
+    .filter-chip.is-active {
+        @apply border-brand-cocoa bg-brand-cocoa text-white;
+    }
+
+    .product-card {
+        @apply overflow-hidden border border-border-warm bg-white transition duration-200 hover:-translate-y-1 hover:border-brand-cocoa;
+    }
+
+    .product-visual {
+        @apply relative grid aspect-[4/3] place-items-center overflow-hidden border-b border-border-warm;
+    }
+
+    .panel-card {
+        @apply border border-border-warm bg-surface-white;
+    }
+
+    .panel-nav-link,
+    .panel-nav-disabled {
+        @apply mt-1 block min-h-11 px-4 py-3 text-sm font-semibold;
+    }
+
+    .panel-nav-link {
+        @apply border border-transparent hover:border-border-warm hover:bg-surface-soft-yellow;
+    }
+
+    .panel-nav-link.is-active {
+        @apply border-brand-cocoa bg-brand-sun text-brand-cocoa;
+    }
+
+    .panel-nav-disabled {
+        @apply cursor-not-allowed text-ink-muted opacity-60;
+    }
+
+    .form-label {
+        @apply mb-2 block text-sm font-bold;
+    }
+
+    .form-input {
+        @apply min-h-12 w-full rounded-[10px] border border-border-warm bg-white px-3.5 py-2.5 text-base text-brand-cocoa placeholder:text-ink-muted/60 hover:border-ink-muted focus:border-brand-cocoa;
+    }
+
+    .form-error {
+        @apply mt-1.5 text-sm font-semibold text-status-danger;
+    }
+
+    .input-prefix {
+        @apply flex min-h-12 overflow-hidden rounded-[10px] border border-border-warm bg-white hover:border-ink-muted focus-within:border-brand-cocoa focus-within:ring-3 focus-within:ring-brand-sun focus-within:ring-offset-2;
+    }
+
+    .input-prefix > span {
+        @apply grid place-items-center border-r border-border-warm bg-surface-soft-yellow px-3 font-bold;
+    }
+
+    .input-prefix > input {
+        @apply min-w-0 flex-1 px-3.5 outline-none;
+    }
+
+    .alert-success,
+    .alert-danger {
+        @apply border px-4 py-3 text-sm leading-6;
+    }
+
+    .alert-success {
+        @apply border-status-success bg-[#F0FDF4] text-status-success;
+    }
+
+    .alert-danger {
+        @apply border-status-danger bg-[#FEF2F2] text-status-danger;
+    }
+
+    .status-button {
+        @apply min-h-11 rounded-full border border-border-warm bg-white px-3 text-xs font-bold text-ink-muted hover:border-brand-cocoa;
+    }
+
+    .status-button.is-active {
+        @apply border-status-success bg-[#F0FDF4] text-status-success;
+    }
+
+    .status-label {
+        @apply inline-flex rounded-full px-2.5 py-1 text-xs font-bold;
+    }
+
+    .stage-number {
+        @apply grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-border-warm bg-surface-cream text-sm font-black;
+    }
+
+    .stage-number.is-complete {
+        @apply border-status-success bg-status-success text-white;
+    }
+
+    .stage-number.is-current {
+        @apply border-brand-cocoa bg-brand-sun text-brand-cocoa;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
