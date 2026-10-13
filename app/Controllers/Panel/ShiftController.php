@@ -18,7 +18,7 @@ class ShiftController extends BaseController
             'user' => session('user'),
             'activeShift' => $activeShift,
             'cashMovements' => $activeShift ? $database->table('cash_movements')->where('shift_id', $activeShift['id'])->orderBy('id', 'DESC')->get()->getResultArray() : [],
-            'recentShifts' => $database->table('shifts')->select('shifts.*, users.name AS cashier_name')->join('users', 'users.id = shifts.cashier_id')->orderBy('shifts.id', 'DESC')->limit(20)->get()->getResultArray(),
+            'recentShifts' => $database->table('shifts')->select('shifts.*, users.name AS cashier_name')->join('users', 'users.id = shifts.cashier_id')->where('shifts.cashier_id', $userId)->orderBy('shifts.id', 'DESC')->limit(20)->get()->getResultArray(),
         ]);
     }
 
@@ -64,14 +64,24 @@ class ShiftController extends BaseController
             return redirect()->route('panel.shifts')->with('error', implode(' ', $this->validator->getErrors()));
         }
         $database = db_connect();
-        $shift = $database->table('shifts')->where('cashier_id', (int) session('user_id'))->where('status', 'open')->get()->getRowArray();
-        if (!$shift) {
-            return redirect()->route('panel.shifts')->with('error', 'Buka shift sebelum mencatat pergerakan kas.');
+        try {
+            $database->transException(true)->transStart();
+            $shift = $database->query('SELECT * FROM shifts WHERE cashier_id = ? AND status = ? FOR UPDATE', [(int) session('user_id'), 'open'])->getRowArray();
+            if (!$shift) {
+                throw new \RuntimeException('Buka shift sebelum mencatat pergerakan kas.');
+            }
+            $database->table('cash_movements')->insert([
+                'shift_id' => $shift['id'], 'movement_type' => (string) $this->request->getPost('movement_type'), 'amount' => (string) $this->request->getPost('amount'),
+                'reason' => trim((string) $this->request->getPost('reason')), 'created_by' => (int) session('user_id'), 'created_at' => date('Y-m-d H:i:s'),
+            ]);
+            $database->transComplete();
+            if (!$database->transStatus()) {
+                throw new \RuntimeException('Pergerakan kas belum berhasil disimpan.');
+            }
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.shifts')->with('error', $exception->getMessage());
         }
-        $database->table('cash_movements')->insert([
-            'shift_id' => $shift['id'], 'movement_type' => (string) $this->request->getPost('movement_type'), 'amount' => (string) $this->request->getPost('amount'),
-            'reason' => trim((string) $this->request->getPost('reason')), 'created_by' => (int) session('user_id'), 'created_at' => date('Y-m-d H:i:s'),
-        ]);
         return redirect()->route('panel.shifts')->with('success', 'Pergerakan kas berhasil dicatat.');
     }
 
@@ -82,26 +92,43 @@ class ShiftController extends BaseController
         }
         $database = db_connect();
         $userId = (int) session('user_id');
-        $shift = $database->table('shifts')->where('cashier_id', $userId)->where('status', 'open')->get()->getRowArray();
-        if (!$shift) {
-            return redirect()->route('panel.shifts')->with('error', 'Shift aktif tidak ditemukan.');
-        }
-        $cashSales = (float) ($database->table('payments')->selectSum('payments.amount', 'total')->join('sales', 'sales.id = payments.sale_id')->where('sales.shift_id', $shift['id'])->where('payments.method', 'cash')->get()->getRow('total') ?? 0);
-        $cashRefunds = (float) ($database->table('refunds')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('status', 'posted')->where('method', 'cash')->get()->getRow('total') ?? 0);
-        $drawerExpenses = (float) ($database->table('expenses')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('status', 'paid')->where('payment_source', 'cash_drawer')->get()->getRow('total') ?? 0);
-        $cashIn = (float) ($database->table('cash_movements')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('movement_type', 'in')->get()->getRow('total') ?? 0);
-        $cashOut = (float) ($database->table('cash_movements')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('movement_type', 'out')->get()->getRow('total') ?? 0);
-        $expected = (float) $shift['opening_cash'] + $cashSales - $cashRefunds - $drawerExpenses + $cashIn - $cashOut;
         $actual = (float) $this->request->getPost('actual_cash');
-        $difference = $actual - $expected;
         $reason = trim((string) $this->request->getPost('difference_reason'));
-        if (abs($difference) >= 0.01 && mb_strlen($reason) < 3) {
-            return redirect()->route('panel.shifts')->with('error', 'Jelaskan alasan selisih kas sebelum menutup shift.');
+        try {
+            $database->transException(true)->transStart();
+            $shift = $database->query('SELECT * FROM shifts WHERE cashier_id = ? AND status = ? FOR UPDATE', [$userId, 'open'])->getRowArray();
+            if (!$shift) {
+                throw new \RuntimeException('Shift aktif tidak ditemukan.');
+            }
+
+            $cashSales = (float) ($database->table('payments')->selectSum('payments.amount', 'total')->join('sales', 'sales.id = payments.sale_id')->where('sales.shift_id', $shift['id'])->where('payments.method', 'cash')->get()->getRow('total') ?? 0);
+            $cashRefunds = (float) ($database->table('refunds')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('status', 'posted')->where('method', 'cash')->get()->getRow('total') ?? 0);
+            $drawerExpenses = (float) ($database->table('expenses')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('status', 'paid')->where('payment_source', 'cash_drawer')->get()->getRow('total') ?? 0);
+            $cashIn = (float) ($database->table('cash_movements')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('movement_type', 'in')->get()->getRow('total') ?? 0);
+            $cashOut = (float) ($database->table('cash_movements')->selectSum('amount', 'total')->where('shift_id', $shift['id'])->where('movement_type', 'out')->get()->getRow('total') ?? 0);
+            $expected = (float) $shift['opening_cash'] + $cashSales - $cashRefunds - $drawerExpenses + $cashIn - $cashOut;
+            $difference = $actual - $expected;
+            if (abs($difference) >= 0.01 && mb_strlen($reason) < 3) {
+                throw new \RuntimeException('Jelaskan alasan selisih kas sebelum menutup shift.');
+            }
+
+            $now = date('Y-m-d H:i:s');
+            $database->table('shifts')->where('id', $shift['id'])->where('status', 'open')->update([
+                'status' => 'closed', 'closed_at' => $now, 'expected_cash' => $expected, 'actual_cash' => $actual,
+                'cash_difference' => $difference, 'difference_reason' => $reason ?: null,
+                'cash_review_status' => abs($difference) >= 0.01 ? 'pending' : 'not_required', 'updated_at' => $now,
+            ]);
+            $database->transComplete();
+            if (!$database->transStatus()) {
+                throw new \RuntimeException('Shift belum berhasil ditutup.');
+            }
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.shifts')->with('error', $exception->getMessage());
         }
-        $database->table('shifts')->where('id', $shift['id'])->update([
-            'status' => 'closed', 'closed_at' => date('Y-m-d H:i:s'), 'expected_cash' => $expected, 'actual_cash' => $actual,
-            'cash_difference' => $difference, 'difference_reason' => $reason ?: null, 'updated_at' => date('Y-m-d H:i:s'),
-        ]);
-        return redirect()->route('panel.shifts')->with('success', 'Shift ditutup dan selisih kas tersimpan.');
+        $message = abs($difference) >= 0.01
+            ? 'Shift ditutup. Selisih kas menunggu review owner.'
+            : 'Shift ditutup tanpa selisih kas.';
+        return redirect()->route('panel.shifts')->with('success', $message);
     }
 }

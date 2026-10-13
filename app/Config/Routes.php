@@ -107,13 +107,18 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
         $routes->get('sales.pdf', 'Panel\ReportController::pdf', ['as' => 'panel.reports.sales.pdf']);
         $routes->get('(:alpha).pdf', 'Panel\ReportController::operationalPdf/$1');
     });
-    $routes->group('shifts', static function ($routes): void {
+    $routes->group('shifts', ['filter' => 'cashier'], static function ($routes): void {
         $routes->get('/', 'Panel\ShiftController::index', ['as' => 'panel.shifts']);
         $routes->post('open', 'Panel\ShiftController::open');
         $routes->post('cash-movements', 'Panel\ShiftController::cashMovement');
         $routes->post('close', 'Panel\ShiftController::close');
     });
-    $routes->group('pos', static function ($routes): void {
+    $routes->group('shift-reviews', ['filter' => 'owner'], static function ($routes): void {
+        $routes->get('/', 'Panel\ShiftReviewController::index', ['as' => 'panel.shift-reviews']);
+        $routes->post('(:num)/approve', 'Panel\ShiftReviewController::decide/$1/approve');
+        $routes->post('(:num)/reject', 'Panel\ShiftReviewController::decide/$1/reject');
+    });
+    $routes->group('pos', ['filter' => 'cashier'], static function ($routes): void {
         $routes->get('/', 'Panel\PosController::index', ['as' => 'panel.pos']);
         $routes->post('finalize', 'Panel\PosController::finalize');
     });

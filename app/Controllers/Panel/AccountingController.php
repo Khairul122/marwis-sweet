@@ -56,7 +56,11 @@ class AccountingController extends BaseController
             $balance = $row['normal_balance'] === 'debit' ? (float) $row['debit'] - (float) $row['credit'] : (float) $row['credit'] - (float) $row['debit'];
             if ($row['account_type'] === 'asset') { $balanceSheet['assets'][] = $row + ['balance' => $balance]; $balanceSheet['asset_total'] += $balance; }
             elseif ($row['account_type'] === 'liability') { $balanceSheet['liabilities'][] = $row + ['balance' => $balance]; $balanceSheet['liability_total'] += $balance; }
-            elseif ($row['account_type'] === 'equity') { $balanceSheet['equity'][] = $row + ['balance' => $balance]; $balanceSheet['equity_total'] += $balance; }
+            elseif ($row['account_type'] === 'equity') {
+                $equityBalance = $row['normal_balance'] === 'credit' ? $balance : -$balance;
+                $balanceSheet['equity'][] = $row + ['balance' => $equityBalance];
+                $balanceSheet['equity_total'] += $equityBalance;
+            }
             elseif ($row['account_type'] === 'revenue') { $balanceSheet['current_profit'] += (float) $row['credit'] - (float) $row['debit']; }
             elseif ($row['account_type'] === 'contra_revenue' || $row['account_type'] === 'expense') { $balanceSheet['current_profit'] -= (float) $row['debit'] - (float) $row['credit']; }
         }
@@ -109,8 +113,25 @@ class AccountingController extends BaseController
             if (abs($inventoryValue - (float) $amount) > 0.01) { return redirect()->route('panel.accounting')->with('error', 'Saldo awal persediaan harus sama dengan nilai kartu stok: Rp' . number_format($inventoryValue, 2, ',', '.')); }
         }
         try {
-            $database->transStart();
-            (new AccountingService($database))->post('opening_balance', random_int(1, PHP_INT_MAX), $date, $description, [['account_id' => $debitId, 'debit' => $amount, 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => $amount]], (int) session('user_id'));
+            $database->transException(true)->transStart();
+            $database->query('SELECT id FROM accounts WHERE id = ? FOR UPDATE', [$debitId]);
+            $existingOpening = $database->table('journal_entries')
+                ->select('journal_number')
+                ->where('source_key', 'opening_balance:' . $debitId)
+                ->get()->getRowArray();
+            if (!$existingOpening) {
+                $existingOpening = $database->table('journal_entries')
+                    ->select('journal_entries.journal_number')
+                    ->join('journal_lines', 'journal_lines.journal_entry_id = journal_entries.id')
+                    ->where('journal_entries.source_type', 'opening_balance')
+                    ->where('journal_lines.account_id', $debitId)
+                    ->where('journal_lines.debit >', 0)
+                    ->get()->getRowArray();
+            }
+            if ($existingOpening) {
+                throw new RuntimeException('Saldo awal untuk akun aset ini sudah pernah diposting (' . $existingOpening['journal_number'] . '). Pengiriman kedua ditolak; koreksi harus dicatat pada jurnal terpisah.');
+            }
+            (new AccountingService($database))->post('opening_balance', $debitId, $date, $description, [['account_id' => $debitId, 'debit' => $amount, 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => $amount]], (int) session('user_id'));
             $database->transComplete();
             if (!$database->transStatus()) { throw new RuntimeException('Saldo awal gagal disimpan.'); }
         } catch (\Throwable $exception) { return redirect()->route('panel.accounting')->with('error', $exception->getMessage()); }

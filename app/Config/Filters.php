@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Filters\OwnerOnly;
+use App\Filters\CashierOnly;
 use App\Filters\RequireLogin;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
@@ -39,6 +40,7 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'auth'          => RequireLogin::class,
         'owner'         => OwnerOnly::class,
+        'cashier'       => CashierOnly::class,
     ];
 
     /**

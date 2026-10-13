@@ -73,7 +73,10 @@ class ReportController extends BaseController
             return redirect()->route('panel.reports')->with('error', $exception->getMessage());
         }
         $titles = ['stock'=>'Stok dan Mutasi','opnames'=>'Stok Opname','expenses'=>'Pengeluaran','shifts'=>'Shift Kasir','finance'=>'Keuangan'];
-        $html = view('panel/reports/operational_pdf', ['report'=>$report,'title'=>$titles[$type],'settings'=>$settings,'businessName'=>$settings['business_name']??env('BUSINESS_NAME','Marwis Sweet'),'printedBy'=>session('user')['name']??'-','printedAt'=>date('d/m/Y H:i')]);
+        $template = !$report['includeFinancials'] && in_array($type, ['stock', 'opnames'], true)
+            ? 'panel/reports/operational_pdf_cashier'
+            : 'panel/reports/operational_pdf';
+        $html = view($template, ['report'=>$report,'title'=>$titles[$type],'settings'=>$settings,'businessName'=>$settings['business_name']??env('BUSINESS_NAME','Marwis Sweet'),'printedBy'=>session('user')['name']??'-','printedAt'=>date('d/m/Y H:i')]);
         $options = new Options(); $options->set('isRemoteEnabled', false); $options->set('isHtml5ParserEnabled', true);
         $dompdf = new Dompdf($options); $dompdf->loadHtml($html,'UTF-8'); $dompdf->setPaper('A4',in_array($type,['stock','shifts'],true)?'landscape':'portrait'); $dompdf->render();
         return $this->response->setHeader('Content-Type','application/pdf')->setHeader('Content-Disposition','attachment; filename="laporan-'.$type.'-'.$report['period']['value'].'.pdf"')->setBody($dompdf->output());

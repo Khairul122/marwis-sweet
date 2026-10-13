@@ -144,6 +144,7 @@ class SaleService
             $totalCogs = 0.0;
             foreach ($lines as $line) {
                 $lineCogs = 0.0;
+                $directUnitCogs = 0.0;
                 foreach ($line['recipe'] as $material) {
                     $lineCogs += (float) $material['quantity'] * (float) $lockedItems[$material['inventory_item_id']]['average_cost'] * $line['quantity'];
                 }
@@ -153,14 +154,15 @@ class SaleService
                     }
                 }
                 if ($line['direct_item_id']) {
-                    $lineCogs += (float) $lockedItems[$line['direct_item_id']]['average_cost'] * $line['quantity'];
+                    $directUnitCogs = (float) $lockedItems[$line['direct_item_id']]['average_cost'];
+                    $lineCogs += $directUnitCogs * $line['quantity'];
                 }
                 $totalCogs += $lineCogs;
                 $variant = $line['variant'];
                 $this->database->table('sale_items')->insert([
                     'sale_id' => $saleId, 'product_id' => $variant['product_id'], 'product_variant_id' => $variant['id'], 'direct_inventory_item_id' => $line['direct_item_id'], 'product_name' => $variant['product_name'],
                     'variant_name' => $variant['name'], 'sku' => $variant['sku'], 'quantity' => $line['quantity'], 'unit_price' => $line['unit_price'], 'line_total' => $line['line_total'],
-                    'unit_cogs' => $lineCogs / $line['quantity'], 'line_cogs' => $lineCogs,
+                    'unit_cogs' => $lineCogs / $line['quantity'], 'direct_unit_cogs' => $directUnitCogs, 'line_cogs' => $lineCogs,
                     'recipe_snapshot' => $line['recipe'] ? json_encode($line['recipe'], JSON_UNESCAPED_UNICODE) : null,
                     'topping_snapshot' => $line['toppings'] ? json_encode($line['toppings'], JSON_UNESCAPED_UNICODE) : null, 'created_at' => $now,
                 ]);

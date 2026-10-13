@@ -330,7 +330,8 @@ class EvaluationDataSeeder extends Seeder
                 $diff = in_array($offset, [3, 9], true) ? -5000 : 0;
                 $this->db->table('shifts')->where('id', $shiftId)->update([
                     'status' => 'closed', 'closed_at' => $closedAt, 'expected_cash' => $expected, 'actual_cash' => $expected + $diff, 'cash_difference' => $diff,
-                    'difference_reason' => $diff !== 0 ? 'Selisih kembalian (data contoh)' : null, 'updated_at' => $closedAt,
+                    'difference_reason' => $diff !== 0 ? 'Selisih kembalian (data contoh)' : null,
+                    'cash_review_status' => $diff !== 0 ? 'pending' : 'not_required', 'updated_at' => $closedAt,
                 ]);
             }
         }

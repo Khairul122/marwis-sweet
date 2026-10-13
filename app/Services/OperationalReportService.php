@@ -14,24 +14,67 @@ class OperationalReportService
         if (!in_array($type, ['stock', 'opnames', 'expenses', 'shifts', 'finance'], true)) { throw new RuntimeException('Jenis laporan tidak valid.'); }
         if (in_array($type, ['expenses', 'finance'], true) && $role !== 'owner') { throw new RuntimeException('Laporan ini hanya tersedia untuk owner.'); }
         $period = (new SalesReportService($this->database))->period($input);
+        $includeFinancials = $role === 'owner';
         $data = match ($type) {
-            'stock' => $this->stock($period), 'opnames' => $this->opnames($period), 'expenses' => $this->expenses($period),
+            'stock' => $this->stock($period, $includeFinancials), 'opnames' => $this->opnames($period, $includeFinancials), 'expenses' => $this->expenses($period),
             'shifts' => $this->shifts($period, $role, $userId), 'finance' => $this->finance($period),
         };
-        return ['type' => $type, 'period' => $period, 'data' => $data];
+        return ['type' => $type, 'period' => $period, 'data' => $data, 'includeFinancials' => $includeFinancials];
     }
 
-    private function stock(array $period): array
+    private function stock(array $period, bool $includeFinancials): array
     {
-        $position = $this->database->query('SELECT i.name, i.sku, i.base_unit, COALESCE(SUM(CASE WHEN m.posted_at < ? THEN m.quantity ELSE 0 END),0) AS quantity, COALESCE(SUM(CASE WHEN m.posted_at < ? THEN m.total_cost ELSE 0 END),0) AS value FROM inventory_items i LEFT JOIN stock_movements m ON m.inventory_item_id=i.id GROUP BY i.id,i.name,i.sku,i.base_unit ORDER BY i.name', [$period['end'], $period['end']])->getResultArray();
-        $movements = $this->database->table('stock_movements')->select('stock_movements.*, inventory_items.name, inventory_items.sku, inventory_items.base_unit')->join('inventory_items', 'inventory_items.id=stock_movements.inventory_item_id')->where('posted_at >=', $period['start'])->where('posted_at <', $period['end'])->orderBy('posted_at')->get()->getResultArray();
-        return ['position' => $position, 'movements' => $movements, 'totalValue' => array_sum(array_map(static fn(array $row): float => (float)$row['value'], $position))];
+        $valueColumn = $includeFinancials
+            ? ', COALESCE(SUM(CASE WHEN m.posted_at < ? THEN m.total_cost ELSE 0 END),0) AS value'
+            : '';
+        $bindings = $includeFinancials
+            ? [$period['end'], $period['end']]
+            : [$period['end']];
+        $position = $this->database->query(
+            'SELECT i.name, i.sku, i.base_unit, COALESCE(SUM(CASE WHEN m.posted_at < ? THEN m.quantity ELSE 0 END),0) AS quantity'
+                . $valueColumn
+                . ' FROM inventory_items i LEFT JOIN stock_movements m ON m.inventory_item_id=i.id GROUP BY i.id,i.name,i.sku,i.base_unit ORDER BY i.name',
+            $bindings,
+        )->getResultArray();
+
+        $movementFields = $includeFinancials
+            ? 'stock_movements.*, inventory_items.name, inventory_items.sku, inventory_items.base_unit'
+            : 'stock_movements.id, stock_movements.quantity, stock_movements.movement_type, stock_movements.source_type, stock_movements.source_id, stock_movements.notes, stock_movements.posted_at, inventory_items.name, inventory_items.sku, inventory_items.base_unit';
+        $movements = $this->database->table('stock_movements')
+            ->select($movementFields)
+            ->join('inventory_items', 'inventory_items.id=stock_movements.inventory_item_id')
+            ->where('posted_at >=', $period['start'])
+            ->where('posted_at <', $period['end'])
+            ->orderBy('posted_at')
+            ->get()
+            ->getResultArray();
+
+        $report = ['position' => $position, 'movements' => $movements];
+        if ($includeFinancials) {
+            $report['totalValue'] = array_sum(array_map(static fn (array $row): float => (float) $row['value'], $position));
+        }
+
+        return $report;
     }
 
-    private function opnames(array $period): array
+    private function opnames(array $period, bool $includeFinancials): array
     {
-        $rows = $this->database->query("SELECT o.opname_number,o.cutoff_at,o.approved_at,u.name AS creator_name,COUNT(oi.id) AS item_count,COALESCE(SUM(ABS(oi.difference_quantity * COALESCE(oi.adjustment_unit_cost,oi.unit_cost_snapshot))),0) AS variance_value FROM stock_opnames o JOIN users u ON u.id=o.created_by JOIN stock_opname_items oi ON oi.stock_opname_id=o.id WHERE o.status='approved' AND o.approved_at >= ? AND o.approved_at < ? GROUP BY o.id,o.opname_number,o.cutoff_at,o.approved_at,u.name ORDER BY o.approved_at", [$period['start'],$period['end']])->getResultArray();
-        return ['rows'=>$rows,'totalVariance'=>array_sum(array_map(static fn(array $row):float=>(float)$row['variance_value'],$rows))];
+        $varianceColumn = $includeFinancials
+            ? ', COALESCE(SUM(ABS(oi.difference_quantity * COALESCE(oi.adjustment_unit_cost,oi.unit_cost_snapshot))),0) AS variance_value'
+            : '';
+        $rows = $this->database->query(
+            "SELECT o.opname_number,o.cutoff_at,o.approved_at,u.name AS creator_name,COUNT(oi.id) AS item_count"
+                . $varianceColumn
+                . " FROM stock_opnames o JOIN users u ON u.id=o.created_by JOIN stock_opname_items oi ON oi.stock_opname_id=o.id WHERE o.status='approved' AND o.approved_at >= ? AND o.approved_at < ? GROUP BY o.id,o.opname_number,o.cutoff_at,o.approved_at,u.name ORDER BY o.approved_at",
+            [$period['start'], $period['end']],
+        )->getResultArray();
+
+        $report = ['rows' => $rows];
+        if ($includeFinancials) {
+            $report['totalVariance'] = array_sum(array_map(static fn (array $row): float => (float) $row['variance_value'], $rows));
+        }
+
+        return $report;
     }
 
     private function expenses(array $period): array

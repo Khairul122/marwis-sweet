@@ -160,7 +160,7 @@ class RefundService
             $now = date('Y-m-d H:i:s');
             $restockRequirements = [];
             $refundItems = $this->database->table('refund_items')
-                ->select('refund_items.*, sale_items.direct_inventory_item_id, sale_items.unit_cogs, sale_items.product_name')
+                ->select('refund_items.*, sale_items.direct_inventory_item_id, sale_items.direct_unit_cogs, sale_items.product_name')
                 ->join('sale_items', 'sale_items.id = refund_items.sale_item_id')
                 ->where('refund_items.refund_id', $refundId)->get()->getResultArray();
             foreach ($refundItems as $refundItem) {
@@ -172,7 +172,7 @@ class RefundService
                     throw new RuntimeException('Item refund tidak memiliki pemetaan persediaan untuk restock.');
                 }
                 $quantity = (float) $refundItem['quantity'];
-                $cogs = round((float) $refundItem['unit_cogs'] * $quantity, 2);
+                $cogs = round((float) $refundItem['direct_unit_cogs'] * $quantity, 2);
                 if (!isset($restockRequirements[$inventoryItemId])) {
                     $restockRequirements[$inventoryItemId] = ['quantity' => 0.0, 'cogs' => 0.0, 'names' => []];
                 }
