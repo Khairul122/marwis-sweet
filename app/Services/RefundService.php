@@ -236,6 +236,11 @@ class RefundService
             $newRefundedTotal = $postedTotal + (float) $refund['amount'];
             $status = $newRefundedTotal >= (float) $sale['total'] - 0.01 ? 'refunded' : 'partially_refunded';
             $this->database->table('sales')->where('id', $sale['id'])->update(['status' => $status, 'updated_at' => $now]);
+            if ($status === 'refunded') {
+                $this->database->table('review_tokens')->where('sale_id', $sale['id'])->where('disabled_at', null)->update(['disabled_at' => $now, 'disabled_reason' => 'Transaksi direfund penuh']);
+                $reviewIds = array_column($this->database->table('product_reviews')->select('product_reviews.id')->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')->where('review_tokens.sale_id', $sale['id'])->get()->getResultArray(), 'id');
+                if ($reviewIds !== []) { $this->database->table('product_reviews')->whereIn('id', $reviewIds)->update(['sale_fully_refunded' => true, 'updated_at' => $now]); }
+            }
             $this->database->transComplete();
             return (int) $sale['id'];
         } catch (\Throwable $exception) {

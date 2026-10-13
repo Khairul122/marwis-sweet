@@ -72,12 +72,18 @@ class Home extends BaseController
             $settings[$row['setting_key']] = $row['setting_value'];
         }
 
+        $database = db_connect();
+        $reviews = $database->table('product_reviews')->where('product_id', $product['id'])->where('status', 'approved')->orderBy('created_at', 'DESC')->limit(20)->get()->getResultArray();
+        $reviewImages = [];
+        if ($reviews !== []) { foreach ($database->table('review_images')->whereIn('product_review_id', array_column($reviews, 'id'))->get()->getResultArray() as $image) { $reviewImages[$image['product_review_id']][] = $image; } }
+        $reviewSummary = $database->table('product_reviews')->select('COUNT(*) AS total, COALESCE(AVG(rating), 0) AS average', false)->where('product_id', $product['id'])->where('status', 'approved')->get()->getRowArray();
         return view('public/product', [
             'businessName' => $settings['business_name'] ?? env('BUSINESS_NAME', 'Marwis Sweet'),
             'settings' => $settings,
             'product' => $product,
             'variants' => (new ProductVariantModel())->where('product_id', $product['id'])->where('is_active', true)->orderBy('is_default', 'DESC')->orderBy('price')->findAll(),
-            'images' => db_connect()->table('product_images')->where('product_id', $product['id'])->orderBy('sort_order')->get()->getResultArray(),
+            'images' => $database->table('product_images')->where('product_id', $product['id'])->orderBy('sort_order')->get()->getResultArray(),
+            'reviews' => $reviews, 'reviewImages' => $reviewImages, 'reviewSummary' => $reviewSummary,
         ]);
     }
 }

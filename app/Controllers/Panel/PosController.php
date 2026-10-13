@@ -4,6 +4,7 @@ namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
 use App\Services\SaleService;
+use App\Services\ReviewService;
 use CodeIgniter\HTTP\RedirectResponse;
 
 class PosController extends BaseController
@@ -42,7 +43,10 @@ class PosController extends BaseController
         } catch (\Throwable $exception) {
             return redirect()->route('panel.pos')->with('error', $exception->getMessage());
         }
-        return redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Pembayaran berhasil disimpan.');
+        try { $reviewToken = (new ReviewService())->issueToken($saleId); }
+        catch (\Throwable) { $reviewToken = null; }
+        $redirect = redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Pembayaran berhasil disimpan.');
+        return $reviewToken ? $redirect->with('review_token', $reviewToken) : $redirect;
     }
 
     public function transactions(): string
@@ -81,6 +85,14 @@ class PosController extends BaseController
             'payments' => $database->table('payments')->where('sale_id', $saleId)->get()->getResultArray(),
             'refunds' => $refunds,
             'postedRefundTotal' => (float) ($database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $saleId)->where('status', 'posted')->get()->getRow('total') ?? 0),
+            'reviewToken' => session()->getFlashdata('review_token'),
         ]);
+    }
+
+    public function reviewLink(int $saleId): RedirectResponse
+    {
+        try { $token = (new ReviewService())->issueToken($saleId); }
+        catch (\Throwable $exception) { return redirect()->to(site_url('panel/transactions/' . $saleId))->with('error', $exception->getMessage()); }
+        return redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Tautan ulasan baru dibuat. Tautan sebelumnya dinonaktifkan.')->with('review_token', $token);
     }
 }

@@ -52,8 +52,11 @@ Stack: CodeIgniter 4.7.5, PHP 8.3, Tailwind CSS 4, MySQL, Bahasa Indonesia, zona
 
 ## Tahap 5 — Pelaporan dan ulasan
 
-- [ ] Laporan PDF harian/bulanan/tahunan dan dashboard
-- [ ] Token ulasan, foto, dan moderasi
+- [x] Dashboard owner/kasir dengan metrik penjualan, laba terbatas role, kas/bank, shift, stok menipis, dan produk terlaris
+- [x] Laporan penjualan harian/bulanan/tahunan dengan filter, detail, rekap, dan PDF A4 berbasis snapshot data yang sama
+- [x] PDF stok/mutasi, opname, pengeluaran, shift, dan keuangan periodik sesuai hak akses role
+- [x] Token ulasan 256-bit tersimpan sebagai hash, kedaluwarsa 30 hari, pembatasan percobaan, honeypot, dan verifikasi adaptif
+- [x] Ulasan per item transaksi, maksimal 3 foto tanpa metadata, moderasi owner, rating publik, dan penanganan refund penuh
 
 ## Tahap 6 — Stabilisasi
 

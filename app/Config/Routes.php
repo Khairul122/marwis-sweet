@@ -6,6 +6,9 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Home::index');
 $routes->get('menu/(:segment)', 'Home::product/$1', ['as' => 'public.product']);
 $routes->get('login', 'AuthController::login', ['as' => 'login']);
+$routes->get('ulasan/foto/(:num)', 'ReviewController::photo/$1', ['as' => 'reviews.photo']);
+$routes->get('ulasan/(:segment)', 'ReviewController::form/$1', ['as' => 'reviews.form']);
+$routes->post('ulasan/(:segment)', 'ReviewController::submit/$1', ['as' => 'reviews.submit']);
 $routes->post('login', 'AuthController::attempt', ['as' => 'login.attempt']);
 $routes->post('logout', 'AuthController::logout', ['filter' => 'auth', 'as' => 'logout']);
 $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
@@ -85,6 +88,7 @@ $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
     $routes->group('reports', static function ($routes): void {
         $routes->get('/', 'Panel\ReportController::index', ['as' => 'panel.reports']);
         $routes->get('sales.pdf', 'Panel\ReportController::pdf', ['as' => 'panel.reports.sales.pdf']);
+        $routes->get('(:alpha).pdf', 'Panel\ReportController::operationalPdf/$1');
     });
     $routes->group('shifts', static function ($routes): void {
         $routes->get('/', 'Panel\ShiftController::index', ['as' => 'panel.shifts']);
@@ -99,6 +103,7 @@ $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
     $routes->get('transactions', 'Panel\PosController::transactions', ['as' => 'panel.transactions']);
     $routes->get('transactions/(:num)', 'Panel\PosController::receipt/$1');
     $routes->post('transactions/(:num)/refunds', 'Panel\RefundController::submit/$1');
+    $routes->post('transactions/(:num)/review-link', 'Panel\PosController::reviewLink/$1');
     $routes->group('refunds', ['filter' => 'owner'], static function ($routes): void {
         $routes->post('(:num)/approve', 'Panel\RefundController::approve/$1');
         $routes->post('(:num)/reject', 'Panel\RefundController::reject/$1');
@@ -108,5 +113,9 @@ $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
         $routes->post('create', 'Panel\UsersController::create', ['as' => 'panel.users.create']);
         $routes->post('status', 'Panel\UsersController::status', ['as' => 'panel.users.status']);
         $routes->post('reset-password', 'Panel\UsersController::resetPassword', ['as' => 'panel.users.reset-password']);
+    });
+    $routes->group('reviews', ['filter' => 'owner'], static function ($routes): void {
+        $routes->get('/', 'Panel\ReviewController::index', ['as' => 'panel.reviews']);
+        $routes->post('(:num)/moderate', 'Panel\ReviewController::moderate/$1');
     });
 });

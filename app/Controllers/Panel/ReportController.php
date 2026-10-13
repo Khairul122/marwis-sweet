@@ -5,6 +5,7 @@ namespace App\Controllers\Panel;
 use App\Controllers\BaseController;
 use App\Models\SettingModel;
 use App\Services\SalesReportService;
+use App\Services\OperationalReportService;
 use CodeIgniter\HTTP\ResponseInterface;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -56,6 +57,26 @@ class ReportController extends BaseController
             ->setHeader('Content-Type', 'application/pdf')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($dompdf->output());
+    }
+
+    public function operationalPdf(string $type): ResponseInterface
+    {
+        $database = db_connect();
+        try {
+            $database->transException(true)->transStart();
+            $report = (new OperationalReportService($database))->build($type, $this->request->getGet(), (string) (session('user')['role'] ?? ''), (int) session('user_id'));
+            $settings = [];
+            foreach ((new SettingModel())->findAll() as $row) { $settings[$row['setting_key']] = $row['setting_value']; }
+            $database->transComplete();
+        } catch (\Throwable $exception) {
+            $database->transRollback();
+            return redirect()->route('panel.reports')->with('error', $exception->getMessage());
+        }
+        $titles = ['stock'=>'Stok dan Mutasi','opnames'=>'Stok Opname','expenses'=>'Pengeluaran','shifts'=>'Shift Kasir','finance'=>'Keuangan'];
+        $html = view('panel/reports/operational_pdf', ['report'=>$report,'title'=>$titles[$type],'businessName'=>$settings['business_name']??env('BUSINESS_NAME','Marwis Sweet'),'printedBy'=>session('user')['name']??'-','printedAt'=>date('d/m/Y H:i')]);
+        $options = new Options(); $options->set('isRemoteEnabled', false); $options->set('isHtml5ParserEnabled', true);
+        $dompdf = new Dompdf($options); $dompdf->loadHtml($html,'UTF-8'); $dompdf->setPaper('A4','portrait'); $dompdf->render();
+        return $this->response->setHeader('Content-Type','application/pdf')->setHeader('Content-Disposition','attachment; filename="laporan-'.$type.'-'.$report['period']['value'].'.pdf"')->setBody($dompdf->output());
     }
 
     private function isOwner(): bool

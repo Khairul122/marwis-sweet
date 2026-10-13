@@ -16,7 +16,7 @@ class SalesReportService
 
     public function build(array $input, bool $includeFinancials): array
     {
-        $period = $this->resolvePeriod($input);
+        $period = $this->period($input);
         $filters = $this->normalizeFilters($input);
         $matchedSaleIds = $this->matchedSaleIds($filters);
 
@@ -112,7 +112,7 @@ class SalesReportService
         ];
     }
 
-    private function resolvePeriod(array $input): array
+    public function period(array $input): array
     {
         $timezone = new DateTimeZone('Asia/Jakarta');
         $type = in_array($input['period_type'] ?? '', ['daily', 'monthly', 'yearly'], true) ? $input['period_type'] : 'daily';

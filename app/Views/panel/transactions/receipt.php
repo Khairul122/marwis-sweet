@@ -58,10 +58,11 @@ foreach ($items as $item) {
                     <?php if ((float) $payment['change_amount'] > 0): ?><li class="flex justify-between gap-4"><span>Kembalian</span><span class="tabular-nums">Rp<?= number_format((float) $payment['change_amount'], 0, ',', '.') ?></span></li><?php endif ?>
                 <?php endforeach ?>
             </ul>
-            <p class="mt-8 text-center text-sm font-semibold">Terima kasih.</p>
+            <?php if ($reviewToken): ?><div class="mt-6 border border-brand-cocoa bg-brand-sun p-4 text-center"><p class="text-xs font-bold uppercase tracking-wider">Bagikan pengalaman</p><p class="mt-2 break-all text-xs"><?= esc(site_url('ulasan/' . $reviewToken)) ?></p><p class="mt-2 text-[10px]">Tautan berlaku 30 hari dan hanya membuka produk pada transaksi ini.</p></div><?php endif ?><p class="mt-8 text-center text-sm font-semibold">Terima kasih.</p>
         </article>
 
         <aside class="space-y-5 print:hidden lg:sticky lg:top-24">
+            <section class="panel-card p-5"><p class="section-kicker">Ulasan pelanggan</p><h2 class="mt-2 font-display text-xl"><?= $reviewToken ? 'Tautan siap dibagikan' : 'Buat tautan baru' ?></h2><?php if ($reviewToken): ?><p class="mt-3 break-all border border-border-warm bg-surface-soft-yellow p-3 text-xs"><?= esc(site_url('ulasan/' . $reviewToken)) ?></p><button class="button-secondary mt-3 w-full" type="button" data-copy-text="<?= esc(site_url('ulasan/' . $reviewToken)) ?>">Salin tautan</button><?php else: ?><p class="mt-2 text-sm leading-6 text-ink-muted">Tautan hanya ditampilkan satu kali. Pembuatan ulang akan menonaktifkan tautan sebelumnya.</p><form action="<?= site_url('panel/transactions/' . $sale['id'] . '/review-link') ?>" method="post" class="mt-4" data-confirm-form="Buat tautan ulasan baru untuk transaksi ini?"><?= csrf_field() ?><button class="button-secondary w-full" type="submit" <?= $sale['status'] === 'refunded' ? 'disabled' : '' ?>>Buat tautan ulasan</button></form><?php endif ?></section>
             <?php if (($user['role'] ?? '') === 'cashier' && $canRequestRefund && in_array($sale['status'], ['paid', 'partially_refunded'], true)): ?>
                 <section class="panel-card p-5">
                     <p class="section-kicker">Refund</p>

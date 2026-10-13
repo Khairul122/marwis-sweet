@@ -110,6 +110,17 @@
         });
     });
 
+    document.querySelectorAll('[data-copy-text]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(button.dataset.copyText);
+                const original = button.textContent;
+                button.textContent = 'Tersalin';
+                window.setTimeout(() => { button.textContent = original; }, 1800);
+            } catch { button.textContent = 'Salin manual dari kotak di atas'; }
+        });
+    });
+
     const opnameScopeInputs = [...document.querySelectorAll('[data-opname-scope]')];
     const opnamePartial = document.querySelector('[data-opname-partial]');
     if (opnameScopeInputs.length && opnamePartial) {
