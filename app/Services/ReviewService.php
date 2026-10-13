@@ -12,25 +12,97 @@ class ReviewService
         $this->database ??= db_connect();
     }
 
-    public function issueToken(int $saleId): string
+    public function issueToken(int $saleId, bool $replaceExisting = false): ?string
     {
-        $sale = $this->database->table('sales')->where('id', $saleId)->whereIn('status', ['paid', 'partially_refunded'])->get()->getRowArray();
-        if (!$sale) { throw new RuntimeException('Tautan ulasan tidak dapat dibuat untuk transaksi ini.'); }
-        $token = bin2hex(random_bytes(32));
+        try {
+            $this->database->transException(true)->transStart();
+            $sale = $this->database->query('SELECT * FROM sales WHERE id = ? FOR UPDATE', [$saleId])->getRowArray();
+            if (!$sale || !in_array($sale['status'], ['paid', 'partially_refunded'], true)) {
+                throw new RuntimeException('Tautan ulasan tidak dapat dibuat untuk transaksi ini.');
+            }
+
+            $now = date('Y-m-d H:i:s');
+            $activeRows = $this->database->table('review_tokens')->where('sale_id', $saleId)->where('disabled_at', null)->orderBy('id', 'DESC')->get()->getResultArray();
+            $hasUnexpiredToken = false;
+            $token = null;
+            foreach ($activeRows as $row) {
+                if ($row['expires_at'] <= $now) {
+                    $this->database->table('review_tokens')->where('id', $row['id'])->update(['disabled_at' => $now, 'disabled_reason' => 'Tautan kedaluwarsa']);
+                    continue;
+                }
+
+                $hasUnexpiredToken = true;
+                if (!$replaceExisting) {
+                    $token = $this->restoreToken($row);
+                    break;
+                }
+            }
+
+            if ($replaceExisting) {
+                $this->database->table('review_tokens')->where('sale_id', $saleId)->where('disabled_at', null)->update(['disabled_at' => $now, 'disabled_reason' => 'Diganti dengan tautan baru']);
+                $hasUnexpiredToken = false;
+            }
+
+            if (!$hasUnexpiredToken) {
+                $token = bin2hex(random_bytes(32));
+                $encryptedToken = base64_encode(service('encrypter')->encrypt($token));
+                $this->database->table('review_tokens')->insert([
+                    'sale_id' => $saleId,
+                    'token_hash' => hash('sha256', $token),
+                    'encrypted_token' => $encryptedToken,
+                    'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')),
+                    'created_at' => $now,
+                ]);
+            }
+
+            $this->database->transComplete();
+            if (!$this->database->transStatus()) { throw new RuntimeException('Tautan ulasan belum dapat dibuat.'); }
+            return $token;
+        } catch (\Throwable $exception) {
+            $this->database->transRollback();
+            throw $exception;
+        }
+    }
+
+    public function activeToken(int $saleId): ?string
+    {
         $now = date('Y-m-d H:i:s');
-        $this->database->transStart();
-        $this->database->table('review_tokens')->where('sale_id', $saleId)->where('disabled_at', null)->update(['disabled_at' => $now, 'disabled_reason' => 'Diganti dengan tautan baru']);
-        $this->database->table('review_tokens')->insert(['sale_id' => $saleId, 'token_hash' => hash('sha256', $token), 'expires_at' => date('Y-m-d H:i:s', strtotime('+30 days')), 'created_at' => $now]);
-        $this->database->transComplete();
-        if (!$this->database->transStatus()) { throw new RuntimeException('Tautan ulasan belum dapat dibuat.'); }
-        return $token;
+        $row = $this->database->table('review_tokens')
+            ->select('review_tokens.token_hash, review_tokens.encrypted_token')
+            ->join('sales', 'sales.id = review_tokens.sale_id')
+            ->where('review_tokens.sale_id', $saleId)
+            ->whereIn('sales.status', ['paid', 'partially_refunded'])
+            ->where('review_tokens.disabled_at', null)
+            ->where('review_tokens.expires_at >', $now)
+            ->orderBy('review_tokens.id', 'DESC')
+            ->get()->getRowArray();
+
+        return $row ? $this->restoreToken($row) : null;
+    }
+
+    private function restoreToken(array $row): ?string
+    {
+        if (empty($row['encrypted_token'])) { return null; }
+
+        try {
+            $ciphertext = base64_decode($row['encrypted_token'], true);
+            if ($ciphertext === false) { return null; }
+            $token = service('encrypter')->decrypt($ciphertext);
+            if (!is_string($token) || !hash_equals($row['token_hash'], hash('sha256', $token))) { return null; }
+            return $token;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function resolve(string $token): array
     {
         if (!preg_match('/^[a-f0-9]{64}$/', $token)) { throw new RuntimeException('Tautan ulasan tidak valid.'); }
-        $row = $this->database->table('review_tokens')->select('review_tokens.*, sales.sale_number, sales.status AS sale_status')->join('sales', 'sales.id = review_tokens.sale_id')->where('token_hash', hash('sha256', $token))->get()->getRowArray();
-        if (!$row || $row['disabled_at'] || $row['expires_at'] < date('Y-m-d H:i:s') || $row['sale_status'] === 'refunded') { throw new RuntimeException('Tautan ulasan sudah kedaluwarsa atau tidak aktif.'); }
+        $row = $this->database->table('review_tokens')
+            ->select('review_tokens.id, review_tokens.sale_id, review_tokens.expires_at, review_tokens.disabled_at, sales.sale_number, sales.status AS sale_status')
+            ->join('sales', 'sales.id = review_tokens.sale_id')
+            ->where('token_hash', hash('sha256', $token))->get()->getRowArray();
+        if (!$row || $row['disabled_at'] || $row['expires_at'] <= date('Y-m-d H:i:s') || !in_array($row['sale_status'], ['paid', 'partially_refunded'], true)) { throw new RuntimeException('Tautan ulasan sudah kedaluwarsa atau tidak aktif.'); }
         $items = $this->database->table('sale_items')->select('sale_items.id, sale_items.product_id, sale_items.product_name, sale_items.variant_name, product_reviews.id AS review_id, product_reviews.status AS review_status')->join('product_reviews', 'product_reviews.sale_item_id = sale_items.id', 'left')->where('sale_items.sale_id', $row['sale_id'])->orderBy('sale_items.id')->get()->getResultArray();
         return ['token' => $row, 'items' => $items];
     }

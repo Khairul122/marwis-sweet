@@ -51,7 +51,25 @@ class SaleService
                 if (!$variant || !$variant['is_active'] || !$variant['product_active']) {
                     throw new RuntimeException('Salah satu produk sudah tidak tersedia.');
                 }
-                $toppingIds = array_values(array_unique(array_filter(array_map('intval', (array) ($entry['topping_ids'] ?? [])))));
+                $rawToppingIds = $entry['topping_ids'] ?? [];
+                if (!is_array($rawToppingIds)) {
+                    throw new RuntimeException('Pilihan topping tidak valid.');
+                }
+                $toppingIds = [];
+                foreach ($rawToppingIds as $rawToppingId) {
+                    if (!is_int($rawToppingId) && !is_string($rawToppingId)) {
+                        throw new RuntimeException('Pilihan topping tidak valid.');
+                    }
+                    $toppingId = filter_var($rawToppingId, FILTER_VALIDATE_INT);
+                    if ($toppingId === false || $toppingId < 1) {
+                        throw new RuntimeException('Pilihan topping tidak valid.');
+                    }
+                    $toppingIds[] = $toppingId;
+                }
+                $toppingIds = array_values(array_unique($toppingIds));
+                if ($toppingIds !== [] && $variant['stock_mode'] !== 'recipe') {
+                    throw new RuntimeException('Topping hanya tersedia untuk produk dengan resep.');
+                }
                 $toppings = [];
                 $toppingPriceCents = 0;
                 foreach ($toppingIds as $toppingId) {

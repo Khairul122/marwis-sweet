@@ -11,11 +11,13 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 - [x] Batasi laporan stok/opname bernilai uang untuk owner, atau buat hasil kasir tanpa `total_cost`, valuasi, HPP, dan nilai selisih.
 - [x] Terapkan pembatasan pada service dan pilih template PDF berbasis role, bukan sekadar menyembunyikan tautan.
 
-**Status:** Implementasi selesai dan sintaks PHP valid. Uji PDF langsung dengan sesi owner/kasir masih perlu dilakukan.
+**Status:** Implementasi selesai dan sintaks PHP valid.
 
 **Terima bila:** akun kasir menerima penolakan atau PDF tanpa angka biaya; owner tetap bisa mencetak PDF lengkap; AC-02 berhasil.
 
-**Verifikasi nanti:** uji route PDF langsung dengan sesi owner dan kasir, termasuk request tanpa menu UI.
+**Verifikasi UI (2026-10-14):** PDF stok owner memuat nilai persediaan; PDF kasir tetap memuat kuantitas tetapi tidak memuat nilai uang. Keduanya berhasil diunduh dan tata letak A4 terbaca.
+
+**Catatan data:** fixture demo menampilkan stok tepung dan telur negatif pada PDF. Verifikasi biaya memakai nilai demo, bukan data usaha yang sudah direkonsiliasi.
 
 ### Tugas 2 — Batasi halaman shift menurut role dan pemilik shift (B-08)
 
@@ -24,11 +26,11 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 - [x] Kasir hanya melihat shift miliknya dan ringkasan kas miliknya.
 - [x] POS/buka shift hanya untuk kasir; owner memakai akun kasir terpisah sesuai PRD.
 
-**Status:** Implementasi selesai; akses langsung melalui sesi owner/kasir masih perlu diuji.
+**Status:** Implementasi selesai.
 
 **Terima bila:** URL langsung tidak membocorkan kasir lain; route owner tidak bisa memulai transaksi POS dengan role owner.
 
-**Verifikasi nanti:** akses langsung per role dan pemeriksaan isi halaman shift.
+**Verifikasi UI (2026-10-14):** akses langsung owner ke POS dan shift ditolak. Kasir melihat halaman shift dengan shift aktif dan riwayat miliknya; fixture hanya berisi satu kasir, jadi isolasi terhadap kasir kedua belum dapat dibandingkan.
 
 ### Tugas 3 — Jadikan penutupan shift atomik (A-07)
 
@@ -37,11 +39,11 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 - [x] Dalam satu transaksi database, kunci baris shift, hitung ulang pembayaran/refund/pengeluaran/mutasi, simpan kas seharusnya, kas aktual, selisih, dan status tutup.
 - [x] Finalisasi penjualan yang kalah memperoleh pesan jelas bahwa shift sudah ditutup.
 
-**Status:** Implementasi selesai; sintaks dan whitespace diff valid. Uji konkurensi MySQL masih perlu dilakukan.
+**Status:** Implementasi selesai; sintaks dan whitespace diff valid.
 
 **Terima bila:** pembayaran yang bertarung dengan tutup shift hanya tercatat seluruhnya sebelum tutup atau ditolak; tidak ada penjualan pada shift tertutup yang terlewat di `expected_cash`.
 
-**Verifikasi nanti:** tes integrasi dua request MySQL yang berjalan serentak.
+**Verifikasi UI (2026-10-14):** halaman kasir menampilkan formulir kas masuk/keluar dan tutup shift. Saya tidak mengirim mutasi atau menutup shift demo. Uji konkurensi dua request MySQL masih diperlukan.
 
 ### Tugas 4 — Tambahkan review owner untuk selisih shift (B-01)
 
@@ -50,11 +52,11 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 - [x] Simpan status review, owner peninjau, waktu, keputusan, dan alasan.
 - [x] Selisih tidak membuat jurnal penyesuaian sebelum owner menyetujui.
 
-**Status:** Implementasi selesai. Migrasi menandai selisih lama sebagai pending; persetujuan mem-posting jurnal idempoten dalam transaksi yang sama. Sintaks PHP valid. Alur UI dan database MySQL belum diverifikasi langsung.
+**Status:** Implementasi selesai. Migrasi menandai selisih lama sebagai pending; persetujuan mem-posting jurnal idempoten dalam transaksi yang sama. Sintaks PHP valid.
 
 **Terima bila:** shift tanpa selisih dapat ditutup; shift berselisih tercatat menunggu review; hanya owner dapat menyetujui/menolak; keputusan tidak dapat diposting dua kali.
 
-**Verifikasi nanti:** alur kasir tutup shift dan owner review, termasuk URL langsung oleh kasir.
+**Verifikasi UI (2026-10-14):** halaman owner review selisih menghasilkan HTTP 500 karena database tidak memiliki kolom `shifts.cash_review_status` (migrasi 015 belum diterapkan). Alur persetujuan belum dapat diuji.
 
 ## Fase 2 — Rekonsiliasi kas, stok, dan buku besar
 
@@ -71,6 +73,8 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **Menunggu aturan bisnis:** `in/out` saat ini tidak menyebut sumber atau tujuan. Perlu ditetapkan apakah selalu transfer kas utama ↔ laci atau mutasi dapat berasal dari/setor ke akun lain; jurnal belum dibuat agar saldo buku besar tidak salah.
 
+**Verifikasi UI (2026-10-14):** form kasir hanya meminta jenis kas masuk/keluar, nominal, dan alasan; belum ada pilihan akun sumber/tujuan.
+
 ### Tugas 6 — Koreksi tanda saldo prive pada neraca (A-03)
 
 **P1 · Ketergantungan:** tidak ada.
@@ -82,7 +86,7 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **Terima bila:** setelah jurnal prive Rp100.000, aset dan ekuitas sama-sama turun Rp100.000 dan persamaan neraca tetap seimbang.
 
-**Verifikasi nanti:** uji perhitungan neraca untuk modal, prive, dan laba berjalan.
+**Verifikasi UI (2026-10-14):** neraca menampilkan baris Prive, tetapi nilainya Rp0 pada fixture saat ini. Tanda pengurang ekuitas belum dapat dibuktikan dengan saldo prive nonnol.
 
 ### Tugas 7 — Cegah saldo awal diposting berulang (A-04)
 
@@ -95,7 +99,7 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **Terima bila:** mengirim ulang saldo awal tidak mengubah saldo; jalur koreksi tetap tercatat dan seimbang.
 
-**Verifikasi nanti:** kirim request identik dua kali dan bandingkan satu jurnal, akun persediaan, serta nilai kartu stok.
+**Verifikasi UI (2026-10-14):** form saldo awal tersedia untuk tanggal, aset, sumber saldo, nominal, dan keterangan. Saya tidak mem-posting saldo; perilaku request ganda perlu diverifikasi pada skenario database terkontrol.
 
 ### Tugas 8 — Pisahkan biaya barang dan biaya topping pada refund restock (A-05)
 
@@ -108,7 +112,7 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **Terima bila:** refund minuman Rp2.000 + topping Rp1.000 yang hanya mengembalikan minuman menambah stok dan membalik HPP Rp2.000 saja.
 
-**Verifikasi nanti:** uji refund dengan dan tanpa restock serta rekonsiliasi `stock_movements`, `refund_items`, dan jurnal.
+**Verifikasi UI (2026-10-14):** struk kasir menampilkan form jumlah refund per item, metode, referensi non-tunai, dan alasan. Pengajuan tidak dikirim; pengembalian stok dan biaya belum diverifikasi.
 
 ### Tugas 9 — Satukan pembulatan HPP, biaya rata-rata, dan refund (B-06, B-07)
 
@@ -122,7 +126,7 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **Status:** Implementasi selesai untuk transaksi baru. Nilai persediaan tersimpan dalam migrasi 017; biaya restock barang langsung mengikuti HPP yang benar-benar dilepas saat penjualan, dan refund bertahap menutup sisa biaya secara deterministik.
 
-**Verifikasi:** lint sintaks PHP dan pemeriksaan diff. Migrasi MySQL serta skenario transaksi belum dijalankan pada database pengguna.
+**Verifikasi UI (2026-10-14):** form refund per item tersedia di struk (lihat Tugas 8), tetapi tidak dikirim agar stok dan jurnal fixture demo tidak berubah. Pembulatan bertahap, pelepasan HPP, dan sisa biaya belum dibuktikan melalui transaksi MySQL.
 
 ## Fase 3 — Laporan dan transaksi POS
 
@@ -138,29 +142,35 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **Terima bila:** transaksi A Rp10.000 + B Rp20.000 difilter A menghasilkan nilai A saja; penjualan tunai dengan refund bank muncul di laporan refund berfilter bank.
 
-**Verifikasi:** lint sintaks PHP dan pemeriksaan diff. Cocokkan tabel, total panel, dan PDF pada database MySQL untuk kombinasi filter/split payment/refund.
+**Verifikasi UI (2026-10-14):** filter produk Martabak Susu Cokelat, kategori Martabak Manis, metode QRIS, dan tanggal 2026-10-12 menghasilkan Rp54.000, satu transaksi, dan satu unit pada panel; PDF dengan filter yang sama menampilkan hasil yang cocok. Split payment dan refund lintas metode belum diuji.
+
+**Verifikasi lanjutan:** cocokkan tabel, total panel, dan PDF pada database MySQL untuk kombinasi filter/split payment/refund.
 
 ### Tugas 11 — Pertahankan token ulasan saat retry dan cetak ulang (A-08, B-13)
 
 **P1 · Ketergantungan:** keputusan penyimpanan token aman pada `tasks/plan.md`.
 
-- [ ] Retry pembayaran idempotent tidak menonaktifkan token yang sudah diterbitkan.
-- [ ] Sediakan tautan/QR aktif pada struk cetak ulang tanpa menyimpan token mentah dalam database.
+- [x] Retry pembayaran idempotent tidak menonaktifkan token yang sudah diterbitkan.
+- [x] Sediakan tautan aktif pada struk cetak ulang tanpa menyimpan token mentah dalam database.
+
+**Status:** Implementasi selesai. Token tersimpan sebagai hash dan ciphertext, dapat dipulihkan untuk struk cetak ulang, dan retry menggunakan tautan aktif yang sama. Token lama yang hanya tersimpan sebagai hash tetap aktif saat retry, tetapi perlu dibuat ulang secara eksplisit sebelum dapat ditampilkan kembali. Migrasi penambahan kolom terenkripsi belum dijalankan pada MySQL pengguna.
 
 **Terima bila:** retry menampilkan tautan ulasan yang sama dan tautan pada cetak ulang tetap berlaku sampai kedaluwarsa/ditutup.
 
-**Verifikasi nanti:** ulangi request finalize, buka struk lagi, dan kirim ulasan satu kali pada item transaksi.
+**Verifikasi UI (2026-10-14):** tombol pembuatan tautan menampilkan konfirmasi, tetapi setelah dilanjutkan gagal karena kolom `encrypted_token` tidak ada (migrasi 018 belum diterapkan). Tautan tidak berhasil dibuat; cetak ulang dengan token aktif belum dapat diverifikasi.
 
 ### Tugas 12 — Batasi topping pada produk yang kompatibel (A-09)
 
 **P1 · Ketergantungan:** aturan hubungan topping-produk/varian.
 
-- [ ] Simpan atau definisikan kompatibilitas topping untuk produk/varian.
-- [ ] Terapkan aturan sama di tampilan POS dan `SaleService`.
+- [x] Definisikan kompatibilitas topping berdasarkan mode stok varian: hanya `recipe` yang mendukung topping.
+- [x] Terapkan aturan yang sama di tampilan POS dan `SaleService`.
 
 **Terima bila:** Air Mineral 600 ml tidak menawarkan maupun menerima topping lewat request buatan; martabak yang dikonfigurasi tetap bisa memakai topping.
 
-**Verifikasi nanti:** cek UI POS dan submit payload yang memaksa topping tidak kompatibel.
+**Status:** Implementasi selesai. Varian `direct` dan `none` tidak menawarkan topping; server memvalidasi bentuk dan ID topping serta menolak topping untuk varian selain `recipe`.
+
+**Verifikasi UI (2026-10-14):** seluruh varian martabak di POS menampilkan empat pilihan topping; Air Mineral 600 ml tidak menampilkan topping. Katalog publik juga menyembunyikan bagian topping pada Air Mineral dan menampilkannya untuk martabak. Payload buatan ke server belum dikirim.
 
 ### Tugas 13 — Terapkan aturan pembayaran dan diskon di server (B-03)
 

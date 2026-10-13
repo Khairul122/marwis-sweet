@@ -43,10 +43,9 @@ class PosController extends BaseController
         } catch (\Throwable $exception) {
             return redirect()->route('panel.pos')->with('error', $exception->getMessage());
         }
-        try { $reviewToken = (new ReviewService())->issueToken($saleId); }
-        catch (\Throwable) { $reviewToken = null; }
-        $redirect = redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Pembayaran berhasil disimpan.');
-        return $reviewToken ? $redirect->with('review_token', $reviewToken) : $redirect;
+        try { (new ReviewService())->issueToken($saleId); }
+        catch (\Throwable) { /* Review link creation must not undo a completed sale. */ }
+        return redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Pembayaran berhasil disimpan.');
     }
 
     public function transactions(): string
@@ -63,6 +62,8 @@ class PosController extends BaseController
         if (!$sale) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Transaksi tidak ditemukan.');
         }
+        try { $reviewToken = (new ReviewService())->activeToken($saleId); }
+        catch (\Throwable) { $reviewToken = null; }
         $items = $database->table('sale_items')->where('sale_id', $saleId)->get()->getResultArray();
         foreach ($items as &$item) {
             $item['posted_refund_quantity'] = (float) ($database->table('refund_items')->selectSum('refund_items.quantity', 'total')->join('refunds', 'refunds.id = refund_items.refund_id')->where('refund_items.sale_item_id', $item['id'])->where('refunds.status', 'posted')->get()->getRow('total') ?? 0);
@@ -85,14 +86,15 @@ class PosController extends BaseController
             'payments' => $database->table('payments')->where('sale_id', $saleId)->get()->getResultArray(),
             'refunds' => $refunds,
             'postedRefundTotal' => (float) ($database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $saleId)->where('status', 'posted')->get()->getRow('total') ?? 0),
-            'reviewToken' => session()->getFlashdata('review_token'),
+            'reviewToken' => $reviewToken,
         ]);
     }
 
     public function reviewLink(int $saleId): RedirectResponse
     {
-        try { $token = (new ReviewService())->issueToken($saleId); }
+        try { $token = (new ReviewService())->issueToken($saleId, true); }
         catch (\Throwable $exception) { return redirect()->to(site_url('panel/transactions/' . $saleId))->with('error', $exception->getMessage()); }
-        return redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Tautan ulasan baru dibuat. Tautan sebelumnya dinonaktifkan.')->with('review_token', $token);
+        if (!$token) { return redirect()->to(site_url('panel/transactions/' . $saleId))->with('error', 'Tautan ulasan belum dapat dibuat.'); }
+        return redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Tautan ulasan baru dibuat. Tautan sebelumnya dinonaktifkan.');
     }
 }
