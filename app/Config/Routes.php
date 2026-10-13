@@ -121,6 +121,8 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
     });
     $routes->group('pos', ['filter' => 'cashier'], static function ($routes): void {
         $routes->get('/', 'Panel\PosController::index', ['as' => 'panel.pos']);
+        $routes->post('orders', 'Panel\PosController::saveOrder', ['as' => 'panel.pos.orders.save']);
+        $routes->post('orders/(:num)/cancel', 'Panel\PosController::cancelOrder/$1', ['as' => 'panel.pos.orders.cancel']);
         $routes->post('finalize', 'Panel\PosController::finalize');
     });
     $routes->get('transactions', 'Panel\PosController::transactions', ['as' => 'panel.transactions']);

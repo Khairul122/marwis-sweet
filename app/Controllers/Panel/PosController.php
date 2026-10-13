@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Services\SaleService;
 use App\Services\ReviewService;
 use App\Services\SalesPolicyService;
+use App\Services\PosOrderService;
 use CodeIgniter\HTTP\RedirectResponse;
 
 class PosController extends BaseController
@@ -21,9 +22,13 @@ class PosController extends BaseController
             ->where('product_variants.is_active', true)->where('products.is_active', true)->where('categories.is_active', true)
             ->orderBy('categories.sort_order')->orderBy('products.name')->orderBy('product_variants.price')->get()->getResultArray();
         $toppings = $database->table('toppings')->where('is_active', true)->orderBy('name')->get()->getResultArray();
+        $orderService = new PosOrderService($database);
+        $activeOrderId = filter_var($this->request->getGet('order'), FILTER_VALIDATE_INT);
+        $activeOrder = $activeOrderId ? $orderService->findHeld((int) $activeOrderId, $userId) : null;
         return view('panel/pos/index', [
             'title' => 'POS', 'user' => session('user'), 'shift' => $shift, 'products' => $products, 'toppings' => $toppings,
             'idempotencyKey' => bin2hex(random_bytes(24)),
+            'heldOrders' => $orderService->heldForCashier($userId), 'activeOrder' => $activeOrder,
             'policy' => (new SalesPolicyService($database))->current(),
         ]);
     }
@@ -42,17 +47,60 @@ class PosController extends BaseController
                 'cart' => $cart,
                 'payments' => $payments,
                 'transaction_discount' => $transactionDiscount,
+                'pos_order_id' => (string) $this->request->getPost('pos_order_id'),
+                'order_type' => (string) $this->request->getPost('order_type'),
+                'table_number' => (string) $this->request->getPost('table_number'),
+                'customer_name' => (string) $this->request->getPost('customer_name'),
                 'discount_approval' => [
                     'identity' => (string) $this->request->getPost('discount_approval_identity'),
                     'password' => (string) $this->request->getPost('discount_approval_password'),
                 ],
             ], (int) session('user_id'));
         } catch (\Throwable $exception) {
-            return redirect()->route('panel.pos')->with('error', $exception->getMessage());
+            $orderId = filter_var($this->request->getPost('pos_order_id'), FILTER_VALIDATE_INT);
+            $destination = $orderId ? site_url('panel/pos?order=' . (int) $orderId) : site_url('panel/pos');
+            return redirect()->to($destination)->with('error', $exception->getMessage());
         }
         try { (new ReviewService())->issueToken($saleId); }
         catch (\Throwable) { /* Review link creation must not undo a completed sale. */ }
         return redirect()->to(site_url('panel/transactions/' . $saleId))->with('success', 'Pembayaran berhasil disimpan.');
+    }
+
+    public function saveOrder(): RedirectResponse
+    {
+        $cart = json_decode((string) $this->request->getPost('cart_payload'), true);
+        if (!is_array($cart)) {
+            return redirect()->route('panel.pos')->with('error', 'Data keranjang tidak valid.');
+        }
+        $rawOrderId = trim((string) $this->request->getPost('pos_order_id'));
+        $orderId = $rawOrderId === '' ? null : filter_var($rawOrderId, FILTER_VALIDATE_INT);
+        if ($orderId === false || ($orderId !== null && $orderId < 1)) {
+            return redirect()->route('panel.pos')->with('error', 'Pesanan tersimpan tidak valid.');
+        }
+        try {
+            $savedId = (new PosOrderService())->save([
+                'cart' => $cart,
+                'order_type' => (string) $this->request->getPost('order_type'),
+                'table_number' => (string) $this->request->getPost('table_number'),
+                'customer_name' => (string) $this->request->getPost('customer_name'),
+            ], (int) session('user_id'), $orderId === null ? null : (int) $orderId);
+        } catch (\Throwable $exception) {
+            $destination = $orderId ? site_url('panel/pos?order=' . (int) $orderId) : site_url('panel/pos');
+            return redirect()->to($destination)->with('error', $exception->getMessage());
+        }
+
+        return redirect()->to(site_url('panel/pos?order=' . $savedId))->with('success', 'Pesanan tersimpan. Stok belum dipotong.');
+    }
+
+    public function cancelOrder(int $orderId): RedirectResponse
+    {
+        try {
+            (new PosOrderService())->cancel($orderId, (int) session('user_id'));
+        } catch (\Throwable $exception) {
+            return redirect()->route('panel.pos')->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('panel.pos')->with('success', 'Pesanan dibatalkan. Tidak ada penjualan atau mutasi stok yang dibuat.');
     }
 
     public function transactions(): string

@@ -231,6 +231,7 @@
     if (posRoot) {
         const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
         const policy = JSON.parse(posRoot.dataset.posPolicy || '{}');
+        const initialOrder = JSON.parse(posRoot.dataset.posOrder || 'null');
         const cart = new Map();
         const cartItems = posRoot.querySelector('[data-cart-items]');
         const cartPayload = posRoot.querySelector('[data-cart-payload]');
@@ -250,6 +251,11 @@
         const cartOverlay = posRoot.querySelector('[data-pos-cart-overlay]');
         const cartOpen = posRoot.querySelector('[data-pos-cart-open]');
         const cartClose = posRoot.querySelector('[data-pos-cart-close]');
+        const orderType = posRoot.querySelector('[data-order-type]');
+        const tableField = posRoot.querySelector('[data-table-field]');
+        const tableNumber = posRoot.querySelector('[data-table-number]');
+        const customerName = posRoot.querySelector('[data-customer-name]');
+        const orderIdInput = posRoot.querySelector('[data-pos-order-id]');
         let cartReturnFocus = null;
         let currentTotal = 0;
         let discountInvalid = false;
@@ -349,6 +355,7 @@
                 topping_ids: item.toppings.map((top) => top.id),
                 discount_type: item.discountType,
                 discount_value: item.discountValue,
+                note: item.note,
             })));
             discountApproval?.classList.toggle('hidden', !discountNeedsOwnerApproval);
             if (discountApprovalIdentity) discountApprovalIdentity.required = discountNeedsOwnerApproval;
@@ -370,6 +377,7 @@
                         <div class="mt-3 flex items-center gap-2"><button class="button-icon h-9 min-h-9 w-9" type="button" data-cart-decrease aria-label="Kurangi ${escapeHtml(item.productName)}">−</button><span class="w-8 text-center font-bold">${item.quantity}</span><button class="button-icon h-9 min-h-9 w-9" type="button" data-cart-increase aria-label="Tambah ${escapeHtml(item.productName)}">+</button><button class="ml-auto min-h-9 px-2 text-xs font-bold text-status-danger underline" type="button" data-cart-remove>Hapus</button></div>
                         <div class="mt-3 grid grid-cols-[minmax(0,1fr)_7rem] gap-2"><label class="form-label col-span-2" for="item-discount-${escapeHtml(item.key)}">Diskon item</label><select class="form-input" data-item-discount-type aria-label="Jenis diskon ${escapeHtml(item.productName)}"><option value="amount" ${item.discountType === 'amount' ? 'selected' : ''}>Nominal</option><option value="percent" ${item.discountType === 'percent' ? 'selected' : ''}>Persen</option></select><input class="form-input" id="item-discount-${escapeHtml(item.key)}" type="number" min="0" step="${item.discountType === 'percent' ? '0.01' : '1'}" value="${escapeHtml(item.discountValue)}" data-item-discount-value aria-label="Nilai diskon ${escapeHtml(item.productName)}"></div>
                         <p class="mt-2 text-right text-xs text-ink-muted">Diskon: <span data-item-discount-amount>${rupiah.format(discount)}</span> · Setelah diskon: <span data-item-net>${rupiah.format(Math.max(0, gross - discount))}</span></p>
+                        <div class="mt-3"><label class="form-label" for="item-note-${escapeHtml(item.key)}">Catatan item <span class="font-normal text-ink-muted">(opsional)</span></label><textarea class="form-input min-h-16" id="item-note-${escapeHtml(item.key)}" maxlength="300" data-item-note placeholder="Contoh: potong 8, saus dipisah">${escapeHtml(item.note || '')}</textarea></div>
                     </article>`;
                 }).join('');
             }
@@ -397,7 +405,7 @@
             if (!action || !row) return;
             const item = cart.get(row.dataset.cartKey);
             if (!item) return;
-            if (action.matches('[data-cart-increase]')) item.quantity += 1;
+            if (action.matches('[data-cart-increase]')) item.quantity = Math.min(99, item.quantity + 1);
             if (action.matches('[data-cart-decrease]')) item.quantity = Math.max(1, item.quantity - 1);
             if (action.matches('[data-cart-remove]')) cart.delete(row.dataset.cartKey);
             renderCart();
@@ -431,6 +439,18 @@
         };
         cartItems?.addEventListener('input', updateItemDiscount);
         cartItems?.addEventListener('change', updateItemDiscount);
+        const updateItemNote = (event) => {
+            const input = event.target.closest('[data-item-note]');
+            const row = input?.closest('[data-cart-key]');
+            const item = row ? cart.get(row.dataset.cartKey) : null;
+            if (item) item.note = input.value.slice(0, 300);
+            updateSummary();
+        };
+        cartItems?.addEventListener('input', updateItemNote);
+        cartItems?.addEventListener('change', updateItemNote);
+        const updateOrderFields = () => tableField?.classList.toggle('hidden', orderType?.value !== 'dine_in');
+        orderType?.addEventListener('change', updateOrderFields);
+        updateOrderFields();
         transactionDiscountType?.addEventListener('change', () => {
             if (transactionDiscountValue) transactionDiscountValue.step = transactionDiscountType.value === 'percent' ? '0.01' : '1';
             updateSummary();
@@ -461,6 +481,35 @@
         updatePaymentFields(1);
         updatePaymentFields(2);
         updatePaymentMethods();
+        if (initialOrder) {
+            if (orderType) orderType.value = initialOrder.order_type || 'takeaway';
+            if (tableNumber) tableNumber.value = initialOrder.table_number || '';
+            if (customerName) customerName.value = initialOrder.customer_name || '';
+            if (orderIdInput) orderIdInput.value = String(initialOrder.id || '');
+            (initialOrder.items || []).forEach((item, index) => {
+                const variantId = Number(item.variant_id);
+                const productButton = posRoot.querySelector(`[data-add-product][data-variant-id="${variantId}"]`);
+                const savedToppings = (item.toppings || []).map((top) => ({ id: Number(top.id), name: top.name, price: Number(top.price) }));
+                const toppings = savedToppings.map((top) => {
+                    const currentTopping = posRoot.querySelector(`[data-topping][value="${top.id}"]`);
+                    return currentTopping ? { id: top.id, name: currentTopping.dataset.name, price: Number(currentTopping.dataset.price) } : top;
+                });
+                const key = `held-${initialOrder.id}-${index}`;
+                cart.set(key, {
+                    key,
+                    variantId,
+                    productName: productButton?.dataset.productName || item.product_name || 'Produk',
+                    variantName: productButton?.dataset.variantName || item.variant_name || `Varian #${item.variant_id}`,
+                    price: Number(productButton?.dataset.price || item.unit_price || 0),
+                    toppings,
+                    quantity: Number(item.quantity),
+                    discountType: item.discount_type || 'amount',
+                    discountValue: Number(item.discount_value || 0),
+                    note: item.note || '',
+                });
+            });
+            updateOrderFields();
+        }
         renderCart();
 
         const closeCart = () => {
@@ -489,6 +538,14 @@
 
         checkout?.addEventListener('submit', (event) => {
             errorBox?.classList.add('hidden');
+            updateSummary();
+            if (event.submitter?.matches('[data-hold-submit]')) {
+                if (cart.size === 0) {
+                    event.preventDefault();
+                    if (errorBox) { errorBox.textContent = 'Tambahkan produk sebelum menyimpan pesanan.'; errorBox.classList.remove('hidden'); }
+                }
+                return;
+            }
             updatePayments();
             const payments = JSON.parse(paymentPayload?.value || '[]');
             let message = '';

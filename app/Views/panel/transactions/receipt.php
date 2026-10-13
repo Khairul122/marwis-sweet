@@ -3,6 +3,7 @@
 <?php
 $statusLabels = ['paid' => 'Lunas', 'partially_refunded' => 'Refund sebagian', 'refunded' => 'Refund penuh', 'cancelled' => 'Dibatalkan'];
 $refundStatusLabels = ['submitted' => 'Menunggu owner', 'posted' => 'Dibukukan', 'rejected' => 'Ditolak'];
+$orderTypeLabels = ['dine_in' => 'Makan di tempat', 'takeaway' => 'Bawa pulang'];
 $canRequestRefund = false;
 foreach ($items as $item) {
     if ((float) $item['quantity'] - (float) $item['reserved_refund_quantity'] > 0.0001) {
@@ -30,6 +31,9 @@ foreach ($items as $item) {
                 <dt>Waktu</dt><dd class="text-right"><?= esc(date('d/m/Y H:i', strtotime($sale['paid_at']))) ?></dd>
                 <dt>Kasir</dt><dd class="text-right"><?= esc($sale['cashier_name']) ?></dd>
                 <dt>Shift</dt><dd class="text-right"><?= esc($sale['shift_number']) ?></dd>
+                <dt>Jenis pesanan</dt><dd class="text-right"><?= esc($orderTypeLabels[$sale['order_type'] ?? 'takeaway'] ?? 'Bawa pulang') ?></dd>
+                <?php if (($sale['table_number'] ?? '') !== ''): ?><dt>Meja</dt><dd class="text-right"><?= esc($sale['table_number']) ?></dd><?php endif ?>
+                <?php if (($sale['customer_name'] ?? '') !== ''): ?><dt>Pelanggan</dt><dd class="text-right"><?= esc($sale['customer_name']) ?></dd><?php endif ?>
             </dl>
             <div class="receipt-rule my-6"></div>
             <ul class="space-y-4">
@@ -41,6 +45,7 @@ foreach ($items as $item) {
                         <?php if ((float) ($item['transaction_discount_amount'] ?? 0) > 0): ?><p class="mt-1 text-xs text-ink-muted">Alokasi diskon transaksi: -Rp<?= number_format((float) $item['transaction_discount_amount'], 0, ',', '.') ?></p><?php endif ?>
                         <?php $tops = json_decode((string) $item['topping_snapshot'], true) ?: []; ?>
                         <?php if ($tops !== []): ?><p class="mt-1 text-xs text-ink-muted">Topping: <?= esc(implode(', ', array_column($tops, 'name'))) ?></p><?php endif ?>
+                        <?php if (($item['note'] ?? '') !== ''): ?><p class="mt-1 text-xs font-semibold">Catatan: <?= esc($item['note']) ?></p><?php endif ?>
                         <?php if ((float) $item['posted_refund_quantity'] > 0): ?><p class="mt-1 text-xs font-bold text-brand-chili">Direfund: <?= number_format((float) $item['posted_refund_quantity'], 0, ',', '.') ?> unit</p><?php endif ?>
                     </li>
                 <?php endforeach ?>

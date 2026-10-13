@@ -27,6 +27,14 @@ class SaleService
         if (!is_array($cart) || $cart === [] || !is_array($payments) || $payments === []) {
             throw new RuntimeException('Keranjang dan pembayaran wajib diisi.');
         }
+        $cart = PosOrderService::normalizeCart($cart);
+        $orderDetails = PosOrderService::normalizeDetails($payload);
+        $rawOrderId = trim((string) ($payload['pos_order_id'] ?? ''));
+        $orderId = $rawOrderId === '' ? null : filter_var($rawOrderId, FILTER_VALIDATE_INT);
+        if ($orderId === false || ($orderId !== null && $orderId < 1)) {
+            throw new RuntimeException('Pesanan tersimpan tidak valid.');
+        }
+        $orderId = $orderId === null ? null : (int) $orderId;
         if (count($payments) > 2) {
             throw new RuntimeException('Pembayaran gabungan maksimal menggunakan dua metode.');
         }
@@ -37,6 +45,15 @@ class SaleService
             $shift = $this->database->query('SELECT * FROM shifts WHERE cashier_id = ? AND status = ? FOR UPDATE', [$userId, 'open'])->getRowArray();
             if (!$shift) {
                 throw new RuntimeException('Buka shift sebelum menerima pembayaran.');
+            }
+            if ($orderId !== null) {
+                $heldOrder = $this->database->query(
+                    'SELECT id FROM pos_orders WHERE id = ? AND cashier_id = ? AND status = ? FOR UPDATE',
+                    [$orderId, $userId, 'held'],
+                )->getRowArray();
+                if (!$heldOrder) {
+                    throw new RuntimeException('Pesanan ini sudah dibayar, dibatalkan, atau tidak dapat diakses.');
+                }
             }
             $lines = [];
             $requirements = [];
@@ -134,6 +151,7 @@ class SaleService
                     'item_discount_type' => $itemDiscount['type'],
                     'item_discount_value_cents' => $itemDiscount['value_cents'],
                     'item_discount_cents' => $itemDiscount['amount_cents'],
+                    'note' => $entry['note'],
                     'recipe' => $recipe,
                     'toppings' => $toppings,
                     'direct_item_id' => $variant['stock_mode'] === 'direct' ? (int) $variant['direct_inventory_item_id'] : null,
@@ -279,6 +297,7 @@ class SaleService
             $saleNumber = 'TRX-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2)));
             $this->database->table('sales')->insert([
                 'sale_number' => $saleNumber, 'idempotency_key' => $key, 'shift_id' => $shift['id'], 'cashier_id' => $userId, 'status' => 'paid',
+                ...$orderDetails,
                 'subtotal' => Money::decimal($subtotalCents), 'discount' => Money::decimal($discountCents),
                 'item_discount' => Money::decimal($itemDiscountCents),
                 'transaction_discount' => Money::decimal($transactionDiscountCents),
@@ -348,6 +367,7 @@ class SaleService
                 $this->database->table('sale_items')->insert([
                     'sale_id' => $saleId, 'product_id' => $variant['product_id'], 'product_variant_id' => $variant['id'], 'direct_inventory_item_id' => $line['direct_item_id'], 'product_name' => $variant['product_name'],
                     'variant_name' => $variant['name'], 'sku' => $variant['sku'], 'quantity' => $line['quantity'],
+                    'note' => $line['note'] !== '' ? $line['note'] : null,
                     'unit_price' => Money::decimal($line['unit_price_cents']), 'line_total' => Money::decimal($line['line_total_cents']),
                     'item_discount_type' => $line['item_discount_type'],
                     'item_discount_value' => Money::decimal($line['item_discount_value_cents']),
@@ -407,6 +427,18 @@ class SaleService
                 $journalLines[] = ['account_key' => 'inventory', 'debit' => 0, 'credit' => Money::decimal($totalCogsCents)];
             }
             (new AccountingService($this->database))->post('sale', $saleId, date('Y-m-d', strtotime($now)), 'Penjualan ' . $saleNumber, $journalLines, $userId);
+            if ($orderId !== null) {
+                $this->database->table('pos_orders')->where('id', $orderId)->update([
+                    'order_type' => $orderDetails['order_type'],
+                    'table_number' => $orderDetails['table_number'],
+                    'customer_name' => $orderDetails['customer_name'],
+                    'items_json' => json_encode($cart, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                    'status' => 'paid',
+                    'sale_id' => $saleId,
+                    'paid_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
             $this->database->transComplete();
             return $saleId;
         } catch (\Throwable $exception) {

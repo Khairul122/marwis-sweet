@@ -12,7 +12,7 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 - Alur pengeluaran menguji status draft → diajukan → disetujui → dibayar. Pengeluaran tunai mengkredit laci; penutupan shift memasukkan pengeluaran laci serta kas masuk/keluar ke kas seharusnya.
 - Pembayaran campuran, diskon, kembalian, HPP resep/topping dan barang langsung, retry idempoten, refund penuh/bertahap, token ulasan, filter laporan, dan race penjualan vs. tutup shift telah diuji pada data uji MySQL.
 
-**Batas hasil:** Tugas 5 masih menunggu aturan akun pasangan untuk kas masuk/keluar. Tugas 13–26 belum diimplementasikan atau belum melewati UAT, sehingga laporan ini tidak menyatakan seluruh PRD sudah lulus.
+**Batas hasil:** Tugas 5 masih menunggu aturan akun pasangan untuk kas masuk/keluar. Tugas 14–26 belum diimplementasikan atau belum melewati UAT, sehingga laporan ini tidak menyatakan seluruh PRD sudah lulus.
 
 ## Fase 1 — Akses dan integritas shift
 
@@ -188,13 +188,17 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P1 · Ketergantungan:** keputusan batas diskon dan tarif pada `tasks/plan.md`.
 
-- [ ] Tolak lebih dari dua metode pembayaran, alokasi tidak tepat, dan diskon di luar kebijakan owner.
-- [ ] Tambahkan diskon nominal/persentase item dan transaksi dengan alokasi deterministik.
-- [ ] Terapkan biaya layanan/pajak hanya jika konfigurasi diaktifkan; default nonaktif.
+- [x] Tolak lebih dari dua metode pembayaran, alokasi tidak tepat, dan diskon di luar kebijakan owner.
+- [x] Tambahkan diskon nominal/persentase item dan transaksi dengan alokasi deterministik.
+- [x] Terapkan biaya layanan/pajak hanya jika konfigurasi diaktifkan; default nonaktif.
 
 **Terima bila:** total sesuai rumus PRD, total tidak negatif, uang Rupiah dibulatkan half-up, dan request langsung tidak dapat melewati aturan UI.
 
-**Verifikasi nanti:** AC-04/05 dan kasus batas diskon, alokasi split, pajak, serta layanan.
+**Status:** Implementasi selesai. Migrasi 019 diterapkan pada database utama sesuai izin pengguna. Batas diskon nominal/persentase item dan transaksi tersimpan pada kebijakan; diskon di atas batas memerlukan identitas dan kata sandi owner aktif, sedangkan transaksi hanya menyimpan ID owner. Biaya layanan dan pajak tetap nol/nonaktif di database utama sampai owner mengaturnya. Dasar pajak diuji mengikuti rumus PRD (setelah biaya layanan), tetapi perlu dikonfirmasi owner sebelum pajak diaktifkan untuk transaksi nyata.
+
+**Verifikasi UI dan MySQL (2026-10-14):** Pada clone terisolasi `marwis_sweet_verify13_20261014`, kasir membuat penjualan Air Mineral 2 × Rp5.000 dengan diskon item Rp200 dan diskon transaksi 12% (Rp1.176, memerlukan persetujuan owner). Biaya layanan 5% menjadi Rp431; pajak 11% atas nilai setelah layanan menjadi Rp996; total Rp10.051. UI dan database mencatat pembayaran tunai Rp6.000 + QRIS Rp4.051, uang tunai diterima Rp6.500, dan kembalian Rp500. Refund satu unit menghasilkan Rp5.026, unit terakhir Rp5.025; jumlah refund tepat Rp10.051, status menjadi refund penuh, dua unit masuk kembali ke stok, dan seluruh jurnal sale/refund seimbang. Clone uji kemudian dihapus. UI struk akhir menampilkan refund Rp10.051 dan penjualan bersih Rp0.
+
+**Pemeriksaan teknis:** PHP lint, pemeriksaan sintaks JavaScript, smoke check pembulatan/alokasi, dan `git diff --check` lulus. PHPUnit 10.5.66 tidak dapat membuka skrip bootstrap di lingkungan ini; suite PHPUnit tidak dihitung lulus.
 
 ### Tugas 14 — Lengkapi siklus keranjang dan detail pesanan (B-02)
 
