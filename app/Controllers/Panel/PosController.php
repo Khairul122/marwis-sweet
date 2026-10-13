@@ -5,6 +5,7 @@ namespace App\Controllers\Panel;
 use App\Controllers\BaseController;
 use App\Services\SaleService;
 use App\Services\ReviewService;
+use App\Services\SalesPolicyService;
 use CodeIgniter\HTTP\RedirectResponse;
 
 class PosController extends BaseController
@@ -23,6 +24,7 @@ class PosController extends BaseController
         return view('panel/pos/index', [
             'title' => 'POS', 'user' => session('user'), 'shift' => $shift, 'products' => $products, 'toppings' => $toppings,
             'idempotencyKey' => bin2hex(random_bytes(24)),
+            'policy' => (new SalesPolicyService($database))->current(),
         ]);
     }
 
@@ -30,7 +32,8 @@ class PosController extends BaseController
     {
         $cart = json_decode((string) $this->request->getPost('cart_payload'), true);
         $payments = json_decode((string) $this->request->getPost('payment_payload'), true);
-        if (!is_array($cart) || !is_array($payments)) {
+        $transactionDiscount = json_decode((string) $this->request->getPost('transaction_discount_payload'), true);
+        if (!is_array($cart) || !is_array($payments) || !is_array($transactionDiscount)) {
             return redirect()->route('panel.pos')->with('error', 'Data keranjang atau pembayaran tidak valid.');
         }
         try {
@@ -38,7 +41,11 @@ class PosController extends BaseController
                 'idempotency_key' => (string) $this->request->getPost('idempotency_key'),
                 'cart' => $cart,
                 'payments' => $payments,
-                'discount' => (float) $this->request->getPost('discount'),
+                'transaction_discount' => $transactionDiscount,
+                'discount_approval' => [
+                    'identity' => (string) $this->request->getPost('discount_approval_identity'),
+                    'password' => (string) $this->request->getPost('discount_approval_password'),
+                ],
             ], (int) session('user_id'));
         } catch (\Throwable $exception) {
             return redirect()->route('panel.pos')->with('error', $exception->getMessage());

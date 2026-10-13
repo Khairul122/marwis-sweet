@@ -1,6 +1,15 @@
 <?= $this->extend('layouts/pos') ?>
 <?= $this->section('content') ?>
-<div class="relative min-h-full xl:h-full xl:min-h-0" data-pos-root>
+<div class="relative min-h-full xl:h-full xl:min-h-0" data-pos-root data-pos-policy="<?= esc(json_encode([
+    'itemDiscountMaxAmount' => $policy['item_discount_max_amount_cents'] / 100,
+    'itemDiscountMaxPercent' => $policy['item_discount_max_percent_hundredths'] / 100,
+    'transactionDiscountMaxAmount' => $policy['transaction_discount_max_amount_cents'] / 100,
+    'transactionDiscountMaxPercent' => $policy['transaction_discount_max_percent_hundredths'] / 100,
+    'serviceChargeEnabled' => $policy['service_charge_enabled'],
+    'serviceChargeRate' => $policy['service_charge_rate_hundredths'] / 100,
+    'taxEnabled' => $policy['tax_enabled'],
+    'taxRate' => $policy['tax_rate_hundredths'] / 100,
+], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT), 'attr') ?>">
     <?php if (!$shift): ?>
         <div class="grid min-h-[calc(100dvh-10rem)] place-items-center p-4 sm:p-8">
             <section class="w-full max-w-xl border border-status-warning bg-[#FFF7ED] p-6 sm:p-8">
@@ -58,9 +67,10 @@
                 </div>
                 <div class="min-h-24 flex-1 divide-y divide-border-warm overflow-y-auto overscroll-contain" data-cart-items><p class="p-5 text-sm text-ink-muted">Belum ada produk di keranjang.</p></div>
                 <form action="<?= site_url('panel/pos/finalize') ?>" method="post" class="max-h-[62dvh] shrink-0 overflow-y-auto overscroll-contain border-t border-brand-cocoa bg-surface-cream p-5 xl:max-h-[65%]" data-pos-checkout>
-                    <?= csrf_field() ?><input type="hidden" name="idempotency_key" value="<?= esc($idempotencyKey) ?>"><input type="hidden" name="cart_payload" data-cart-payload><input type="hidden" name="payment_payload" data-payment-payload>
-                    <div><label class="form-label" for="pos-discount">Diskon transaksi</label><div class="input-prefix"><span>Rp</span><input id="pos-discount" name="discount" type="number" min="0" step="1" value="0" data-pos-discount></div></div>
-                    <div class="receipt-rule my-4"></div><div class="space-y-2 text-sm"><div class="flex justify-between"><span>Subtotal</span><strong data-pos-subtotal>Rp0</strong></div><div class="flex justify-between"><span>Diskon</span><strong data-pos-discount-label>Rp0</strong></div><div class="flex justify-between text-lg"><span class="font-bold">Total</span><strong class="tabular-nums" data-pos-total>Rp0</strong></div></div>
+                    <?= csrf_field() ?><input type="hidden" name="idempotency_key" value="<?= esc($idempotencyKey) ?>"><input type="hidden" name="cart_payload" data-cart-payload><input type="hidden" name="payment_payload" data-payment-payload><input type="hidden" name="transaction_discount_payload" data-transaction-discount-payload>
+                    <div class="grid grid-cols-[minmax(0,1fr)_7rem] gap-2"><label class="form-label col-span-2" for="transaction-discount-type">Diskon transaksi</label><select class="form-input" id="transaction-discount-type" data-transaction-discount-type><option value="amount">Nominal</option><option value="percent">Persen</option></select><input class="form-input" id="transaction-discount-value" type="number" min="0" step="1" value="0" data-transaction-discount-value aria-label="Nilai diskon transaksi"></div>
+                    <div class="receipt-rule my-4"></div><div class="space-y-2 text-sm"><div class="flex justify-between"><span>Subtotal</span><strong data-pos-subtotal>Rp0</strong></div><div class="flex justify-between"><span>Diskon item</span><strong data-pos-item-discount-label>Rp0</strong></div><div class="flex justify-between"><span>Diskon transaksi</span><strong data-pos-transaction-discount-label>Rp0</strong></div><?php if ($policy['service_charge_enabled']): ?><div class="flex justify-between"><span>Biaya layanan (<?= number_format($policy['service_charge_rate_hundredths'] / 100, 2, ',', '.') ?>%)</span><strong data-pos-service-charge>Rp0</strong></div><?php endif ?><?php if ($policy['tax_enabled']): ?><div class="flex justify-between"><span>Pajak (<?= number_format($policy['tax_rate_hundredths'] / 100, 2, ',', '.') ?>%)</span><strong data-pos-tax>Rp0</strong></div><?php endif ?><div class="flex justify-between text-lg"><span class="font-bold">Total bayar</span><strong class="tabular-nums" data-pos-total>Rp0</strong></div></div>
+                    <div class="mt-4 hidden border border-status-warning bg-[#FFF7ED] p-3" data-discount-approval><p class="text-sm font-bold text-[#78350F]" role="status">Diskon melewati batas kasir. Minta owner menyetujui transaksi ini.</p><div class="mt-3 space-y-3"><div><label class="form-label" for="discount-approval-identity">Username atau email owner</label><input class="form-input" id="discount-approval-identity" name="discount_approval_identity" autocomplete="username" data-discount-approval-identity></div><div><label class="form-label" for="discount-approval-password">Kata sandi owner</label><input class="form-input" id="discount-approval-password" name="discount_approval_password" type="password" autocomplete="current-password" data-discount-approval-password></div></div></div>
                     <div class="mt-4"><label class="form-label" for="payment-method-1">Metode pembayaran</label><select class="form-input" id="payment-method-1" data-payment-method="1"><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="bank_transfer">Transfer bank</option><option value="debit">Kartu debit</option><option value="credit">Kartu kredit</option></select></div>
                     <div class="mt-3" data-payment-amount-wrap="1"><label class="form-label" for="payment-amount-1">Alokasi pembayaran</label><input class="form-input" id="payment-amount-1" type="number" min="0" step="1" data-payment-amount="1" readonly></div>
                     <div class="mt-3" data-cash-wrap="1"><label class="form-label" for="cash-received-1">Tunai diterima</label><input class="form-input" id="cash-received-1" type="number" min="0" step="1" data-cash-received="1"></div>

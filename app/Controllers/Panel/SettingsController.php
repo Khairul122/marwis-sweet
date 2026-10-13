@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\BannerModel;
 use App\Models\SettingModel;
 use App\Services\ImageUploadService;
+use App\Services\SalesPolicyService;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
 
@@ -21,8 +22,52 @@ class SettingsController extends BaseController
             'title' => 'Identitas usaha dan banner',
             'user' => session('user'),
             'settings' => $settings,
+            'policy' => (new SalesPolicyService())->current(),
             'banners' => (new BannerModel())->orderBy('sort_order')->orderBy('id', 'DESC')->findAll(),
         ]);
+    }
+
+    public function saveSalesPolicy(): RedirectResponse
+    {
+        $values = [];
+        foreach (SalesPolicyService::defaults() as $key => $default) {
+            $value = trim((string) $this->request->getPost($key));
+            if (in_array($key, ['service_charge_enabled', 'tax_enabled'], true)) {
+                if (!in_array($value, ['0', '1'], true)) {
+                    return redirect()->back()->withInput()->with('error', 'Status pajak dan biaya layanan tidak valid.');
+                }
+            } elseif (!preg_match('/^\d{1,13}(?:\.\d{1,2})?$/', $value)) {
+                return redirect()->back()->withInput()->with('error', 'Batas diskon dan tarif harus berupa angka positif dengan maksimal dua angka desimal.');
+            }
+            $values[$key] = $value;
+        }
+
+        foreach (['item_discount_max_percent', 'transaction_discount_max_percent', 'service_charge_rate', 'tax_rate'] as $key) {
+            if ((float) $values[$key] > 100) {
+                return redirect()->back()->withInput()->with('error', 'Persentase batas diskon, pajak, dan biaya layanan tidak boleh melebihi 100%.');
+            }
+        }
+        if ($values['service_charge_enabled'] === '1' && (float) $values['service_charge_rate'] <= 0) {
+            return redirect()->back()->withInput()->with('error', 'Isi tarif biaya layanan sebelum mengaktifkannya.');
+        }
+        if ($values['tax_enabled'] === '1' && (float) $values['tax_rate'] <= 0) {
+            return redirect()->back()->withInput()->with('error', 'Isi tarif pajak sebelum mengaktifkannya.');
+        }
+
+        $database = db_connect();
+        $database->transStart();
+        foreach ($values as $key => $value) {
+            $database->table('settings')->replace([
+                'setting_key' => $key,
+                'setting_value' => $value,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+        $database->transComplete();
+        if ($database->transStatus() === false) {
+            return redirect()->back()->withInput()->with('error', 'Kebijakan harga tidak berhasil disimpan.');
+        }
+        return redirect()->route('panel.settings')->with('success', 'Kebijakan diskon, pajak, dan biaya layanan berhasil disimpan.');
     }
 
     public function saveBusiness(): RedirectResponse

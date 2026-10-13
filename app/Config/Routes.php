@@ -56,6 +56,7 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
     $routes->group('settings', ['filter' => 'owner'], static function ($routes): void {
         $routes->get('/', 'Panel\SettingsController::index', ['as' => 'panel.settings']);
         $routes->post('business', 'Panel\SettingsController::saveBusiness');
+        $routes->post('sales-policy', 'Panel\SettingsController::saveSalesPolicy');
         $routes->post('banners', 'Panel\SettingsController::createBanner');
         $routes->post('banners/status', 'Panel\SettingsController::toggleBanner');
         $routes->post('banners/update', 'Panel\SettingsController::updateBanner');

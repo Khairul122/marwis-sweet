@@ -27,6 +27,10 @@ class SaleService
         if (!is_array($cart) || $cart === [] || !is_array($payments) || $payments === []) {
             throw new RuntimeException('Keranjang dan pembayaran wajib diisi.');
         }
+        if (count($payments) > 2) {
+            throw new RuntimeException('Pembayaran gabungan maksimal menggunakan dua metode.');
+        }
+        $policy = (new SalesPolicyService($this->database))->current();
 
         try {
             $this->database->transException(true)->transStart();
@@ -38,6 +42,8 @@ class SaleService
             $requirements = [];
             $directUsageByItem = [];
             $subtotalCents = 0;
+            $itemDiscountCents = 0;
+            $discountNeedsOwnerApproval = false;
             foreach ($cart as $entry) {
                 $lineIndex = count($lines);
                 $variantId = filter_var($entry['variant_id'] ?? null, FILTER_VALIDATE_INT);
@@ -111,11 +117,23 @@ class SaleService
                 $unitPriceCents = Money::cents($variant['price']) + $toppingPriceCents;
                 $lineTotalCents = $unitPriceCents * $quantity;
                 $subtotalCents += $lineTotalCents;
+                $itemDiscount = SalesPolicyService::calculateDiscount(
+                    $lineTotalCents,
+                    (string) ($entry['discount_type'] ?? 'amount'),
+                    $entry['discount_value'] ?? 0,
+                    $policy['item_discount_max_amount_cents'],
+                    $policy['item_discount_max_percent_hundredths'],
+                );
+                $itemDiscountCents += $itemDiscount['amount_cents'];
+                $discountNeedsOwnerApproval = $discountNeedsOwnerApproval || $itemDiscount['over_limit'];
                 $lines[] = [
                     'variant' => $variant,
                     'quantity' => $quantity,
                     'unit_price_cents' => $unitPriceCents,
                     'line_total_cents' => $lineTotalCents,
+                    'item_discount_type' => $itemDiscount['type'],
+                    'item_discount_value_cents' => $itemDiscount['value_cents'],
+                    'item_discount_cents' => $itemDiscount['amount_cents'],
                     'recipe' => $recipe,
                     'toppings' => $toppings,
                     'direct_item_id' => $variant['stock_mode'] === 'direct' ? (int) $variant['direct_inventory_item_id'] : null,
@@ -135,19 +153,105 @@ class SaleService
             }
             (new InventoryLockService($this->database))->assertUnlocked($requirementIds);
 
-            $discountCents = max(0, Money::cents($payload['discount'] ?? 0));
-            if ($discountCents > $subtotalCents) {
-                throw new RuntimeException('Diskon tidak boleh melebihi subtotal.');
+            $transactionDiscountPayload = $payload['transaction_discount'] ?? [
+                'type' => 'amount',
+                'value' => $payload['discount'] ?? 0,
+            ];
+            if (!is_array($transactionDiscountPayload)) {
+                throw new RuntimeException('Rincian diskon transaksi tidak valid.');
             }
-            $totalCents = $subtotalCents - $discountCents;
+            $afterItemDiscountCents = $subtotalCents - $itemDiscountCents;
+            $transactionDiscount = SalesPolicyService::calculateDiscount(
+                $afterItemDiscountCents,
+                (string) ($transactionDiscountPayload['type'] ?? 'amount'),
+                $transactionDiscountPayload['value'] ?? 0,
+                $policy['transaction_discount_max_amount_cents'],
+                $policy['transaction_discount_max_percent_hundredths'],
+            );
+            $transactionDiscountCents = $transactionDiscount['amount_cents'];
+            $discountNeedsOwnerApproval = $discountNeedsOwnerApproval || $transactionDiscount['over_limit'];
+            $discountCents = $itemDiscountCents + $transactionDiscountCents;
+            $serviceBaseCents = $afterItemDiscountCents - $transactionDiscountCents;
+            $serviceCents = $policy['service_charge_enabled']
+                ? SalesPolicyService::chargeCents($serviceBaseCents, $policy['service_charge_rate_hundredths'])
+                : 0;
+            $taxBaseCents = $serviceBaseCents + $serviceCents;
+            $taxCents = $policy['tax_enabled']
+                ? SalesPolicyService::chargeCents($taxBaseCents, $policy['tax_rate_hundredths'])
+                : 0;
+            $totalCents = $taxBaseCents + $taxCents;
+            if ($totalCents <= 0) {
+                throw new RuntimeException('Total transaksi harus lebih dari Rp0.');
+            }
+
+            $discountApprovedBy = null;
+            if ($discountNeedsOwnerApproval) {
+                $approval = $payload['discount_approval'] ?? [];
+                $identity = is_array($approval) ? trim((string) ($approval['identity'] ?? '')) : '';
+                $password = is_array($approval) ? (string) ($approval['password'] ?? '') : '';
+                if ($identity === '' || $password === '') {
+                    throw new RuntimeException('Masukkan username/email dan kata sandi owner untuk menyetujui diskon ini.');
+                }
+
+                $attemptKey = 'pos_discount_approval_' . $userId;
+                $attempts = (int) (cache()->get($attemptKey) ?? 0);
+                if ($attempts >= 5) {
+                    throw new RuntimeException('Terlalu banyak percobaan persetujuan owner. Coba lagi dalam 15 menit.');
+                }
+
+                $owner = $this->database->table('users')
+                    ->select('id, password_hash')
+                    ->where('role', 'owner')->where('status', 'active')
+                    ->groupStart()->where('username', $identity)->orWhere('email', $identity)->groupEnd()
+                    ->get()->getRowArray();
+                if (!$owner || !password_verify($password, $owner['password_hash'])) {
+                    cache()->save($attemptKey, $attempts + 1, 900);
+                    throw new RuntimeException('Persetujuan owner tidak valid. Periksa kredensial dan coba lagi.');
+                }
+                cache()->delete($attemptKey);
+                $discountApprovedBy = (int) $owner['id'];
+            }
+
+            $transactionDiscountAllocations = Money::allocateCents(
+                $transactionDiscountCents,
+                array_map(static fn (array $line): int => $line['line_total_cents'] - $line['item_discount_cents'], $lines),
+            );
+            $lineNetCents = [];
+            foreach ($lines as $index => &$line) {
+                $line['transaction_discount_cents'] = $transactionDiscountAllocations[$index];
+                $line['service_charge_cents'] = 0;
+                $line['tax_cents'] = 0;
+                $lineNetCents[] = $line['line_total_cents'] - $line['item_discount_cents'] - $line['transaction_discount_cents'];
+            }
+            unset($line);
+            $lineServiceCharges = Money::allocateCents($serviceCents, $lineNetCents);
+            $lineTaxBases = [];
+            foreach ($lineNetCents as $index => $netCents) {
+                $lineTaxBases[] = $netCents + $lineServiceCharges[$index];
+            }
+            $lineTaxes = Money::allocateCents($taxCents, $lineTaxBases);
+            foreach ($lines as $index => &$line) {
+                $line['service_charge_cents'] = $lineServiceCharges[$index];
+                $line['tax_cents'] = $lineTaxes[$index];
+            }
+            unset($line);
+
             $paymentTotalCents = 0;
             $normalizedPayments = [];
+            $paymentMethods = [];
             foreach ($payments as $payment) {
+                if (!is_array($payment)) {
+                    throw new RuntimeException('Rincian pembayaran tidak valid.');
+                }
                 $method = (string) ($payment['method'] ?? '');
                 $amountCents = Money::cents($payment['amount'] ?? 0);
                 if (!in_array($method, ['cash', 'qris', 'bank_transfer', 'debit', 'credit'], true) || $amountCents <= 0) {
                     throw new RuntimeException('Rincian pembayaran tidak valid.');
                 }
+                if (in_array($method, $paymentMethods, true)) {
+                    throw new RuntimeException('Setiap metode pembayaran hanya boleh dipilih satu kali.');
+                }
+                $paymentMethods[] = $method;
                 $receivedCents = $method === 'cash'
                     ? Money::cents($payment['cash_received'] ?? Money::decimal($amountCents))
                     : null;
@@ -176,7 +280,13 @@ class SaleService
             $this->database->table('sales')->insert([
                 'sale_number' => $saleNumber, 'idempotency_key' => $key, 'shift_id' => $shift['id'], 'cashier_id' => $userId, 'status' => 'paid',
                 'subtotal' => Money::decimal($subtotalCents), 'discount' => Money::decimal($discountCents),
-                'tax' => '0.00', 'service_charge' => '0.00', 'total' => Money::decimal($totalCents), 'total_cogs' => '0.00',
+                'item_discount' => Money::decimal($itemDiscountCents),
+                'transaction_discount' => Money::decimal($transactionDiscountCents),
+                'transaction_discount_type' => $transactionDiscount['type'],
+                'transaction_discount_value' => Money::decimal($transactionDiscount['value_cents']),
+                'discount_approved_by' => $discountApprovedBy,
+                'tax' => Money::decimal($taxCents), 'service_charge' => Money::decimal($serviceCents),
+                'total' => Money::decimal($totalCents), 'total_cogs' => '0.00',
                 'paid_at' => $now, 'created_at' => $now, 'updated_at' => $now,
             ]);
             $saleId = (int) $this->database->insertID();
@@ -239,6 +349,12 @@ class SaleService
                     'sale_id' => $saleId, 'product_id' => $variant['product_id'], 'product_variant_id' => $variant['id'], 'direct_inventory_item_id' => $line['direct_item_id'], 'product_name' => $variant['product_name'],
                     'variant_name' => $variant['name'], 'sku' => $variant['sku'], 'quantity' => $line['quantity'],
                     'unit_price' => Money::decimal($line['unit_price_cents']), 'line_total' => Money::decimal($line['line_total_cents']),
+                    'item_discount_type' => $line['item_discount_type'],
+                    'item_discount_value' => Money::decimal($line['item_discount_value_cents']),
+                    'item_discount_amount' => Money::decimal($line['item_discount_cents']),
+                    'transaction_discount_amount' => Money::decimal($line['transaction_discount_cents']),
+                    'tax_amount' => Money::decimal($line['tax_cents']),
+                    'service_charge_amount' => Money::decimal($line['service_charge_cents']),
                     'unit_cogs' => Money::averageUnitCost($lineCogsCents[$index], $line['quantity'] * 1000),
                     'direct_unit_cogs' => $line['direct_unit_cogs'], 'direct_line_cogs' => Money::decimal($directLineCogsCents[$index]),
                     'line_cogs' => Money::decimal($lineCogsCents[$index]),
@@ -282,7 +398,10 @@ class SaleService
             foreach ($normalizedPayments as $payment) {
                 $journalLines[] = ['account_key' => AccountingService::paymentAccountKey($payment['method']), 'debit' => Money::decimal($payment['amount_cents']), 'credit' => 0, 'memo' => 'Pembayaran ' . $payment['method']];
             }
-            if ($totalCents > 0) { $journalLines[] = ['account_key' => 'sales_revenue', 'debit' => 0, 'credit' => Money::decimal($totalCents)]; }
+            $productRevenueCents = $subtotalCents - $discountCents;
+            if ($productRevenueCents > 0) { $journalLines[] = ['account_key' => 'sales_revenue', 'debit' => 0, 'credit' => Money::decimal($productRevenueCents)]; }
+            if ($serviceCents > 0) { $journalLines[] = ['account_key' => 'service_revenue', 'debit' => 0, 'credit' => Money::decimal($serviceCents)]; }
+            if ($taxCents > 0) { $journalLines[] = ['account_key' => 'tax_payable', 'debit' => 0, 'credit' => Money::decimal($taxCents)]; }
             if ($totalCogsCents > 0) {
                 $journalLines[] = ['account_key' => 'cogs', 'debit' => Money::decimal($totalCogsCents), 'credit' => 0];
                 $journalLines[] = ['account_key' => 'inventory', 'debit' => 0, 'credit' => Money::decimal($totalCogsCents)];

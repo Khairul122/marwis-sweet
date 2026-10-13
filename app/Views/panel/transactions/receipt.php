@@ -37,6 +37,8 @@ foreach ($items as $item) {
                     <li>
                         <div class="flex justify-between gap-4"><span class="font-bold"><?= esc($item['product_name']) ?> · <?= esc($item['variant_name']) ?></span><strong class="tabular-nums">Rp<?= number_format((float) $item['line_total'], 0, ',', '.') ?></strong></div>
                         <p class="mt-1 text-sm text-ink-muted"><?= number_format((float) $item['quantity'], 0, ',', '.') ?> × Rp<?= number_format((float) $item['unit_price'], 0, ',', '.') ?></p>
+                        <?php if ((float) ($item['item_discount_amount'] ?? 0) > 0): ?><p class="mt-1 text-xs text-status-danger">Diskon item: -Rp<?= number_format((float) $item['item_discount_amount'], 0, ',', '.') ?></p><?php endif ?>
+                        <?php if ((float) ($item['transaction_discount_amount'] ?? 0) > 0): ?><p class="mt-1 text-xs text-ink-muted">Alokasi diskon transaksi: -Rp<?= number_format((float) $item['transaction_discount_amount'], 0, ',', '.') ?></p><?php endif ?>
                         <?php $tops = json_decode((string) $item['topping_snapshot'], true) ?: []; ?>
                         <?php if ($tops !== []): ?><p class="mt-1 text-xs text-ink-muted">Topping: <?= esc(implode(', ', array_column($tops, 'name'))) ?></p><?php endif ?>
                         <?php if ((float) $item['posted_refund_quantity'] > 0): ?><p class="mt-1 text-xs font-bold text-brand-chili">Direfund: <?= number_format((float) $item['posted_refund_quantity'], 0, ',', '.') ?> unit</p><?php endif ?>
@@ -46,7 +48,10 @@ foreach ($items as $item) {
             <div class="receipt-rule my-6"></div>
             <dl class="space-y-2 text-sm">
                 <div class="flex justify-between"><dt>Subtotal</dt><dd class="tabular-nums">Rp<?= number_format((float) $sale['subtotal'], 0, ',', '.') ?></dd></div>
-                <div class="flex justify-between"><dt>Diskon</dt><dd class="tabular-nums">-Rp<?= number_format((float) $sale['discount'], 0, ',', '.') ?></dd></div>
+                <?php if ((float) ($sale['item_discount'] ?? 0) > 0): ?><div class="flex justify-between"><dt>Diskon item</dt><dd class="tabular-nums">-Rp<?= number_format((float) $sale['item_discount'], 0, ',', '.') ?></dd></div><?php endif ?>
+                <?php if ((float) ($sale['transaction_discount'] ?? $sale['discount']) > 0): ?><div class="flex justify-between"><dt>Diskon transaksi</dt><dd class="tabular-nums">-Rp<?= number_format((float) ($sale['transaction_discount'] ?? $sale['discount']), 0, ',', '.') ?></dd></div><?php endif ?>
+                <?php if ((float) $sale['service_charge'] > 0): ?><div class="flex justify-between"><dt>Biaya layanan</dt><dd class="tabular-nums">Rp<?= number_format((float) $sale['service_charge'], 0, ',', '.') ?></dd></div><?php endif ?>
+                <?php if ((float) $sale['tax'] > 0): ?><div class="flex justify-between"><dt>Pajak</dt><dd class="tabular-nums">Rp<?= number_format((float) $sale['tax'], 0, ',', '.') ?></dd></div><?php endif ?>
                 <div class="flex justify-between text-lg font-black"><dt>Total awal</dt><dd class="tabular-nums">Rp<?= number_format((float) $sale['total'], 0, ',', '.') ?></dd></div>
                 <?php if ($postedRefundTotal > 0): ?><div class="flex justify-between font-bold text-brand-chili"><dt>Refund dibukukan</dt><dd class="tabular-nums">-Rp<?= number_format($postedRefundTotal, 0, ',', '.') ?></dd></div><div class="flex justify-between border-t border-border-warm pt-2 font-black"><dt>Penjualan bersih</dt><dd class="tabular-nums">Rp<?= number_format(max(0, (float) $sale['total'] - $postedRefundTotal), 0, ',', '.') ?></dd></div><?php endif ?>
             </dl>

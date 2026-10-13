@@ -230,11 +230,17 @@
     const posRoot = document.querySelector('[data-pos-root]');
     if (posRoot) {
         const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+        const policy = JSON.parse(posRoot.dataset.posPolicy || '{}');
         const cart = new Map();
         const cartItems = posRoot.querySelector('[data-cart-items]');
         const cartPayload = posRoot.querySelector('[data-cart-payload]');
         const paymentPayload = posRoot.querySelector('[data-payment-payload]');
-        const discountInput = posRoot.querySelector('[data-pos-discount]');
+        const transactionDiscountPayload = posRoot.querySelector('[data-transaction-discount-payload]');
+        const transactionDiscountType = posRoot.querySelector('[data-transaction-discount-type]');
+        const transactionDiscountValue = posRoot.querySelector('[data-transaction-discount-value]');
+        const discountApproval = posRoot.querySelector('[data-discount-approval]');
+        const discountApprovalIdentity = posRoot.querySelector('[data-discount-approval-identity]');
+        const discountApprovalPassword = posRoot.querySelector('[data-discount-approval-password]');
         const splitInput = posRoot.querySelector('[data-split-payment]');
         const paymentTwo = posRoot.querySelector('[data-payment-two]');
         const payButton = posRoot.querySelector('[data-pay-button]');
@@ -246,7 +252,18 @@
         const cartClose = posRoot.querySelector('[data-pos-cart-close]');
         let cartReturnFocus = null;
         let currentTotal = 0;
+        let discountInvalid = false;
+        let discountNeedsOwnerApproval = false;
         const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+        const roundMoney = (value) => Math.floor(value + 0.5);
+        const amountForDiscount = (base, type, value) => type === 'percent'
+            ? roundMoney(base * Math.max(0, Number(value) || 0) / 100)
+            : Math.max(0, roundMoney(Number(value) || 0));
+        const overDiscountLimit = (amount, base, maxAmount, maxPercent) => amount > 0 && (
+            (maxAmount <= 0 && maxPercent <= 0)
+            || (maxAmount > 0 && amount > maxAmount)
+            || (maxPercent > 0 && amount > roundMoney(base * maxPercent / 100))
+        );
 
         const getPayment = (number) => ({
             method: posRoot.querySelector(`[data-payment-method="${number}"]`)?.value,
@@ -274,37 +291,94 @@
                 amountOne.value = String(currentTotal);
                 amountTwo.value = '0';
             }
-            const payments = [getPayment(1)];
+            const firstPayment = getPayment(1);
+            const payments = firstPayment.amount > 0 ? [firstPayment] : [];
             if (splitInput?.checked && Number(amountTwo.value) > 0) payments.push(getPayment(2));
             if (paymentPayload) paymentPayload.value = JSON.stringify(payments);
+        };
+
+        const updateSummary = () => {
+            const entries = [...cart.values()];
+            const lines = entries.map((item) => {
+                const gross = (item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity;
+                const discount = amountForDiscount(gross, item.discountType, item.discountValue);
+                return { gross, discount, net: gross - discount };
+            });
+            const subtotal = lines.reduce((sum, line) => sum + line.gross, 0);
+            const itemDiscount = lines.reduce((sum, line) => sum + line.discount, 0);
+            const afterItemDiscount = subtotal - itemDiscount;
+            const transactionType = transactionDiscountType?.value || 'amount';
+            const transactionValue = Math.max(0, Number(transactionDiscountValue?.value) || 0);
+            const transactionDiscount = amountForDiscount(afterItemDiscount, transactionType, transactionValue);
+            const netSubtotal = Math.max(0, afterItemDiscount - transactionDiscount);
+            const serviceCharge = policy.serviceChargeEnabled ? roundMoney(netSubtotal * Number(policy.serviceChargeRate || 0) / 100) : 0;
+            const tax = policy.taxEnabled ? roundMoney((netSubtotal + serviceCharge) * Number(policy.taxRate || 0) / 100) : 0;
+            currentTotal = netSubtotal + serviceCharge + tax;
+            const needsApproval = lines.some((line) => overDiscountLimit(line.discount, line.gross, Number(policy.itemDiscountMaxAmount || 0), Number(policy.itemDiscountMaxPercent || 0)))
+                || overDiscountLimit(transactionDiscount, afterItemDiscount, Number(policy.transactionDiscountMaxAmount || 0), Number(policy.transactionDiscountMaxPercent || 0));
+            const tooHigh = lines.some((line) => line.discount > line.gross)
+                || transactionDiscount > afterItemDiscount
+                || (transactionType === 'percent' && transactionValue > 100);
+            discountInvalid = tooHigh;
+            discountNeedsOwnerApproval = needsApproval && !tooHigh;
+
+            const subtotalLabel = posRoot.querySelector('[data-pos-subtotal]');
+            const itemDiscountLabel = posRoot.querySelector('[data-pos-item-discount-label]');
+            const transactionDiscountLabel = posRoot.querySelector('[data-pos-transaction-discount-label]');
+            const serviceLabel = posRoot.querySelector('[data-pos-service-charge]');
+            const taxLabel = posRoot.querySelector('[data-pos-tax]');
+            const totalLabel = posRoot.querySelector('[data-pos-total]');
+            if (subtotalLabel) subtotalLabel.textContent = rupiah.format(subtotal);
+            if (itemDiscountLabel) itemDiscountLabel.textContent = rupiah.format(itemDiscount);
+            if (transactionDiscountLabel) transactionDiscountLabel.textContent = rupiah.format(transactionDiscount);
+            if (serviceLabel) serviceLabel.textContent = rupiah.format(serviceCharge);
+            if (taxLabel) taxLabel.textContent = rupiah.format(tax);
+            if (totalLabel) totalLabel.textContent = rupiah.format(currentTotal);
+            entries.forEach((item, index) => {
+                const row = cartItems?.querySelector(`[data-cart-key="${CSS.escape(item.key)}"]`);
+                const amountLabel = row?.querySelector('[data-item-discount-amount]');
+                const netLabel = row?.querySelector('[data-item-net]');
+                if (amountLabel) amountLabel.textContent = rupiah.format(lines[index].discount);
+                if (netLabel) netLabel.textContent = rupiah.format(Math.max(0, lines[index].gross - lines[index].discount));
+            });
+
+            if (transactionDiscountPayload) transactionDiscountPayload.value = JSON.stringify({ type: transactionType, value: transactionValue });
+            if (cartPayload) cartPayload.value = JSON.stringify(entries.map((item) => ({
+                variant_id: item.variantId,
+                quantity: item.quantity,
+                topping_ids: item.toppings.map((top) => top.id),
+                discount_type: item.discountType,
+                discount_value: item.discountValue,
+            })));
+            discountApproval?.classList.toggle('hidden', !discountNeedsOwnerApproval);
+            if (discountApprovalIdentity) discountApprovalIdentity.required = discountNeedsOwnerApproval;
+            if (discountApprovalPassword) discountApprovalPassword.required = discountNeedsOwnerApproval;
+            const approvalReady = !discountNeedsOwnerApproval || (discountApprovalIdentity?.value.trim() && discountApprovalPassword?.value);
+            if (payButton) payButton.disabled = entries.length === 0 || currentTotal <= 0 || tooHigh || !approvalReady;
+            updatePayments();
         };
 
         const renderCart = () => {
             const entries = [...cart.values()];
             if (cartItems) {
-                cartItems.innerHTML = entries.length === 0 ? '<p class="p-5 text-sm text-ink-muted">Belum ada produk di keranjang.</p>' : entries.map((item) => `
+                cartItems.innerHTML = entries.length === 0 ? '<p class="p-5 text-sm text-ink-muted">Belum ada produk di keranjang.</p>' : entries.map((item) => {
+                    const gross = (item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity;
+                    const discount = amountForDiscount(gross, item.discountType, item.discountValue);
+                    return `
                     <article class="p-4" data-cart-key="${item.key}">
-                        <div class="flex justify-between gap-3"><div><h3 class="text-sm font-bold">${escapeHtml(item.productName)}</h3><p class="mt-1 text-xs text-ink-muted">${escapeHtml(item.variantName)}${item.toppings.length ? ' · ' + item.toppings.map((top) => escapeHtml(top.name)).join(', ') : ''}</p></div><strong class="text-sm tabular-nums">${rupiah.format((item.price + item.toppings.reduce((sum, top) => sum + top.price, 0)) * item.quantity)}</strong></div>
+                        <div class="flex justify-between gap-3"><div><h3 class="text-sm font-bold">${escapeHtml(item.productName)}</h3><p class="mt-1 text-xs text-ink-muted">${escapeHtml(item.variantName)}${item.toppings.length ? ' · ' + item.toppings.map((top) => escapeHtml(top.name)).join(', ') : ''}</p></div><strong class="text-sm tabular-nums">${rupiah.format(gross)}</strong></div>
                         <div class="mt-3 flex items-center gap-2"><button class="button-icon h-9 min-h-9 w-9" type="button" data-cart-decrease aria-label="Kurangi ${escapeHtml(item.productName)}">−</button><span class="w-8 text-center font-bold">${item.quantity}</span><button class="button-icon h-9 min-h-9 w-9" type="button" data-cart-increase aria-label="Tambah ${escapeHtml(item.productName)}">+</button><button class="ml-auto min-h-9 px-2 text-xs font-bold text-status-danger underline" type="button" data-cart-remove>Hapus</button></div>
-                    </article>`).join('');
+                        <div class="mt-3 grid grid-cols-[minmax(0,1fr)_7rem] gap-2"><label class="form-label col-span-2" for="item-discount-${escapeHtml(item.key)}">Diskon item</label><select class="form-input" data-item-discount-type aria-label="Jenis diskon ${escapeHtml(item.productName)}"><option value="amount" ${item.discountType === 'amount' ? 'selected' : ''}>Nominal</option><option value="percent" ${item.discountType === 'percent' ? 'selected' : ''}>Persen</option></select><input class="form-input" id="item-discount-${escapeHtml(item.key)}" type="number" min="0" step="${item.discountType === 'percent' ? '0.01' : '1'}" value="${escapeHtml(item.discountValue)}" data-item-discount-value aria-label="Nilai diskon ${escapeHtml(item.productName)}"></div>
+                        <p class="mt-2 text-right text-xs text-ink-muted">Diskon: <span data-item-discount-amount>${rupiah.format(discount)}</span> · Setelah diskon: <span data-item-net>${rupiah.format(Math.max(0, gross - discount))}</span></p>
+                    </article>`;
+                }).join('');
             }
-            const subtotal = entries.reduce((sum, item) => sum + (item.price + item.toppings.reduce((topSum, top) => topSum + top.price, 0)) * item.quantity, 0);
-            const discount = Math.min(Math.max(Number(discountInput?.value || 0), 0), subtotal);
-            currentTotal = subtotal - discount;
-            const subtotalLabel = posRoot.querySelector('[data-pos-subtotal]');
-            const discountLabel = posRoot.querySelector('[data-pos-discount-label]');
-            const totalLabel = posRoot.querySelector('[data-pos-total]');
             const countLabel = posRoot.querySelector('[data-cart-count]');
             const mobileCountLabel = posRoot.querySelector('[data-cart-mobile-count]');
             const itemCount = entries.reduce((sum, item) => sum + item.quantity, 0);
-            if (subtotalLabel) subtotalLabel.textContent = rupiah.format(subtotal);
-            if (discountLabel) discountLabel.textContent = rupiah.format(discount);
-            if (totalLabel) totalLabel.textContent = rupiah.format(currentTotal);
             if (countLabel) countLabel.textContent = `${itemCount} item`;
             if (mobileCountLabel) mobileCountLabel.textContent = `${itemCount} item`;
-            if (cartPayload) cartPayload.value = JSON.stringify(entries.map((item) => ({ variant_id: item.variantId, quantity: item.quantity, topping_ids: item.toppings.map((top) => top.id) })));
-            if (payButton) payButton.disabled = entries.length === 0 || currentTotal <= 0;
-            updatePayments();
+            updateSummary();
         };
 
         posRoot.querySelectorAll('[data-add-product]').forEach((button) => button.addEventListener('click', () => {
@@ -313,7 +387,7 @@
             const key = `${button.dataset.variantId}:${toppings.map((top) => top.id).sort((a, b) => a - b).join('-')}`;
             const existing = cart.get(key);
             if (existing) existing.quantity += 1;
-            else cart.set(key, { key, variantId: Number(button.dataset.variantId), productName: button.dataset.productName, variantName: button.dataset.variantName, price: Number(button.dataset.price), toppings, quantity: 1 });
+            else cart.set(key, { key, variantId: Number(button.dataset.variantId), productName: button.dataset.productName, variantName: button.dataset.variantName, price: Number(button.dataset.price), toppings, quantity: 1, discountType: 'amount', discountValue: 0 });
             renderCart();
         }));
 
@@ -341,17 +415,52 @@
             posRoot.querySelector('[data-pos-empty]')?.classList.toggle('hidden', visible > 0);
         });
 
-        discountInput?.addEventListener('input', renderCart);
+        const updateItemDiscount = (event) => {
+            const control = event.target.closest('[data-item-discount-type], [data-item-discount-value]');
+            const row = control?.closest('[data-cart-key]');
+            const item = row ? cart.get(row.dataset.cartKey) : null;
+            if (!item) return;
+            if (control.matches('[data-item-discount-type]')) {
+                item.discountType = control.value === 'percent' ? 'percent' : 'amount';
+                const valueInput = row.querySelector('[data-item-discount-value]');
+                if (valueInput) valueInput.step = item.discountType === 'percent' ? '0.01' : '1';
+            } else {
+                item.discountValue = Math.max(0, Number(control.value) || 0);
+            }
+            updateSummary();
+        };
+        cartItems?.addEventListener('input', updateItemDiscount);
+        cartItems?.addEventListener('change', updateItemDiscount);
+        transactionDiscountType?.addEventListener('change', () => {
+            if (transactionDiscountValue) transactionDiscountValue.step = transactionDiscountType.value === 'percent' ? '0.01' : '1';
+            updateSummary();
+        });
+        transactionDiscountValue?.addEventListener('input', updateSummary);
+        discountApprovalIdentity?.addEventListener('input', updateSummary);
+        discountApprovalPassword?.addEventListener('input', updateSummary);
         splitInput?.addEventListener('change', () => {
             paymentTwo?.classList.toggle('hidden', !splitInput.checked);
             const amountOne = posRoot.querySelector('[data-payment-amount="1"]');
             if (amountOne) amountOne.value = splitInput.checked ? String(Math.floor(currentTotal / 2)) : String(currentTotal);
+            updatePaymentMethods();
+            updatePaymentFields(2);
             updatePayments();
         });
-        posRoot.querySelectorAll('[data-payment-method]').forEach((select) => select.addEventListener('change', () => { updatePaymentFields(select.dataset.paymentMethod); updatePayments(); }));
+        const updatePaymentMethods = () => {
+            const first = posRoot.querySelector('[data-payment-method="1"]');
+            const second = posRoot.querySelector('[data-payment-method="2"]');
+            if (!first || !second) return;
+            [...second.options].forEach((option) => { option.disabled = splitInput?.checked === true && option.value === first.value; });
+            if (splitInput?.checked && second.value === first.value) {
+                const available = [...second.options].find((option) => !option.disabled);
+                if (available) second.value = available.value;
+            }
+        };
+        posRoot.querySelectorAll('[data-payment-method]').forEach((select) => select.addEventListener('change', () => { updatePaymentFields(select.dataset.paymentMethod); updatePaymentMethods(); updatePaymentFields(2); updatePayments(); }));
         posRoot.querySelectorAll('[data-payment-amount], [data-cash-received], [data-payment-reference]').forEach((input) => input.addEventListener('input', updatePayments));
         updatePaymentFields(1);
         updatePaymentFields(2);
+        updatePaymentMethods();
         renderCart();
 
         const closeCart = () => {
@@ -384,6 +493,10 @@
             const payments = JSON.parse(paymentPayload?.value || '[]');
             let message = '';
             if (cart.size === 0) message = 'Tambahkan produk sebelum membayar.';
+            else if (discountInvalid) message = 'Nilai diskon tidak boleh melebihi nilai barang atau 100%. Periksa kembali diskonnya.';
+            else if (discountNeedsOwnerApproval && (!discountApprovalIdentity?.value.trim() || !discountApprovalPassword?.value)) message = 'Masukkan akun owner untuk menyetujui diskon yang melewati batas.';
+            else if (payments.length > 2) message = 'Pembayaran gabungan maksimal menggunakan dua metode.';
+            else if (new Set(payments.map((payment) => payment.method)).size !== payments.length) message = 'Pilih dua metode pembayaran yang berbeda.';
             else if (Math.abs(payments.reduce((sum, payment) => sum + payment.amount, 0) - currentTotal) > 0.01) message = 'Alokasi pembayaran belum sama dengan total transaksi.';
             else if (payments.some((payment) => payment.method === 'cash' && payment.cash_received < payment.amount)) message = 'Tunai diterima masih kurang.';
             else if (payments.some((payment) => payment.method !== 'cash' && !payment.reference_number)) message = 'Isi nomor referensi pembayaran non-tunai.';

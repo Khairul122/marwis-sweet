@@ -110,9 +110,63 @@ class SalesReportService
             }
 
             $grossWeights = array_map(static fn (array $item): int => Money::cents($item['line_total']), $saleItems);
-            $discountAllocations = Money::allocateCents(Money::cents($sale['discount']), $grossWeights);
-            $taxAllocations = Money::allocateCents(Money::cents($sale['tax']), $grossWeights);
-            $serviceAllocations = Money::allocateCents(Money::cents($sale['service_charge']), $grossWeights);
+            $itemDiscounts = array_map(static fn (array $item): int => Money::cents($item['item_discount_amount'] ?? 0), $saleItems);
+            $transactionDiscounts = array_map(static fn (array $item): int => Money::cents($item['transaction_discount_amount'] ?? 0), $saleItems);
+            $headerDiscountCents = Money::cents($sale['discount']);
+            if ($headerDiscountCents < 0 || $headerDiscountCents > array_sum($grossWeights)
+                || array_sum($itemDiscounts) + array_sum($transactionDiscounts) > $headerDiscountCents) {
+                throw new RuntimeException('Alokasi diskon pada transaksi ' . $sale['sale_number'] . ' tidak sesuai dengan total tersimpan.');
+            }
+            foreach ($grossWeights as $index => $grossCents) {
+                if ($itemDiscounts[$index] < 0 || $itemDiscounts[$index] > $grossCents || $transactionDiscounts[$index] < 0) {
+                    throw new RuntimeException('Diskon per baris pada transaksi ' . $sale['sale_number'] . ' tidak valid.');
+                }
+            }
+            $afterItemDiscount = array_map(static fn (int $index, int $gross): int => $gross - $itemDiscounts[$index], array_keys($grossWeights), $grossWeights);
+            $unallocatedDiscount = $headerDiscountCents - array_sum($itemDiscounts) - array_sum($transactionDiscounts);
+            if ($unallocatedDiscount > 0) {
+                $legacyTransactionDiscounts = Money::allocateCents($unallocatedDiscount, $afterItemDiscount);
+                foreach ($transactionDiscounts as $index => $amount) {
+                    $transactionDiscounts[$index] = $amount + $legacyTransactionDiscounts[$index];
+                }
+            }
+            $discountAllocations = [];
+            foreach ($itemDiscounts as $index => $amount) {
+                $discountAllocations[$index] = $amount + $transactionDiscounts[$index];
+            }
+            foreach ($grossWeights as $index => $grossCents) {
+                if ($discountAllocations[$index] > $grossCents) {
+                    throw new RuntimeException('Diskon melebihi nilai baris pada transaksi ' . $sale['sale_number'] . '.');
+                }
+            }
+            $afterDiscountWeights = array_map(static fn (int $index, int $gross): int => $gross - $discountAllocations[$index], array_keys($grossWeights), $grossWeights);
+            $serviceAllocations = array_map(static fn (array $item): int => Money::cents($item['service_charge_amount'] ?? 0), $saleItems);
+            $headerServiceCents = Money::cents($sale['service_charge']);
+            if ($headerServiceCents < 0 || array_sum($serviceAllocations) < 0 || array_sum($serviceAllocations) > $headerServiceCents
+                || $headerServiceCents > array_sum($afterDiscountWeights)) {
+                throw new RuntimeException('Alokasi biaya layanan pada transaksi ' . $sale['sale_number'] . ' tidak valid.');
+            }
+            $missingService = $headerServiceCents - array_sum($serviceAllocations);
+            if ($missingService > 0) {
+                $legacyService = Money::allocateCents($missingService, $afterDiscountWeights);
+                foreach ($serviceAllocations as $index => $amount) {
+                    $serviceAllocations[$index] = $amount + $legacyService[$index];
+                }
+            }
+            $taxAllocations = array_map(static fn (array $item): int => Money::cents($item['tax_amount'] ?? 0), $saleItems);
+            $taxBases = array_map(static fn (int $index, int $net): int => $net + $serviceAllocations[$index], array_keys($afterDiscountWeights), $afterDiscountWeights);
+            $headerTaxCents = Money::cents($sale['tax']);
+            if ($headerTaxCents < 0 || array_sum($taxAllocations) < 0 || array_sum($taxAllocations) > $headerTaxCents
+                || $headerTaxCents > array_sum($taxBases)) {
+                throw new RuntimeException('Alokasi pajak pada transaksi ' . $sale['sale_number'] . ' tidak valid.');
+            }
+            $missingTax = $headerTaxCents - array_sum($taxAllocations);
+            if ($missingTax > 0) {
+                $legacyTax = Money::allocateCents($missingTax, $taxBases);
+                foreach ($taxAllocations as $index => $amount) {
+                    $taxAllocations[$index] = $amount + $legacyTax[$index];
+                }
+            }
             $netWeights = [];
             $selectedIndices = [];
             $saleGrossCents = 0;
@@ -137,7 +191,11 @@ class SalesReportService
                     $products[$key] = ['product_name' => $item['product_name'], 'variant_name' => $item['variant_name'], 'quantity_milli' => 0, 'sales_cents' => 0];
                 }
                 $products[$key]['quantity_milli'] += Money::quantityMilli($item['quantity']);
-                $products[$key]['sales_cents'] += $grossCents;
+                $products[$key]['sales_cents'] += max(0, $grossCents - $discountAllocations[$index]);
+            }
+
+            if (array_sum($netWeights) !== Money::cents($sale['total'])) {
+                throw new RuntimeException('Rincian transaksi ' . $sale['sale_number'] . ' tidak cocok dengan total pembayaran tersimpan.');
             }
 
             $salesCollectedCents += $saleTotalCents;

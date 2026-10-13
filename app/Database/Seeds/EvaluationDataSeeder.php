@@ -187,8 +187,8 @@ class EvaluationDataSeeder extends Seeder
         }
         $when = date('Y-m-d 10:00:00', strtotime('-' . (self::DAYS + 1) . ' days'));
         $lines = [
-            'DEMO-TEPUNG' => [70000, 14], 'DEMO-GULA' => [30000, 18], 'DEMO-MENTEGA' => [22000, 45], 'DEMO-KEJU' => [16000, 95], 'DEMO-COKELAT' => [14000, 55],
-            'DEMO-TELUR' => [700, 2200], 'EVL-SUSU' => [10000, 28], 'EVL-KACANG' => [8000, 40], 'EVL-WIJEN' => [3000, 60], 'EVL-DAGING' => [9000, 120], 'EVL-AIR' => [150, 3000],
+            'DEMO-TEPUNG' => [180000, 14], 'DEMO-GULA' => [30000, 18], 'DEMO-MENTEGA' => [22000, 45], 'DEMO-KEJU' => [16000, 95], 'DEMO-COKELAT' => [14000, 55],
+            'DEMO-TELUR' => [700, 2200], 'EVL-SUSU' => [10000, 28], 'EVL-KACANG' => [8000, 40], 'EVL-WIJEN' => [3000, 60], 'EVL-DAGING' => [15000, 120], 'EVL-AIR' => [150, 3000],
         ];
         $this->db->transStart();
         $this->db->table('goods_receipts')->insert([
@@ -271,6 +271,8 @@ class EvaluationDataSeeder extends Seeder
             ->where('products.is_active', true)->where('product_variants.is_active', true)->get()->getResultArray();
         $toppings = $this->db->table('toppings')->where('is_active', true)->get()->getResultArray();
         $service = new SaleService($this->db);
+        $successful = 0;
+        $skipped = 0;
 
         for ($offset = self::DAYS; $offset >= 0; $offset--) {
             $day = date('Y-m-d', strtotime("-{$offset} days"));
@@ -322,9 +324,11 @@ class EvaluationDataSeeder extends Seeder
                 try {
                     $saleId = $service->finalize(['idempotency_key' => md5("eval-sale-{$offset}-{$n}"), 'cart' => $cart, 'payments' => $payments, 'discount' => $discount], (int) $cashier['id']);
                 } catch (\Throwable $exception) {
+                    $skipped++;
                     echo "Lewati satu transaksi ({$day}): " . $exception->getMessage() . "\n";
                     continue;
                 }
+                $successful++;
                 $time = $isToday
                     ? date('Y-m-d H:i:s', max(strtotime($day . ' 00:30:00'), time() - mt_rand(600, 14000)))
                     : sprintf('%s %02d:%02d:%02d', $day, mt_rand(16, 22), mt_rand(0, 59), mt_rand(0, 59));
@@ -343,6 +347,7 @@ class EvaluationDataSeeder extends Seeder
                 ]);
             }
         }
+        echo "Penjualan evaluasi: {$successful} berhasil; {$skipped} dilewati.\n";
     }
 
     private function backdate(int $saleId, string $time, string $day): void

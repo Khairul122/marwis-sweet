@@ -34,5 +34,25 @@ $bannerRows = array_map(static fn (array $b): array => [
         </section>
 </div>
 
+<section class="panel-card mb-8 max-w-4xl p-5 sm:p-7">
+    <div>
+        <h2 class="text-xl font-bold">Aturan pembayaran dan harga</h2>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">Batas diskon mulai dari Rp0. Diskon yang melewati batas perlu persetujuan owner di kasir. Pajak dan biaya layanan tidak dihitung sampai diaktifkan.</p>
+    </div>
+    <form action="<?= site_url('panel/settings/sales-policy') ?>" method="post" class="mt-6 grid gap-5 sm:grid-cols-2">
+        <?= csrf_field() ?>
+        <div><label class="form-label" for="item-discount-max-amount">Batas diskon item (nominal)</label><div class="input-prefix"><span>Rp</span><input class="form-input" id="item-discount-max-amount" name="item_discount_max_amount" type="number" min="0" step="0.01" value="<?= esc(old('item_discount_max_amount', $policy['item_discount_max_amount'])) ?>" required></div></div>
+        <div><label class="form-label" for="item-discount-max-percent">Batas diskon item (persen)</label><div class="flex items-center gap-2"><input class="form-input" id="item-discount-max-percent" name="item_discount_max_percent" type="number" min="0" max="100" step="0.01" value="<?= esc(old('item_discount_max_percent', $policy['item_discount_max_percent'])) ?>" required><span aria-hidden="true">%</span></div></div>
+        <div><label class="form-label" for="transaction-discount-max-amount">Batas diskon transaksi (nominal)</label><div class="input-prefix"><span>Rp</span><input class="form-input" id="transaction-discount-max-amount" name="transaction_discount_max_amount" type="number" min="0" step="0.01" value="<?= esc(old('transaction_discount_max_amount', $policy['transaction_discount_max_amount'])) ?>" required></div></div>
+        <div><label class="form-label" for="transaction-discount-max-percent">Batas diskon transaksi (persen)</label><div class="flex items-center gap-2"><input class="form-input" id="transaction-discount-max-percent" name="transaction_discount_max_percent" type="number" min="0" max="100" step="0.01" value="<?= esc(old('transaction_discount_max_percent', $policy['transaction_discount_max_percent'])) ?>" required><span aria-hidden="true">%</span></div></div>
+        <div class="border-t border-border-warm pt-5 sm:col-span-2"><h3 class="font-bold">Biaya tambahan</h3><p class="mt-1 text-sm leading-6 text-ink-muted">Biaya layanan dihitung setelah diskon. Pajak dihitung dari subtotal setelah diskon ditambah biaya layanan.</p></div>
+        <div><label class="form-label" for="service-charge-enabled">Biaya layanan</label><select class="form-input" id="service-charge-enabled" name="service_charge_enabled"><option value="0" <?= old('service_charge_enabled', $policy['service_charge_enabled'] ? '1' : '0') === '0' ? 'selected' : '' ?>>Nonaktif</option><option value="1" <?= old('service_charge_enabled', $policy['service_charge_enabled'] ? '1' : '0') === '1' ? 'selected' : '' ?>>Aktif</option></select></div>
+        <div><label class="form-label" for="service-charge-rate">Tarif biaya layanan</label><div class="flex items-center gap-2"><input class="form-input" id="service-charge-rate" name="service_charge_rate" type="number" min="0" max="100" step="0.01" value="<?= esc(old('service_charge_rate', $policy['service_charge_rate'])) ?>" required><span aria-hidden="true">%</span></div></div>
+        <div><label class="form-label" for="tax-enabled">Pajak</label><select class="form-input" id="tax-enabled" name="tax_enabled"><option value="0" <?= old('tax_enabled', $policy['tax_enabled'] ? '1' : '0') === '0' ? 'selected' : '' ?>>Nonaktif</option><option value="1" <?= old('tax_enabled', $policy['tax_enabled'] ? '1' : '0') === '1' ? 'selected' : '' ?>>Aktif</option></select></div>
+        <div><label class="form-label" for="tax-rate">Tarif pajak</label><div class="flex items-center gap-2"><input class="form-input" id="tax-rate" name="tax_rate" type="number" min="0" max="100" step="0.01" value="<?= esc(old('tax_rate', $policy['tax_rate'])) ?>" required><span aria-hidden="true">%</span></div></div>
+        <div class="sm:col-span-2"><button class="button-primary" type="submit">Simpan aturan harga</button></div>
+    </form>
+</section>
+
 <?= panel_table('Semua data banner', ['Judul', 'Gambar', 'Urutan', 'Jadwal', 'Status', '>Aksi'], $bannerRows, ['createUrl' => 'panel/data/banner/create', 'width' => '52rem', 'empty' => 'Belum ada banner. Hero bawaan tetap tampil di katalog.']) ?>
 <?= $this->endSection() ?>
