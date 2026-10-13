@@ -4,6 +4,7 @@ namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
 use App\Services\AccountingService;
+use App\Services\Money;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
 
@@ -80,15 +81,16 @@ class AccountingController extends BaseController
         $debitId = filter_var($this->request->getPost('debit_account_id'), FILTER_VALIDATE_INT);
         $creditId = filter_var($this->request->getPost('credit_account_id'), FILTER_VALIDATE_INT);
         $amount = $this->request->getPost('amount');
+        try { $amountCents = Money::cents((string) $amount); } catch (\InvalidArgumentException) { $amountCents = 0; }
         $description = trim((string) $this->request->getPost('description'));
         $debit = $debitId ? $database->table('accounts')->where('id', $debitId)->where('allow_manual', true)->where('is_active', true)->get()->getRowArray() : null;
         $credit = $creditId ? $database->table('accounts')->where('id', $creditId)->where('allow_manual', true)->where('is_active', true)->get()->getRowArray() : null;
-        if (!$date || !$debit || !$credit || $debitId === $creditId || !is_numeric($amount) || (float) $amount <= 0 || mb_strlen($description) < 5 || mb_strlen($description) > 500) {
+        if (!$date || !$debit || !$credit || $debitId === $creditId || $amountCents <= 0 || mb_strlen($description) < 5 || mb_strlen($description) > 500) {
             return redirect()->route('panel.accounting')->with('error', 'Data jurnal manual tidak valid atau akun tidak mengizinkan posting manual.');
         }
         try {
             $database->transStart();
-            (new AccountingService($database))->post('manual_journal', random_int(1, PHP_INT_MAX), $date, $description, [['account_id' => $debitId, 'debit' => $amount, 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => $amount]], (int) session('user_id'));
+            (new AccountingService($database))->post('manual_journal', random_int(1, PHP_INT_MAX), $date, $description, [['account_id' => $debitId, 'debit' => Money::decimal($amountCents), 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => Money::decimal($amountCents)]], (int) session('user_id'));
             $database->transComplete();
             if (!$database->transStatus()) { throw new RuntimeException('Jurnal manual gagal disimpan.'); }
         } catch (\Throwable $exception) { return redirect()->route('panel.accounting')->with('error', $exception->getMessage()); }
@@ -102,15 +104,16 @@ class AccountingController extends BaseController
         $debitId = filter_var($this->request->getPost('debit_account_id'), FILTER_VALIDATE_INT);
         $creditId = filter_var($this->request->getPost('credit_account_id'), FILTER_VALIDATE_INT);
         $amount = $this->request->getPost('amount');
+        try { $amountCents = Money::cents((string) $amount); } catch (\InvalidArgumentException) { $amountCents = 0; }
         $description = trim((string) $this->request->getPost('description'));
         $debit = $debitId ? $database->table('accounts')->where('id', $debitId)->where('account_type', 'asset')->get()->getRowArray() : null;
         $credit = $creditId ? $database->table('accounts')->where('id', $creditId)->whereIn('account_type', ['liability', 'equity'])->get()->getRowArray() : null;
-        if (!$date || !$debit || !$credit || !is_numeric($amount) || (float) $amount <= 0 || mb_strlen($description) < 5 || mb_strlen($description) > 500) {
+        if (!$date || !$debit || !$credit || $amountCents <= 0 || mb_strlen($description) < 5 || mb_strlen($description) > 500) {
             return redirect()->route('panel.accounting')->with('error', 'Data saldo awal tidak valid.');
         }
         if ($debit['system_key'] === 'inventory') {
-            $inventoryValue = (float) ($database->table('inventory_items')->select('SUM(quantity_on_hand * average_cost) AS total', false)->get()->getRow('total') ?? 0);
-            if (abs($inventoryValue - (float) $amount) > 0.01) { return redirect()->route('panel.accounting')->with('error', 'Saldo awal persediaan harus sama dengan nilai kartu stok: Rp' . number_format($inventoryValue, 2, ',', '.')); }
+            $inventoryValueCents = Money::cents($database->table('inventory_items')->selectSum('inventory_value', 'total')->get()->getRow('total') ?? 0);
+            if ($inventoryValueCents !== $amountCents) { return redirect()->route('panel.accounting')->with('error', 'Saldo awal persediaan harus sama dengan nilai kartu stok: Rp' . Money::decimal($inventoryValueCents)); }
         }
         try {
             $database->transException(true)->transStart();
@@ -131,7 +134,7 @@ class AccountingController extends BaseController
             if ($existingOpening) {
                 throw new RuntimeException('Saldo awal untuk akun aset ini sudah pernah diposting (' . $existingOpening['journal_number'] . '). Pengiriman kedua ditolak; koreksi harus dicatat pada jurnal terpisah.');
             }
-            (new AccountingService($database))->post('opening_balance', $debitId, $date, $description, [['account_id' => $debitId, 'debit' => $amount, 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => $amount]], (int) session('user_id'));
+            (new AccountingService($database))->post('opening_balance', $debitId, $date, $description, [['account_id' => $debitId, 'debit' => Money::decimal($amountCents), 'credit' => 0], ['account_id' => $creditId, 'debit' => 0, 'credit' => Money::decimal($amountCents)]], (int) session('user_id'));
             $database->transComplete();
             if (!$database->transStatus()) { throw new RuntimeException('Saldo awal gagal disimpan.'); }
         } catch (\Throwable $exception) { return redirect()->route('panel.accounting')->with('error', $exception->getMessage()); }

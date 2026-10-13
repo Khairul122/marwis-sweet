@@ -2,6 +2,7 @@
 
 namespace App\Database\Seeds;
 
+use App\Services\Money;
 use CodeIgniter\Database\Seeder;
 use LogicException;
 
@@ -39,6 +40,7 @@ class TemporaryDataSeeder extends Seeder
                 'base_unit' => $unit,
                 'quantity_on_hand' => $quantity,
                 'average_cost' => $cost,
+                'inventory_value' => Money::decimal(Money::centsForQuantity($quantity * 1000, $cost * 10000)),
                 'minimum_stock' => $minimum,
                 'is_active' => true,
             ]);

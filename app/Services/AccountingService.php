@@ -90,14 +90,15 @@ class AccountingService
 
     private function toCents(mixed $amount): int
     {
-        if (!is_numeric($amount) || (float) $amount < 0) {
+        $cents = Money::cents($amount);
+        if ($cents < 0) {
             throw new RuntimeException('Nominal jurnal tidak valid.');
         }
-        return (int) round((float) $amount * 100, 0, PHP_ROUND_HALF_UP);
+        return $cents;
     }
 
     private function fromCents(int $cents): string
     {
-        return number_format($cents / 100, 2, '.', '');
+        return Money::decimal($cents);
     }
 }

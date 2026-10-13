@@ -104,7 +104,7 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 - [x] Simpan biaya barang siap jual terpisah dari biaya bahan topping.
 - [x] Saat restock, balik hanya biaya barang yang benar-benar kembali; jangan mengembalikan topping konsumsi ke persediaan.
 
-**Status:** Implementasi selesai. Biaya per unit barang langsung tersimpan terpisah, dan migrasi mengisi data lama dari kartu stok. Pembulatan pembagian sen untuk refund bertahap masih menjadi Tugas 9.
+**Status:** Implementasi selesai. Biaya per unit barang langsung tersimpan terpisah, dan migrasi mengisi data lama dari kartu stok. Tahap 9 menyelesaikan pembulatan refund bertahap dan sisa HPP restock.
 
 **Terima bila:** refund minuman Rp2.000 + topping Rp1.000 yang hanya mengembalikan minuman menambah stok dan membalik HPP Rp2.000 saja.
 
@@ -114,13 +114,15 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **P1 · Ketergantungan:** Tugas 8.
 
-- [ ] Gunakan aritmetika uang presisi tetap/integer sen, bukan `float` untuk nominal.
-- [ ] Alokasikan residu pembulatan pada baris terakhir secara deterministik.
-- [ ] Saat stok habis, pastikan biaya pelepasan akhir menyerap sisa sen sehingga nilai persediaan menjadi nol.
+- [x] Gunakan aritmetika uang presisi tetap/integer sen dan kuantitas presisi tetap untuk mutasi stok.
+- [x] Alokasikan residu pembulatan pada baris terakhir secara deterministik.
+- [x] Saat stok habis, pastikan biaya pelepasan akhir menyerap sisa sen sehingga nilai persediaan menjadi nol.
 
 **Terima bila:** jumlah HPP baris = HPP header = jurnal; jumlah baris refund = header refund; semua unit yang habis menghabiskan total biaya persediaan tepat.
 
-**Verifikasi nanti:** kasus 3×Rp333,3333 dan 3 item Rp10.000 dengan diskon Rp100, termasuk penjualan/refund bertahap.
+**Status:** Implementasi selesai untuk transaksi baru. Nilai persediaan tersimpan dalam migrasi 017; biaya restock barang langsung mengikuti HPP yang benar-benar dilepas saat penjualan, dan refund bertahap menutup sisa biaya secara deterministik.
+
+**Verifikasi:** lint sintaks PHP dan pemeriksaan diff. Migrasi MySQL serta skenario transaksi belum dijalankan pada database pengguna.
 
 ## Fase 3 — Laporan dan transaksi POS
 
@@ -128,13 +130,15 @@ Urutan mengikuti risiko dan ketergantungan. Temuan dirujuk dengan ID di `AUDIT_R
 
 **P1 · Ketergantungan:** Tugas 9 untuk rekonsiliasi uang.
 
-- [ ] Hitung subtotal, diskon, HPP, kuantitas, dan refund sesuai item yang lolos filter produk/kategori.
-- [ ] Terapkan filter metode penjualan dan metode refund secara independen.
-- [ ] Pertahankan filter kasir/shift dan periode lokal tanpa menggandakan transaksi split payment.
+- [x] Hitung subtotal, diskon, HPP, kuantitas, dan refund sesuai item yang lolos filter produk/kategori.
+- [x] Terapkan filter metode penjualan dan metode refund secara independen.
+- [x] Pertahankan filter kasir/shift dan periode lokal tanpa menggandakan transaksi split payment.
+
+**Status:** Implementasi selesai. Rekap panel/PDF memakai nominal baris terfilter, metode penjualan dan refund dipilih terpisah, dan penerimaan split payment tidak menggandakan transaksi. Sintaks PHP dan pemeriksaan whitespace diff valid. Skenario data MySQL dan tampilan PDF belum diverifikasi.
 
 **Terima bila:** transaksi A Rp10.000 + B Rp20.000 difilter A menghasilkan nilai A saja; penjualan tunai dengan refund bank muncul di laporan refund berfilter bank.
 
-**Verifikasi nanti:** cocokkan tabel, total panel, dan PDF untuk kombinasi filter/split payment/refund.
+**Verifikasi:** lint sintaks PHP dan pemeriksaan diff. Cocokkan tabel, total panel, dan PDF pada database MySQL untuk kombinasi filter/split payment/refund.
 
 ### Tugas 11 — Pertahankan token ulasan saat retry dan cetak ulang (A-08, B-13)
 

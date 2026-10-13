@@ -37,52 +37,58 @@ class RefundService
             }
             $saleItems = $this->database->query('SELECT * FROM sale_items WHERE sale_id = ? FOR UPDATE', [$saleId])->getResultArray();
             $selected = [];
-            $grossTotal = 0.0;
+            $grossTotalCents = 0;
             foreach ($saleItems as $item) {
-                $quantity = (float) ($quantities[$item['id']] ?? 0);
-                if ($quantity <= 0) {
+                $quantityMilli = Money::quantityMilli($quantities[$item['id']] ?? 0);
+                if ($quantityMilli <= 0) {
                     continue;
                 }
-                if (abs($quantity - round($quantity)) > 0.0001) {
+                if ($quantityMilli % 1000 !== 0) {
                     throw new RuntimeException('Jumlah refund harus berupa unit utuh.');
                 }
-                $reserved = (float) ($this->database->table('refund_items')
+                $reservedMilli = Money::quantityMilli($this->database->table('refund_items')
                     ->selectSum('refund_items.quantity', 'total')
                     ->join('refunds', 'refunds.id = refund_items.refund_id')
                     ->where('refund_items.sale_item_id', $item['id'])
                     ->whereIn('refunds.status', ['submitted', 'posted'])
                     ->get()->getRow('total') ?? 0);
-                if ($quantity - 0.0001 > (float) $item['quantity'] - $reserved) {
+                if ($quantityMilli > Money::quantityMilli($item['quantity']) - $reservedMilli) {
                     throw new RuntimeException('Jumlah refund melebihi sisa unit untuk ' . $item['product_name'] . '.');
                 }
-                $gross = round((float) $item['unit_price'] * $quantity, 2);
-                $grossTotal += $gross;
+                $quantity = intdiv($quantityMilli, 1000);
+                $grossCents = Money::cents($item['unit_price']) * $quantity;
+                $grossTotalCents += $grossCents;
                 $wantsRestock = isset($restock[$item['id']]) && (string) $restock[$item['id']] === '1';
                 if ($wantsRestock && !$item['direct_inventory_item_id']) {
                     throw new RuntimeException('Restock hanya tersedia untuk barang siap jual yang dipetakan ke persediaan.');
                 }
-                $selected[] = ['item' => $item, 'quantity' => $quantity, 'gross' => $gross, 'restock' => $wantsRestock];
+                $selected[] = ['item' => $item, 'quantity' => $quantity, 'gross_cents' => $grossCents, 'restock' => $wantsRestock];
             }
-            if ($selected === []) {
+            if ($selected === [] || $grossTotalCents <= 0) {
                 throw new RuntimeException('Pilih sedikitnya satu item untuk direfund.');
             }
 
-            $saleSubtotal = (float) $sale['subtotal'];
-            if ($saleSubtotal <= 0) {
+            $saleSubtotalCents = Money::cents($sale['subtotal']);
+            if ($saleSubtotalCents <= 0 || $grossTotalCents > $saleSubtotalCents) {
                 throw new RuntimeException('Nilai transaksi asal tidak valid.');
             }
-            $discount = round((float) $sale['discount'] * ($grossTotal / $saleSubtotal), 2);
-            $tax = round((float) $sale['tax'] * ($grossTotal / $saleSubtotal), 2);
-            $service = round((float) $sale['service_charge'] * ($grossTotal / $saleSubtotal), 2);
-            $amount = round($grossTotal - $discount + $tax + $service, 2);
-            $alreadyReserved = (float) ($this->database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $saleId)->whereIn('status', ['submitted', 'posted'])->get()->getRow('total') ?? 0);
-            $remainingValue = round((float) $sale['total'] - $alreadyReserved, 2);
-            if ($amount > $remainingValue + 0.01) {
-                throw new RuntimeException('Nilai refund melebihi sisa nilai transaksi.');
+            $discountCents = Money::proportionalCents(Money::cents($sale['discount']), $grossTotalCents, $saleSubtotalCents);
+            $taxCents = Money::proportionalCents(Money::cents($sale['tax']), $grossTotalCents, $saleSubtotalCents);
+            $serviceCents = Money::proportionalCents(Money::cents($sale['service_charge']), $grossTotalCents, $saleSubtotalCents);
+            $amountCents = $grossTotalCents - $discountCents + $taxCents + $serviceCents;
+            $alreadyReservedCents = Money::cents($this->database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $saleId)->whereIn('status', ['submitted', 'posted'])->get()->getRow('total') ?? 0);
+            $remainingValueCents = Money::cents($sale['total']) - $alreadyReservedCents;
+            if ($remainingValueCents < 0) {
+                throw new RuntimeException('Nilai refund sebelumnya melebihi nilai transaksi asal.');
             }
-            if ($this->isFullRemainingSelection($saleItems, $selected, $saleId)) {
-                $amount = $remainingValue;
-                $discount = round($grossTotal + $tax + $service - $amount, 2);
+            if ($this->isFullRemainingSelection($saleItems, $selected)) {
+                $amountCents = $remainingValueCents;
+                $discountCents = $grossTotalCents + $taxCents + $serviceCents - $amountCents;
+                if ($discountCents < 0 || $discountCents > $grossTotalCents) {
+                    throw new RuntimeException('Sisa nilai refund tidak sesuai dengan item yang belum direfund.');
+                }
+            } elseif ($amountCents > $remainingValueCents) {
+                throw new RuntimeException('Nilai refund melebihi sisa nilai transaksi.');
             }
 
             $now = date('Y-m-d H:i:s');
@@ -91,11 +97,11 @@ class RefundService
                 'sale_id' => $saleId,
                 'status' => 'submitted',
                 'method' => $method,
-                'subtotal_amount' => $grossTotal,
-                'discount_amount' => $discount,
-                'tax_amount' => $tax,
-                'service_charge_amount' => $service,
-                'amount' => $amount,
+                'subtotal_amount' => Money::decimal($grossTotalCents),
+                'discount_amount' => Money::decimal($discountCents),
+                'tax_amount' => Money::decimal($taxCents),
+                'service_charge_amount' => Money::decimal($serviceCents),
+                'amount' => Money::decimal($amountCents),
                 'reason' => $reason,
                 'reference_number' => $reference ?: null,
                 'requested_by' => $userId,
@@ -104,20 +110,24 @@ class RefundService
                 'updated_at' => $now,
             ]);
             $refundId = (int) $this->database->insertID();
-            foreach ($selected as $line) {
-                $share = $line['gross'] / $grossTotal;
-                $lineDiscount = round($discount * $share, 2);
-                $lineTax = round($tax * $share, 2);
-                $lineService = round($service * $share, 2);
+            $weights = array_column($selected, 'gross_cents');
+            $lineDiscounts = Money::allocateCents($discountCents, $weights);
+            $lineTaxes = Money::allocateCents($taxCents, $weights);
+            $lineServices = Money::allocateCents($serviceCents, $weights);
+            foreach ($selected as $index => $line) {
+                $lineDiscountCents = $lineDiscounts[$index];
+                $lineTaxCents = $lineTaxes[$index];
+                $lineServiceCents = $lineServices[$index];
+                $lineRefundCents = $line['gross_cents'] - $lineDiscountCents + $lineTaxCents + $lineServiceCents;
                 $this->database->table('refund_items')->insert([
                     'refund_id' => $refundId,
                     'sale_item_id' => $line['item']['id'],
                     'quantity' => $line['quantity'],
-                    'gross_amount' => $line['gross'],
-                    'discount_amount' => $lineDiscount,
-                    'tax_amount' => $lineTax,
-                    'service_charge_amount' => $lineService,
-                    'refund_amount' => round($line['gross'] - $lineDiscount + $lineTax + $lineService, 2),
+                    'gross_amount' => Money::decimal($line['gross_cents']),
+                    'discount_amount' => Money::decimal($lineDiscountCents),
+                    'tax_amount' => Money::decimal($lineTaxCents),
+                    'service_charge_amount' => Money::decimal($lineServiceCents),
+                    'refund_amount' => Money::decimal($lineRefundCents),
                     'restock_decision' => $line['restock'] ? 'restock' : ($line['item']['recipe_snapshot'] ? 'consumed' : 'not_returned'),
                     'cogs_reversed' => 0,
                     'created_at' => $now,
@@ -152,15 +162,16 @@ class RefundService
                 }
                 $shiftId = (int) $shift['id'];
             }
-            $postedTotal = (float) ($this->database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $sale['id'])->where('status', 'posted')->get()->getRow('total') ?? 0);
-            if ($postedTotal + (float) $refund['amount'] > (float) $sale['total'] + 0.01) {
+            $postedTotalCents = Money::cents($this->database->table('refunds')->selectSum('amount', 'total')->where('sale_id', $sale['id'])->where('status', 'posted')->get()->getRow('total') ?? 0);
+            $refundAmountCents = Money::cents($refund['amount']);
+            if ($postedTotalCents + $refundAmountCents > Money::cents($sale['total'])) {
                 throw new RuntimeException('Nilai refund kumulatif melebihi nilai transaksi asal.');
             }
 
             $now = date('Y-m-d H:i:s');
             $restockRequirements = [];
             $refundItems = $this->database->table('refund_items')
-                ->select('refund_items.*, sale_items.direct_inventory_item_id, sale_items.direct_unit_cogs, sale_items.product_name')
+                ->select('refund_items.*, sale_items.direct_inventory_item_id, sale_items.direct_line_cogs, sale_items.quantity AS sold_quantity, sale_items.product_name')
                 ->join('sale_items', 'sale_items.id = refund_items.sale_item_id')
                 ->where('refund_items.refund_id', $refundId)->get()->getResultArray();
             foreach ($refundItems as $refundItem) {
@@ -171,15 +182,30 @@ class RefundService
                 if (!$inventoryItemId) {
                     throw new RuntimeException('Item refund tidak memiliki pemetaan persediaan untuk restock.');
                 }
-                $quantity = (float) $refundItem['quantity'];
-                $cogs = round((float) $refundItem['direct_unit_cogs'] * $quantity, 2);
-                if (!isset($restockRequirements[$inventoryItemId])) {
-                    $restockRequirements[$inventoryItemId] = ['quantity' => 0.0, 'cogs' => 0.0, 'names' => []];
+                $quantityMilli = Money::quantityMilli($refundItem['quantity']);
+                $soldQuantityMilli = Money::quantityMilli($refundItem['sold_quantity']);
+                $alreadyRestocked = $this->database->query(
+                    'SELECT COALESCE(SUM(ri.quantity), 0) AS quantity, COALESCE(SUM(ri.cogs_reversed), 0) AS cogs FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id WHERE ri.sale_item_id = ? AND ri.restock_decision = ? AND r.status = ?',
+                    [$refundItem['sale_item_id'], 'restock', 'posted'],
+                )->getRowArray();
+                $alreadyRestockedMilli = Money::quantityMilli($alreadyRestocked['quantity']);
+                $lineCogsCents = Money::cents($refundItem['direct_line_cogs']);
+                $alreadyRestockedCents = Money::cents($alreadyRestocked['cogs']);
+                if ($alreadyRestockedMilli > $soldQuantityMilli || $alreadyRestockedCents < 0 || $alreadyRestockedCents > $lineCogsCents) {
+                    throw new RuntimeException('Riwayat restock melebihi biaya atau jumlah barang yang terjual.');
                 }
-                $restockRequirements[$inventoryItemId]['quantity'] += $quantity;
-                $restockRequirements[$inventoryItemId]['cogs'] += $cogs;
+                $restockedAfterMilli = $alreadyRestockedMilli + $quantityMilli;
+                $cogsTargetAfterCents = $this->restockCogsTarget($lineCogsCents, $soldQuantityMilli, $restockedAfterMilli);
+                $cogsCents = $restockedAfterMilli === $soldQuantityMilli
+                    ? $lineCogsCents - $alreadyRestockedCents
+                    : max(0, $cogsTargetAfterCents - $alreadyRestockedCents);
+                if (!isset($restockRequirements[$inventoryItemId])) {
+                    $restockRequirements[$inventoryItemId] = ['quantity_milli' => 0, 'cogs_cents' => 0, 'names' => []];
+                }
+                $restockRequirements[$inventoryItemId]['quantity_milli'] += $quantityMilli;
+                $restockRequirements[$inventoryItemId]['cogs_cents'] += $cogsCents;
                 $restockRequirements[$inventoryItemId]['names'][] = $refundItem['product_name'];
-                $this->database->table('refund_items')->where('id', $refundItem['id'])->update(['cogs_reversed' => $cogs]);
+                $this->database->table('refund_items')->where('id', $refundItem['id'])->update(['cogs_reversed' => Money::decimal($cogsCents)]);
             }
             $restockItemIds = array_keys($restockRequirements);
             sort($restockItemIds);
@@ -193,21 +219,22 @@ class RefundService
                 if (!$inventoryItem) {
                     throw new RuntimeException('Item persediaan untuk restock tidak ditemukan.');
                 }
-                $unitCost = $restockLine['quantity'] > 0 ? $restockLine['cogs'] / $restockLine['quantity'] : 0;
-                $newQuantity = (float) $inventoryItem['quantity_on_hand'] + $restockLine['quantity'];
-                $newAverageCost = $newQuantity > 0
-                    ? (((float) $inventoryItem['quantity_on_hand'] * (float) $inventoryItem['average_cost']) + $restockLine['cogs']) / $newQuantity
-                    : 0;
+                $oldQuantityMilli = Money::quantityMilli($inventoryItem['quantity_on_hand']);
+                $newQuantityMilli = $oldQuantityMilli + $restockLine['quantity_milli'];
+                $newValueCents = Money::cents($inventoryItem['inventory_value']) + $restockLine['cogs_cents'];
+                $newAverageCost = Money::averageUnitCost($newValueCents, $newQuantityMilli);
+                $unitCost = Money::averageUnitCost($restockLine['cogs_cents'], $restockLine['quantity_milli']);
                 $this->database->table('inventory_items')->where('id', $inventoryItemId)->update([
-                    'quantity_on_hand' => $newQuantity,
+                    'quantity_on_hand' => Money::quantity($newQuantityMilli),
                     'average_cost' => $newAverageCost,
+                    'inventory_value' => Money::decimal($newValueCents),
                     'updated_at' => $now,
                 ]);
                 $this->database->table('stock_movements')->insert([
                     'inventory_item_id' => $inventoryItemId,
-                    'quantity' => $restockLine['quantity'],
+                    'quantity' => Money::quantity($restockLine['quantity_milli']),
                     'unit_cost' => $unitCost,
-                    'total_cost' => $restockLine['cogs'],
+                    'total_cost' => Money::decimal($restockLine['cogs_cents']),
                     'movement_type' => 'return',
                     'source_type' => 'refund',
                     'source_id' => $refundId,
@@ -218,23 +245,25 @@ class RefundService
                 ]);
             }
             $refundJournalLines = [];
-            $netProductRefund = round((float) $refund['subtotal_amount'] - (float) $refund['discount_amount'], 2);
-            if ($netProductRefund > 0) { $refundJournalLines[] = ['account_key' => 'sales_returns', 'debit' => $netProductRefund, 'credit' => 0]; }
-            if ((float) $refund['service_charge_amount'] > 0) { $refundJournalLines[] = ['account_key' => 'service_revenue', 'debit' => (float) $refund['service_charge_amount'], 'credit' => 0]; }
-            if ((float) $refund['tax_amount'] > 0) { $refundJournalLines[] = ['account_key' => 'tax_payable', 'debit' => (float) $refund['tax_amount'], 'credit' => 0]; }
-            $refundJournalLines[] = ['account_key' => AccountingService::paymentAccountKey($refund['method']), 'debit' => 0, 'credit' => (float) $refund['amount']];
-            $restoredCogs = array_sum(array_map(static fn (array $line): float => (float) $line['cogs'], $restockRequirements));
-            if ($restoredCogs > 0) {
-                $refundJournalLines[] = ['account_key' => 'inventory', 'debit' => $restoredCogs, 'credit' => 0];
-                $refundJournalLines[] = ['account_key' => 'cogs', 'debit' => 0, 'credit' => $restoredCogs];
+            $netProductRefundCents = Money::cents($refund['subtotal_amount']) - Money::cents($refund['discount_amount']);
+            $taxRefundCents = Money::cents($refund['tax_amount']);
+            $serviceRefundCents = Money::cents($refund['service_charge_amount']);
+            if ($netProductRefundCents > 0) { $refundJournalLines[] = ['account_key' => 'sales_returns', 'debit' => Money::decimal($netProductRefundCents), 'credit' => 0]; }
+            if ($serviceRefundCents > 0) { $refundJournalLines[] = ['account_key' => 'service_revenue', 'debit' => Money::decimal($serviceRefundCents), 'credit' => 0]; }
+            if ($taxRefundCents > 0) { $refundJournalLines[] = ['account_key' => 'tax_payable', 'debit' => Money::decimal($taxRefundCents), 'credit' => 0]; }
+            $refundJournalLines[] = ['account_key' => AccountingService::paymentAccountKey($refund['method']), 'debit' => 0, 'credit' => Money::decimal($refundAmountCents)];
+            $restoredCogsCents = array_sum(array_map(static fn (array $line): int => $line['cogs_cents'], $restockRequirements));
+            if ($restoredCogsCents > 0) {
+                $refundJournalLines[] = ['account_key' => 'inventory', 'debit' => Money::decimal($restoredCogsCents), 'credit' => 0];
+                $refundJournalLines[] = ['account_key' => 'cogs', 'debit' => 0, 'credit' => Money::decimal($restoredCogsCents)];
             }
             (new AccountingService($this->database))->post('refund', $refundId, date('Y-m-d', strtotime($now)), 'Refund ' . $refund['refund_number'] . ' dari ' . $sale['sale_number'], $refundJournalLines, $ownerId);
             $this->database->table('refunds')->where('id', $refundId)->update([
                 'status' => 'posted', 'shift_id' => $shiftId, 'approved_by' => $ownerId,
                 'posted_at' => $now, 'updated_at' => $now,
             ]);
-            $newRefundedTotal = $postedTotal + (float) $refund['amount'];
-            $status = $newRefundedTotal >= (float) $sale['total'] - 0.01 ? 'refunded' : 'partially_refunded';
+            $newRefundedTotalCents = $postedTotalCents + $refundAmountCents;
+            $status = $newRefundedTotalCents >= Money::cents($sale['total']) ? 'refunded' : 'partially_refunded';
             $this->database->table('sales')->where('id', $sale['id'])->update(['status' => $status, 'updated_at' => $now]);
             if ($status === 'refunded') {
                 $this->database->table('review_tokens')->where('sale_id', $sale['id'])->where('disabled_at', null)->update(['disabled_at' => $now, 'disabled_reason' => 'Transaksi direfund penuh']);
@@ -274,23 +303,38 @@ class RefundService
         }
     }
 
-    private function isFullRemainingSelection(array $saleItems, array $selected, int $saleId): bool
+    private function isFullRemainingSelection(array $saleItems, array $selected): bool
     {
         $selectedByItem = [];
         foreach ($selected as $line) {
-            $selectedByItem[$line['item']['id']] = $line['quantity'];
+            $selectedByItem[$line['item']['id']] = Money::quantityMilli($line['quantity']);
         }
         foreach ($saleItems as $item) {
-            $reserved = (float) ($this->database->table('refund_items')->selectSum('refund_items.quantity', 'total')
+            $reservedMilli = Money::quantityMilli($this->database->table('refund_items')->selectSum('refund_items.quantity', 'total')
                 ->join('refunds', 'refunds.id = refund_items.refund_id')
                 ->where('refund_items.sale_item_id', $item['id'])
                 ->whereIn('refunds.status', ['submitted', 'posted'])
                 ->get()->getRow('total') ?? 0);
-            $remaining = (float) $item['quantity'] - $reserved;
-            if (abs(($selectedByItem[$item['id']] ?? 0) - $remaining) > 0.0001) {
+            $remainingMilli = Money::quantityMilli($item['quantity']) - $reservedMilli;
+            if (($selectedByItem[$item['id']] ?? 0) !== $remainingMilli) {
                 return false;
             }
         }
         return true;
+    }
+
+    private function restockCogsTarget(int $lineCogsCents, int $soldQuantityMilli, int $restockedQuantityMilli): int
+    {
+        if ($lineCogsCents < 0 || $soldQuantityMilli <= 0 || $soldQuantityMilli % 1000 !== 0
+            || $restockedQuantityMilli < 0 || $restockedQuantityMilli > $soldQuantityMilli || $restockedQuantityMilli % 1000 !== 0) {
+            throw new RuntimeException('Jumlah atau nilai restock tidak valid.');
+        }
+
+        $soldUnits = intdiv($soldQuantityMilli, 1000);
+        $restockedUnits = intdiv($restockedQuantityMilli, 1000);
+        $centsPerUnit = intdiv($lineCogsCents, $soldUnits);
+        $residualCents = $lineCogsCents % $soldUnits;
+
+        return ($centsPerUnit * $restockedUnits) + min($restockedUnits, $residualCents);
     }
 }

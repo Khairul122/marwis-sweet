@@ -36,8 +36,10 @@ class SaleService
             }
             $lines = [];
             $requirements = [];
-            $subtotal = 0.0;
+            $directUsageByItem = [];
+            $subtotalCents = 0;
             foreach ($cart as $entry) {
+                $lineIndex = count($lines);
                 $variantId = filter_var($entry['variant_id'] ?? null, FILTER_VALIDATE_INT);
                 $quantity = (int) ($entry['quantity'] ?? 0);
                 if (!$variantId || $quantity < 1 || $quantity > 99) {
@@ -51,19 +53,19 @@ class SaleService
                 }
                 $toppingIds = array_values(array_unique(array_filter(array_map('intval', (array) ($entry['topping_ids'] ?? [])))));
                 $toppings = [];
-                $toppingPrice = 0.0;
+                $toppingPriceCents = 0;
                 foreach ($toppingIds as $toppingId) {
                     $topping = $this->database->table('toppings')->where('id', $toppingId)->where('is_active', true)->get()->getRowArray();
                     if (!$topping) {
                         throw new RuntimeException('Salah satu topping sudah tidak tersedia.');
                     }
-                    $toppingPrice += (float) $topping['additional_price'];
+                    $toppingPriceCents += Money::cents($topping['additional_price']);
                     $toppingMaterials = $this->database->table('topping_recipe_items')->where('topping_id', $toppingId)->get()->getResultArray();
                     foreach ($toppingMaterials as $material) {
-                        $required = (float) $material['quantity'] * $quantity;
-                        $requirements[$material['inventory_item_id']] = ($requirements[$material['inventory_item_id']] ?? 0) + $required;
+                        $requiredMilli = Money::quantityMilli($material['quantity']) * $quantity;
+                        $requirements[$material['inventory_item_id']] = ($requirements[$material['inventory_item_id']] ?? 0) + $requiredMilli;
                     }
-                    $toppings[] = ['id' => (int) $topping['id'], 'name' => $topping['name'], 'price' => (float) $topping['additional_price'], 'materials' => $toppingMaterials];
+                    $toppings[] = ['id' => (int) $topping['id'], 'name' => $topping['name'], 'price' => Money::decimal(Money::cents($topping['additional_price'])), 'materials' => $toppingMaterials];
                 }
                 $recipe = [];
                 if ($variant['stock_mode'] === 'recipe') {
@@ -76,60 +78,78 @@ class SaleService
                         throw new RuntimeException('Resep untuk ' . $variant['product_name'] . ' masih kosong.');
                     }
                     foreach ($recipe as $material) {
-                        $required = (float) $material['quantity'] * $quantity;
-                        $requirements[$material['inventory_item_id']] = ($requirements[$material['inventory_item_id']] ?? 0) + $required;
+                        $requiredMilli = Money::quantityMilli($material['quantity']) * $quantity;
+                        $requirements[$material['inventory_item_id']] = ($requirements[$material['inventory_item_id']] ?? 0) + $requiredMilli;
                     }
                 } elseif ($variant['stock_mode'] === 'direct') {
                     $directItemId = (int) ($variant['direct_inventory_item_id'] ?? 0);
                     if (!$directItemId) {
                         throw new RuntimeException('Produk stok langsung belum dipetakan ke item persediaan.');
                     }
-                    $requirements[$directItemId] = ($requirements[$directItemId] ?? 0) + $quantity;
+                    $directQuantityMilli = $quantity * 1000;
+                    $requirements[$directItemId] = ($requirements[$directItemId] ?? 0) + $directQuantityMilli;
+                    $directUsageByItem[$directItemId][$lineIndex] = $directQuantityMilli;
                 }
-                $unitPrice = (float) $variant['price'] + $toppingPrice;
-                $lineTotal = $unitPrice * $quantity;
-                $subtotal += $lineTotal;
-                $lines[] = ['variant' => $variant, 'quantity' => $quantity, 'unit_price' => $unitPrice, 'line_total' => $lineTotal, 'recipe' => $recipe, 'toppings' => $toppings, 'direct_item_id' => $variant['stock_mode'] === 'direct' ? (int) $variant['direct_inventory_item_id'] : null];
+                $unitPriceCents = Money::cents($variant['price']) + $toppingPriceCents;
+                $lineTotalCents = $unitPriceCents * $quantity;
+                $subtotalCents += $lineTotalCents;
+                $lines[] = [
+                    'variant' => $variant,
+                    'quantity' => $quantity,
+                    'unit_price_cents' => $unitPriceCents,
+                    'line_total_cents' => $lineTotalCents,
+                    'recipe' => $recipe,
+                    'toppings' => $toppings,
+                    'direct_item_id' => $variant['stock_mode'] === 'direct' ? (int) $variant['direct_inventory_item_id'] : null,
+                ];
             }
 
             $lockedItems = [];
             $requirementIds = array_keys($requirements);
             sort($requirementIds);
             foreach ($requirementIds as $itemId) {
-                $required = $requirements[$itemId];
+                $requiredMilli = $requirements[$itemId];
                 $item = $this->database->query('SELECT * FROM inventory_items WHERE id = ? FOR UPDATE', [$itemId])->getRowArray();
-                if (!$item || (float) $item['quantity_on_hand'] + 0.0001 < $required) {
+                if (!$item || Money::quantityMilli($item['quantity_on_hand']) < $requiredMilli) {
                     throw new RuntimeException('Stok ' . ($item['name'] ?? 'bahan') . ' tidak mencukupi.');
                 }
                 $lockedItems[$itemId] = $item;
             }
             (new InventoryLockService($this->database))->assertUnlocked($requirementIds);
 
-            $discount = max(0, (float) ($payload['discount'] ?? 0));
-            if ($discount > $subtotal) {
+            $discountCents = max(0, Money::cents($payload['discount'] ?? 0));
+            if ($discountCents > $subtotalCents) {
                 throw new RuntimeException('Diskon tidak boleh melebihi subtotal.');
             }
-            $total = $subtotal - $discount;
-            $paymentTotal = 0.0;
+            $totalCents = $subtotalCents - $discountCents;
+            $paymentTotalCents = 0;
             $normalizedPayments = [];
             foreach ($payments as $payment) {
                 $method = (string) ($payment['method'] ?? '');
-                $amount = (float) ($payment['amount'] ?? 0);
-                if (!in_array($method, ['cash', 'qris', 'bank_transfer', 'debit', 'credit'], true) || $amount <= 0) {
+                $amountCents = Money::cents($payment['amount'] ?? 0);
+                if (!in_array($method, ['cash', 'qris', 'bank_transfer', 'debit', 'credit'], true) || $amountCents <= 0) {
                     throw new RuntimeException('Rincian pembayaran tidak valid.');
                 }
-                $received = $method === 'cash' ? (float) ($payment['cash_received'] ?? $amount) : null;
-                if ($method === 'cash' && $received < $amount) {
+                $receivedCents = $method === 'cash'
+                    ? Money::cents($payment['cash_received'] ?? Money::decimal($amountCents))
+                    : null;
+                if ($method === 'cash' && $receivedCents < $amountCents) {
                     throw new RuntimeException('Uang tunai diterima kurang dari alokasi tunai.');
                 }
                 $reference = trim((string) ($payment['reference_number'] ?? ''));
                 if ($method !== 'cash' && $reference === '') {
                     throw new RuntimeException('Nomor referensi wajib untuk pembayaran non-tunai.');
                 }
-                $paymentTotal += $amount;
-                $normalizedPayments[] = ['method' => $method, 'amount' => $amount, 'received' => $received, 'change' => $method === 'cash' ? $received - $amount : 0, 'reference' => $reference ?: null];
+                $paymentTotalCents += $amountCents;
+                $normalizedPayments[] = [
+                    'method' => $method,
+                    'amount_cents' => $amountCents,
+                    'received_cents' => $receivedCents,
+                    'change_cents' => $method === 'cash' ? $receivedCents - $amountCents : 0,
+                    'reference' => $reference ?: null,
+                ];
             }
-            if (abs($paymentTotal - $total) > 0.01) {
+            if ($paymentTotalCents !== $totalCents) {
                 throw new RuntimeException('Total alokasi pembayaran harus sama dengan total transaksi.');
             }
 
@@ -137,55 +157,117 @@ class SaleService
             $saleNumber = 'TRX-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(2)));
             $this->database->table('sales')->insert([
                 'sale_number' => $saleNumber, 'idempotency_key' => $key, 'shift_id' => $shift['id'], 'cashier_id' => $userId, 'status' => 'paid',
-                'subtotal' => $subtotal, 'discount' => $discount, 'tax' => 0, 'service_charge' => 0, 'total' => $total, 'total_cogs' => 0,
+                'subtotal' => Money::decimal($subtotalCents), 'discount' => Money::decimal($discountCents),
+                'tax' => '0.00', 'service_charge' => '0.00', 'total' => Money::decimal($totalCents), 'total_cogs' => '0.00',
                 'paid_at' => $now, 'created_at' => $now, 'updated_at' => $now,
             ]);
             $saleId = (int) $this->database->insertID();
-            $totalCogs = 0.0;
-            foreach ($lines as $line) {
-                $lineCogs = 0.0;
-                $directUnitCogs = 0.0;
+            $lineCogsProducts = [];
+            foreach ($lines as &$line) {
+                $cogsProduct = 0;
                 foreach ($line['recipe'] as $material) {
-                    $lineCogs += (float) $material['quantity'] * (float) $lockedItems[$material['inventory_item_id']]['average_cost'] * $line['quantity'];
+                    $quantityMilli = Money::quantityMilli($material['quantity']) * $line['quantity'];
+                    $unitCost = Money::unitCostTenThousand($lockedItems[$material['inventory_item_id']]['average_cost']);
+                    $cogsProduct += $quantityMilli * $unitCost;
                 }
                 foreach ($line['toppings'] as $topping) {
                     foreach ($topping['materials'] as $material) {
-                        $lineCogs += (float) $material['quantity'] * (float) $lockedItems[$material['inventory_item_id']]['average_cost'] * $line['quantity'];
+                        $quantityMilli = Money::quantityMilli($material['quantity']) * $line['quantity'];
+                        $unitCost = Money::unitCostTenThousand($lockedItems[$material['inventory_item_id']]['average_cost']);
+                        $cogsProduct += $quantityMilli * $unitCost;
                     }
                 }
+                $directUnitCost = 0;
                 if ($line['direct_item_id']) {
-                    $directUnitCogs = (float) $lockedItems[$line['direct_item_id']]['average_cost'];
-                    $lineCogs += $directUnitCogs * $line['quantity'];
+                    $directUnitCost = Money::unitCostTenThousand($lockedItems[$line['direct_item_id']]['average_cost']);
+                    $cogsProduct += ($line['quantity'] * 1000) * $directUnitCost;
                 }
-                $totalCogs += $lineCogs;
+                $line['cogs_product'] = $cogsProduct;
+                $line['direct_unit_cogs'] = Money::unitCost($directUnitCost);
+                $lineCogsProducts[] = $cogsProduct;
+            }
+            unset($line);
+
+            $movementCostsCents = [];
+            $totalCogsCents = 0;
+            foreach ($requirements as $itemId => $requiredMilli) {
+                $item = $lockedItems[$itemId];
+                $onHandMilli = Money::quantityMilli($item['quantity_on_hand']);
+                $inventoryValueCents = Money::cents($item['inventory_value']);
+                $unitCost = Money::unitCostTenThousand($item['average_cost']);
+                $movementCostCents = $requiredMilli === $onHandMilli
+                    ? $inventoryValueCents
+                    : min(Money::centsForQuantity($requiredMilli, $unitCost), $inventoryValueCents);
+                $movementCostsCents[$itemId] = $movementCostCents;
+                $totalCogsCents += $movementCostCents;
+            }
+            $directLineCogsCents = array_fill(0, count($lines), 0);
+            foreach ($directUsageByItem as $itemId => $lineQuantities) {
+                $directQuantityMilli = array_sum($lineQuantities);
+                $requiredMilli = $requirements[$itemId];
+                [$directCostCents] = Money::allocateCents(
+                    $movementCostsCents[$itemId],
+                    [$directQuantityMilli, $requiredMilli - $directQuantityMilli],
+                );
+                $lineCosts = Money::allocateCents($directCostCents, array_values($lineQuantities));
+                foreach (array_keys($lineQuantities) as $index => $lineIndex) {
+                    $directLineCogsCents[$lineIndex] += $lineCosts[$index];
+                }
+            }
+            $lineCogsCents = Money::allocateCents($totalCogsCents, $lineCogsProducts);
+            foreach ($lines as $index => $line) {
                 $variant = $line['variant'];
                 $this->database->table('sale_items')->insert([
                     'sale_id' => $saleId, 'product_id' => $variant['product_id'], 'product_variant_id' => $variant['id'], 'direct_inventory_item_id' => $line['direct_item_id'], 'product_name' => $variant['product_name'],
-                    'variant_name' => $variant['name'], 'sku' => $variant['sku'], 'quantity' => $line['quantity'], 'unit_price' => $line['unit_price'], 'line_total' => $line['line_total'],
-                    'unit_cogs' => $lineCogs / $line['quantity'], 'direct_unit_cogs' => $directUnitCogs, 'line_cogs' => $lineCogs,
+                    'variant_name' => $variant['name'], 'sku' => $variant['sku'], 'quantity' => $line['quantity'],
+                    'unit_price' => Money::decimal($line['unit_price_cents']), 'line_total' => Money::decimal($line['line_total_cents']),
+                    'unit_cogs' => Money::averageUnitCost($lineCogsCents[$index], $line['quantity'] * 1000),
+                    'direct_unit_cogs' => $line['direct_unit_cogs'], 'direct_line_cogs' => Money::decimal($directLineCogsCents[$index]),
+                    'line_cogs' => Money::decimal($lineCogsCents[$index]),
                     'recipe_snapshot' => $line['recipe'] ? json_encode($line['recipe'], JSON_UNESCAPED_UNICODE) : null,
                     'topping_snapshot' => $line['toppings'] ? json_encode($line['toppings'], JSON_UNESCAPED_UNICODE) : null, 'created_at' => $now,
                 ]);
             }
-            $this->database->table('sales')->where('id', $saleId)->update(['total_cogs' => $totalCogs]);
+            $this->database->table('sales')->where('id', $saleId)->update(['total_cogs' => Money::decimal($totalCogsCents)]);
             foreach ($normalizedPayments as $payment) {
-                $this->database->table('payments')->insert(['sale_id' => $saleId, 'method' => $payment['method'], 'amount' => $payment['amount'], 'cash_received' => $payment['received'], 'change_amount' => $payment['change'], 'reference_number' => $payment['reference'], 'created_at' => $now]);
+                $this->database->table('payments')->insert([
+                    'sale_id' => $saleId,
+                    'method' => $payment['method'],
+                    'amount' => Money::decimal($payment['amount_cents']),
+                    'cash_received' => $payment['received_cents'] === null ? null : Money::decimal($payment['received_cents']),
+                    'change_amount' => Money::decimal($payment['change_cents']),
+                    'reference_number' => $payment['reference'],
+                    'created_at' => $now,
+                ]);
             }
             foreach ($requirements as $itemId => $required) {
                 $item = $lockedItems[$itemId];
-                $unitCost = (float) $item['average_cost'];
-                $this->database->table('inventory_items')->where('id', $itemId)->update(['quantity_on_hand' => (float) $item['quantity_on_hand'] - $required, 'updated_at' => $now]);
-                $this->database->table('stock_movements')->insert(['inventory_item_id' => $itemId, 'quantity' => -$required, 'unit_cost' => $unitCost, 'total_cost' => -($required * $unitCost), 'movement_type' => 'sale', 'source_type' => 'sale', 'source_id' => $saleId, 'notes' => $saleNumber, 'posted_at' => $now, 'created_by' => $userId, 'created_at' => $now]);
+                $newQuantityMilli = Money::quantityMilli($item['quantity_on_hand']) - $required;
+                $newValueCents = Money::cents($item['inventory_value']) - $movementCostsCents[$itemId];
+                $newAverage = $newQuantityMilli > 0 ? Money::averageUnitCost($newValueCents, $newQuantityMilli) : '0.0000';
+                $this->database->table('inventory_items')->where('id', $itemId)->update([
+                    'quantity_on_hand' => Money::quantity($newQuantityMilli),
+                    'average_cost' => $newAverage,
+                    'inventory_value' => Money::decimal($newValueCents),
+                    'updated_at' => $now,
+                ]);
+                $this->database->table('stock_movements')->insert([
+                    'inventory_item_id' => $itemId,
+                    'quantity' => Money::quantity(-$required),
+                    'unit_cost' => $item['average_cost'],
+                    'total_cost' => Money::decimal(-$movementCostsCents[$itemId]),
+                    'movement_type' => 'sale', 'source_type' => 'sale', 'source_id' => $saleId,
+                    'notes' => $saleNumber, 'posted_at' => $now, 'created_by' => $userId, 'created_at' => $now,
+                ]);
             }
             $journalLines = [];
             foreach ($normalizedPayments as $payment) {
-                $journalLines[] = ['account_key' => AccountingService::paymentAccountKey($payment['method']), 'debit' => $payment['amount'], 'credit' => 0, 'memo' => 'Pembayaran ' . $payment['method']];
+                $journalLines[] = ['account_key' => AccountingService::paymentAccountKey($payment['method']), 'debit' => Money::decimal($payment['amount_cents']), 'credit' => 0, 'memo' => 'Pembayaran ' . $payment['method']];
             }
-            $netProductRevenue = round($subtotal - $discount, 2);
-            if ($netProductRevenue > 0) { $journalLines[] = ['account_key' => 'sales_revenue', 'debit' => 0, 'credit' => $netProductRevenue]; }
-            if ($totalCogs > 0) {
-                $journalLines[] = ['account_key' => 'cogs', 'debit' => $totalCogs, 'credit' => 0];
-                $journalLines[] = ['account_key' => 'inventory', 'debit' => 0, 'credit' => $totalCogs];
+            if ($totalCents > 0) { $journalLines[] = ['account_key' => 'sales_revenue', 'debit' => 0, 'credit' => Money::decimal($totalCents)]; }
+            if ($totalCogsCents > 0) {
+                $journalLines[] = ['account_key' => 'cogs', 'debit' => Money::decimal($totalCogsCents), 'credit' => 0];
+                $journalLines[] = ['account_key' => 'inventory', 'debit' => 0, 'credit' => Money::decimal($totalCogsCents)];
             }
             (new AccountingService($this->database))->post('sale', $saleId, date('Y-m-d', strtotime($now)), 'Penjualan ' . $saleNumber, $journalLines, $userId);
             $this->database->transComplete();

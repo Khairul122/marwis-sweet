@@ -4,6 +4,7 @@ namespace App\Database\Seeds;
 
 use App\Services\AccountingService;
 use App\Services\ExpenseService;
+use App\Services\Money;
 use App\Services\SaleService;
 use CodeIgniter\Database\Seeder;
 use LogicException;
@@ -69,7 +70,7 @@ class EvaluationDataSeeder extends Seeder
             'EVL-DAGING' => ['Daging sapi cincang', 'gram', 120, 800],
             'EVL-AIR' => ['Air mineral 600 ml', 'pcs', 3000, 24],
         ] as $sku => [$name, $unit, $cost, $minimum]) {
-            $items[$sku] = $this->upsert('inventory_items', ['sku' => $sku], ['name' => $name, 'base_unit' => $unit, 'average_cost' => 0, 'minimum_stock' => $minimum, 'is_active' => true], ['quantity_on_hand' => 0]);
+            $items[$sku] = $this->upsert('inventory_items', ['sku' => $sku], ['name' => $name, 'base_unit' => $unit, 'minimum_stock' => $minimum, 'is_active' => true], ['quantity_on_hand' => 0, 'average_cost' => 0, 'inventory_value' => '0.00']);
         }
         foreach ([['EVL-SUSU', 'kg', 1000], ['EVL-KACANG', 'kg', 1000], ['EVL-WIJEN', 'kg', 1000], ['EVL-DAGING', 'kg', 1000], ['EVL-AIR', 'dus', 24]] as [$sku, $unit, $factor]) {
             $this->upsert('unit_conversions', ['inventory_item_id' => $items[$sku], 'purchase_unit' => $unit], ['factor_to_base' => $factor]);
@@ -195,26 +196,33 @@ class EvaluationDataSeeder extends Seeder
             'notes' => 'Stok awal data contoh', 'created_by' => 1, 'posted_by' => 1, 'posted_at' => $when, 'created_at' => $when, 'updated_at' => $when,
         ]);
         $receiptId = (int) $this->db->insertID();
-        $total = 0.0;
+        $totalCents = 0;
         foreach ($lines as $sku => [$qty, $cost]) {
             $itemId = $ids['items'][$sku];
             $item = $this->db->table('inventory_items')->where('id', $itemId)->get()->getRowArray();
-            $lineTotal = $qty * $cost;
-            $total += $lineTotal;
-            $newQty = (float) $item['quantity_on_hand'] + $qty;
-            $newAvg = $newQty > 0 ? ((float) $item['quantity_on_hand'] * (float) $item['average_cost'] + $lineTotal) / $newQty : 0;
-            $this->db->table('inventory_items')->where('id', $itemId)->update(['quantity_on_hand' => $newQty, 'average_cost' => $newAvg, 'updated_at' => $when]);
+            $lineTotalCents = Money::centsForQuantity($qty * 1000, $cost * 10000);
+            $totalCents += $lineTotalCents;
+            $oldQuantityMilli = Money::quantityMilli($item['quantity_on_hand']);
+            $newQuantityMilli = $oldQuantityMilli + ($qty * 1000);
+            $newValueCents = Money::cents($item['inventory_value']) + $lineTotalCents;
+            $newAverage = Money::averageUnitCost($newValueCents, $newQuantityMilli);
+            $this->db->table('inventory_items')->where('id', $itemId)->update([
+                'quantity_on_hand' => Money::quantity($newQuantityMilli),
+                'average_cost' => $newAverage,
+                'inventory_value' => Money::decimal($newValueCents),
+                'updated_at' => $when,
+            ]);
             $this->db->table('goods_receipt_items')->insert([
                 'goods_receipt_id' => $receiptId, 'inventory_item_id' => $itemId, 'purchase_quantity' => $qty, 'purchase_unit' => $item['base_unit'], 'factor_to_base' => 1,
-                'base_quantity' => $qty, 'purchase_unit_cost' => $cost, 'base_unit_cost' => $cost, 'line_total' => $lineTotal, 'created_at' => $when, 'updated_at' => $when,
+                'base_quantity' => $qty, 'purchase_unit_cost' => $cost, 'base_unit_cost' => $cost, 'line_total' => Money::decimal($lineTotalCents), 'created_at' => $when, 'updated_at' => $when,
             ]);
             $this->db->table('stock_movements')->insert([
-                'inventory_item_id' => $itemId, 'quantity' => $qty, 'unit_cost' => $cost, 'total_cost' => $lineTotal, 'movement_type' => 'receipt', 'source_type' => 'goods_receipt',
+                'inventory_item_id' => $itemId, 'quantity' => $qty, 'unit_cost' => $cost, 'total_cost' => Money::decimal($lineTotalCents), 'movement_type' => 'receipt', 'source_type' => 'goods_receipt',
                 'source_id' => $receiptId, 'notes' => 'EVL-PB-001', 'posted_at' => $when, 'created_by' => 1, 'created_at' => $when,
             ]);
         }
         $journalId = (new AccountingService($this->db))->post('goods_receipt', $receiptId, substr($when, 0, 10), 'Penerimaan stok EVL-PB-001', [
-            ['account_key' => 'inventory', 'debit' => $total, 'credit' => 0], ['account_key' => 'main_cash', 'debit' => 0, 'credit' => $total],
+            ['account_key' => 'inventory', 'debit' => Money::decimal($totalCents), 'credit' => 0], ['account_key' => 'main_cash', 'debit' => 0, 'credit' => Money::decimal($totalCents)],
         ], 1);
         $this->db->table('journal_entries')->where('id', $journalId)->update(['created_at' => $when]);
         $this->db->transComplete();

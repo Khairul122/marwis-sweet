@@ -7,6 +7,7 @@ use App\Models\InventoryItemModel;
 use App\Models\SupplierModel;
 use App\Services\InventoryLockService;
 use App\Services\AccountingService;
+use App\Services\Money;
 use CodeIgniter\HTTP\RedirectResponse;
 use RuntimeException;
 
@@ -106,23 +107,27 @@ class InventoryController extends BaseController
             return redirect()->route('panel.inventory')->with('error', 'Draft penerimaan atau bahan tidak ditemukan.');
         }
         $purchaseUnit = strtolower(trim((string) $this->request->getPost('purchase_unit')));
-        $factor = $purchaseUnit === $item['base_unit'] ? 1.0 : (float) ($database->table('unit_conversions')->where('inventory_item_id', $itemId)->where('purchase_unit', $purchaseUnit)->get()->getRow('factor_to_base') ?? 0);
-        if ($factor <= 0) {
+        $factor = $purchaseUnit === $item['base_unit'] ? '1.000000' : (string) ($database->table('unit_conversions')->where('inventory_item_id', $itemId)->where('purchase_unit', $purchaseUnit)->get()->getRow('factor_to_base') ?? '0');
+        if (Money::factorMillionths($factor) <= 0) {
             return redirect()->back()->withInput()->with('error', 'Konversi satuan pembelian belum tersedia untuk bahan tersebut. Tambahkan di halaman edit bahan.');
         }
-        $purchaseQuantity = (float) $this->request->getPost('purchase_quantity');
-        $purchaseCost = (float) $this->request->getPost('purchase_unit_cost');
-        $baseQuantity = $purchaseQuantity * $factor;
+        $purchaseQuantityMilli = Money::quantityMilli((string) $this->request->getPost('purchase_quantity'));
+        $purchaseCostScaled = Money::unitCostTenThousand((string) $this->request->getPost('purchase_unit_cost'));
+        $baseQuantityMilli = Money::quantityByFactor($purchaseQuantityMilli, $factor);
+        if ($purchaseQuantityMilli <= 0 || $baseQuantityMilli <= 0) {
+            return redirect()->back()->withInput()->with('error', 'Jumlah pembelian terlalu kecil untuk satuan dasar item ini.');
+        }
+        $lineTotalCents = Money::centsForQuantity($purchaseQuantityMilli, $purchaseCostScaled);
         $data = [
             'goods_receipt_id' => $receiptId,
             'inventory_item_id' => $itemId,
-            'purchase_quantity' => $purchaseQuantity,
+            'purchase_quantity' => Money::quantity($purchaseQuantityMilli),
             'purchase_unit' => $purchaseUnit,
             'factor_to_base' => $factor,
-            'base_quantity' => $baseQuantity,
-            'purchase_unit_cost' => $purchaseCost,
-            'base_unit_cost' => $baseQuantity > 0 ? ($purchaseQuantity * $purchaseCost) / $baseQuantity : 0,
-            'line_total' => $purchaseQuantity * $purchaseCost,
+            'base_quantity' => Money::quantity($baseQuantityMilli),
+            'purchase_unit_cost' => Money::unitCost($purchaseCostScaled),
+            'base_unit_cost' => Money::averageUnitCost($lineTotalCents, $baseQuantityMilli),
+            'line_total' => Money::decimal($lineTotalCents),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
         $existing = $database->table('goods_receipt_items')->where('goods_receipt_id', $receiptId)->where('inventory_item_id', $itemId)->get()->getRowArray();
@@ -161,24 +166,30 @@ class InventoryController extends BaseController
             $postedAt = date('Y-m-d H:i:s');
             foreach ($lines as $line) {
                 $item = $lockedItems[$line['inventory_item_id']];
-                $oldQuantity = (float) $item['quantity_on_hand'];
-                $oldValue = $oldQuantity * (float) $item['average_cost'];
-                $addedQuantity = (float) $line['base_quantity'];
-                $addedValue = (float) $line['line_total'];
-                $newQuantity = $oldQuantity + $addedQuantity;
-                $newAverage = $newQuantity > 0 ? ($oldValue + $addedValue) / $newQuantity : 0;
-                $database->table('inventory_items')->where('id', $item['id'])->update(['quantity_on_hand' => $newQuantity, 'average_cost' => $newAverage, 'updated_at' => $postedAt]);
+                $oldQuantityMilli = Money::quantityMilli($item['quantity_on_hand']);
+                $oldValueCents = Money::cents($item['inventory_value']);
+                $addedQuantityMilli = Money::quantityMilli($line['base_quantity']);
+                $addedValueCents = Money::cents($line['line_total']);
+                $newQuantityMilli = $oldQuantityMilli + $addedQuantityMilli;
+                $newValueCents = $oldValueCents + $addedValueCents;
+                $newAverage = $newQuantityMilli > 0 ? Money::averageUnitCost($newValueCents, $newQuantityMilli) : '0.0000';
+                $database->table('inventory_items')->where('id', $item['id'])->update([
+                    'quantity_on_hand' => Money::quantity($newQuantityMilli),
+                    'average_cost' => $newAverage,
+                    'inventory_value' => Money::decimal($newValueCents),
+                    'updated_at' => $postedAt,
+                ]);
                 $database->table('stock_movements')->insert([
-                    'inventory_item_id' => $item['id'], 'quantity' => $addedQuantity, 'unit_cost' => $line['base_unit_cost'], 'total_cost' => $addedValue,
+                    'inventory_item_id' => $item['id'], 'quantity' => Money::quantity($addedQuantityMilli), 'unit_cost' => $line['base_unit_cost'], 'total_cost' => $line['line_total'],
                     'movement_type' => 'receipt', 'source_type' => 'goods_receipt', 'source_id' => $receiptId, 'notes' => $receipt['reference_number'],
                     'posted_at' => $postedAt, 'created_by' => (int) session('user_id'), 'created_at' => $postedAt,
                 ]);
             }
-            $receiptTotal = array_sum(array_map(static fn (array $line): float => (float) $line['line_total'], $lines));
+            $receiptTotalCents = array_sum(array_map(static fn (array $line): int => Money::cents($line['line_total']), $lines));
             $creditAccount = match ($receipt['payment_source']) { 'cash' => 'main_cash', 'bank' => 'bank', default => 'accounts_payable' };
             (new AccountingService($database))->post('goods_receipt', $receiptId, date('Y-m-d', strtotime($postedAt)), 'Penerimaan stok ' . $receipt['reference_number'], [
-                ['account_key' => 'inventory', 'debit' => $receiptTotal, 'credit' => 0],
-                ['account_key' => $creditAccount, 'debit' => 0, 'credit' => $receiptTotal],
+                ['account_key' => 'inventory', 'debit' => Money::decimal($receiptTotalCents), 'credit' => 0],
+                ['account_key' => $creditAccount, 'debit' => 0, 'credit' => Money::decimal($receiptTotalCents)],
             ], (int) session('user_id'));
             $database->table('goods_receipts')->where('id', $receiptId)->update(['status' => 'posted', 'posted_by' => (int) session('user_id'), 'posted_at' => $postedAt, 'updated_at' => $postedAt]);
             $database->transComplete();

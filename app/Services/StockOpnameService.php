@@ -73,17 +73,25 @@ class StockOpnameService
             $items = $this->database->table('stock_opname_items')->where('stock_opname_id', $opnameId)->get()->getResultArray();
             foreach ($items as $item) {
                 $rawQuantity = $physicalQuantities[$item['id']] ?? null;
-                if ($rawQuantity === null || $rawQuantity === '' || !is_numeric($rawQuantity) || (float) $rawQuantity < 0) {
+                if ($rawQuantity === null || $rawQuantity === '') {
+                    throw new RuntimeException('Isi jumlah fisik seluruh item dengan angka nol atau lebih.');
+                }
+                try {
+                    $physicalMilli = Money::quantityMilli((string) $rawQuantity);
+                } catch (\InvalidArgumentException) {
+                    throw new RuntimeException('Isi jumlah fisik seluruh item dengan angka nol atau lebih.');
+                }
+                if ($physicalMilli < 0) {
                     throw new RuntimeException('Isi jumlah fisik seluruh item dengan angka nol atau lebih.');
                 }
                 $itemNotes = trim((string) ($notes[$item['id']] ?? ''));
                 if (mb_strlen($itemNotes) > 300) {
                     throw new RuntimeException('Catatan item maksimal 300 karakter.');
                 }
-                $physical = round((float) $rawQuantity, 3);
+                $systemMilli = Money::quantityMilli($item['system_quantity']);
                 $this->database->table('stock_opname_items')->where('id', $item['id'])->update([
-                    'physical_quantity' => $physical,
-                    'difference_quantity' => round($physical - (float) $item['system_quantity'], 3),
+                    'physical_quantity' => Money::quantity($physicalMilli),
+                    'difference_quantity' => Money::quantity($physicalMilli - $systemMilli),
                     'notes' => $itemNotes ?: null,
                     'updated_at' => date('Y-m-d H:i:s'),
                 ]);
@@ -197,52 +205,68 @@ class StockOpnameService
             }
             $items = $this->database->table('stock_opname_items')->where('stock_opname_id', $opnameId)->orderBy('inventory_item_id')->get()->getResultArray();
             $now = date('Y-m-d H:i:s');
-            $shortageValue = 0.0;
-            $surplusValue = 0.0;
+            $shortageValueCents = 0;
+            $surplusValueCents = 0;
             foreach ($items as $line) {
                 $item = $this->database->query('SELECT * FROM inventory_items WHERE id = ? FOR UPDATE', [$line['inventory_item_id']])->getRowArray();
-                if (!$item || abs((float) $item['quantity_on_hand'] - (float) $line['system_quantity']) > 0.0001) {
+                if (!$item || Money::quantityMilli($item['quantity_on_hand']) !== Money::quantityMilli($line['system_quantity'])) {
                     throw new RuntimeException('Saldo stok berubah setelah cut-off. Batalkan sesi dan buat opname baru.');
                 }
-                $difference = (float) $line['difference_quantity'];
-                if (abs($difference) < 0.0001) {
+                $differenceMilli = Money::quantityMilli($line['difference_quantity']);
+                if ($differenceMilli === 0) {
                     continue;
                 }
-                $unitCost = (float) $line['unit_cost_snapshot'];
+                $unitCostScaled = Money::unitCostTenThousand($line['unit_cost_snapshot']);
                 $override = $costOverrides[$line['id']] ?? null;
-                if ($difference > 0 && $override !== null && $override !== '') {
-                    if (!is_numeric($override) || (float) $override < 0) {
+                if ($differenceMilli > 0 && $override !== null && $override !== '') {
+                    try {
+                        $unitCostScaled = Money::unitCostTenThousand((string) $override);
+                    } catch (\InvalidArgumentException) {
                         throw new RuntimeException('Biaya penyesuaian harus berupa angka nol atau lebih.');
                     }
-                    $unitCost = (float) $override;
+                    if ($unitCostScaled < 0) {
+                        throw new RuntimeException('Biaya penyesuaian harus berupa angka nol atau lebih.');
+                    }
                 }
-                if ($difference > 0 && $unitCost <= 0) {
+                if ($differenceMilli > 0 && $unitCostScaled <= 0) {
                     throw new RuntimeException('Isi biaya valid untuk item kelebihan stok yang belum memiliki biaya rata-rata.');
                 }
-                $newQuantity = (float) $line['physical_quantity'];
-                $newAverage = (float) $item['average_cost'];
-                if ($difference > 0 && $newQuantity > 0) {
-                    $newAverage = (((float) $item['quantity_on_hand'] * (float) $item['average_cost']) + ($difference * $unitCost)) / $newQuantity;
+                $newQuantityMilli = Money::quantityMilli($line['physical_quantity']);
+                $oldValueCents = Money::cents($item['inventory_value']);
+                $adjustmentValueCents = $differenceMilli < 0 && $newQuantityMilli === 0
+                    ? $oldValueCents
+                    : Money::centsForQuantity(abs($differenceMilli), $unitCostScaled);
+                if ($differenceMilli < 0) {
+                    $adjustmentValueCents = min($adjustmentValueCents, $oldValueCents);
                 }
+                $newValueCents = $differenceMilli < 0
+                    ? $oldValueCents - $adjustmentValueCents
+                    : $oldValueCents + $adjustmentValueCents;
+                $newAverage = $newQuantityMilli > 0 ? Money::averageUnitCost($newValueCents, $newQuantityMilli) : '0.0000';
+                $movementUnitCost = $adjustmentValueCents > 0
+                    ? Money::averageUnitCost($adjustmentValueCents, abs($differenceMilli))
+                    : Money::unitCost($unitCostScaled);
                 $this->database->table('inventory_items')->where('id', $item['id'])->update([
-                    'quantity_on_hand' => $newQuantity, 'average_cost' => $newAverage, 'updated_at' => $now,
+                    'quantity_on_hand' => Money::quantity($newQuantityMilli), 'average_cost' => $newAverage,
+                    'inventory_value' => Money::decimal($newValueCents), 'updated_at' => $now,
                 ]);
-                $this->database->table('stock_opname_items')->where('id', $line['id'])->update(['adjustment_unit_cost' => $unitCost, 'updated_at' => $now]);
+                $this->database->table('stock_opname_items')->where('id', $line['id'])->update(['adjustment_unit_cost' => $movementUnitCost, 'updated_at' => $now]);
                 $this->database->table('stock_movements')->insert([
-                    'inventory_item_id' => $item['id'], 'quantity' => $difference, 'unit_cost' => $unitCost,
-                    'total_cost' => round($difference * $unitCost, 2), 'movement_type' => 'opname',
+                    'inventory_item_id' => $item['id'], 'quantity' => Money::quantity($differenceMilli), 'unit_cost' => $movementUnitCost,
+                    'total_cost' => Money::decimal($differenceMilli < 0 ? -$adjustmentValueCents : $adjustmentValueCents), 'movement_type' => 'opname',
                     'source_type' => 'stock_opname', 'source_id' => $opnameId, 'notes' => $opname['opname_number'],
                     'posted_at' => $now, 'created_by' => $ownerId, 'created_at' => $now,
                 ]);
-                $adjustmentValue = round(abs($difference * $unitCost), 2);
-                if ($difference < 0) { $shortageValue += $adjustmentValue; } else { $surplusValue += $adjustmentValue; }
+                if ($differenceMilli < 0) { $shortageValueCents += $adjustmentValueCents; } else { $surplusValueCents += $adjustmentValueCents; }
             }
             $journalLines = [];
-            if ($shortageValue > 0) {
+            if ($shortageValueCents > 0) {
+                $shortageValue = Money::decimal($shortageValueCents);
                 $journalLines[] = ['account_key' => 'inventory_variance', 'debit' => $shortageValue, 'credit' => 0];
                 $journalLines[] = ['account_key' => 'inventory', 'debit' => 0, 'credit' => $shortageValue];
             }
-            if ($surplusValue > 0) {
+            if ($surplusValueCents > 0) {
+                $surplusValue = Money::decimal($surplusValueCents);
                 $journalLines[] = ['account_key' => 'inventory', 'debit' => $surplusValue, 'credit' => 0];
                 $journalLines[] = ['account_key' => 'inventory_adjustment_income', 'debit' => 0, 'credit' => $surplusValue];
             }

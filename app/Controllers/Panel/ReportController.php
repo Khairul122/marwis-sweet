@@ -97,7 +97,9 @@ class ReportController extends BaseController
                 if ((int) $option['id'] === (int) $filters[$key]) { $labels[] = $label . ': ' . ($option['name'] ?? $option['shift_number']); break; }
             }
         }
-        if ($filters['method']) { $labels[] = 'Pembayaran: ' . strtoupper(str_replace('_', ' ', $filters['method'])); }
+        $methodLabels = ['cash' => 'Tunai', 'qris' => 'QRIS', 'bank_transfer' => 'Transfer bank', 'debit' => 'Debit', 'credit' => 'Kredit'];
+        if ($filters['sale_method']) { $labels[] = 'Metode penjualan: ' . ($methodLabels[$filters['sale_method']] ?? $filters['sale_method']); }
+        if ($filters['refund_method']) { $labels[] = 'Metode refund: ' . ($methodLabels[$filters['refund_method']] ?? $filters['refund_method']); }
         return $labels;
     }
 }
