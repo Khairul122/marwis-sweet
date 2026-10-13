@@ -14,6 +14,7 @@ $routes->post('logout', 'AuthController::logout', ['filter' => 'auth', 'as' => '
 $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($routes): void {
     $routes->get('/', 'Panel\DashboardController::index', ['as' => 'panel']);
     $routes->group('data', static function ($routes): void {
+        $routes->get('receipt/create', 'Panel\CrudController::create/receipt', ['filter' => 'owner']);
         $routes->get('(:segment)/create', 'Panel\CrudController::create/$1');
         $routes->get('(:segment)/(:num)/edit', 'Panel\CrudController::edit/$1/$2');
     });
@@ -62,12 +63,16 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
         $routes->post('banners/update', 'Panel\SettingsController::updateBanner');
         $routes->post('banners/delete', 'Panel\SettingsController::deleteBanner');
     });
-    $routes->group('inventory', ['filter' => 'owner'], static function ($routes): void {
+    $routes->group('inventory', ['filter' => 'inventorystaff'], static function ($routes): void {
         $routes->get('/', 'Panel\InventoryController::index', ['as' => 'panel.inventory']);
         $routes->get('receipts/(:num)', 'Panel\InventoryController::receipt/$1');
+        $routes->get('receipts/new', 'Panel\InventoryController::newReceipt');
         $routes->post('receipts', 'Panel\InventoryController::createReceipt');
         $routes->post('receipts/items', 'Panel\InventoryController::addReceiptItem');
         $routes->post('receipts/post', 'Panel\InventoryController::postReceipt');
+        $routes->post('receipts/(:num)/submit', 'Panel\InventoryController::submitReceipt/$1');
+        $routes->post('receipts/(:num)/approve', 'Panel\InventoryController::approveReceipt/$1', ['filter' => 'owner']);
+        $routes->post('receipts/(:num)/reject', 'Panel\InventoryController::rejectReceipt/$1', ['filter' => 'owner']);
     });
     $routes->group('opnames', static function ($routes): void {
         $routes->get('/', 'Panel\StockOpnameController::index', ['as' => 'panel.opnames']);

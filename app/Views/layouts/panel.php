@@ -33,7 +33,7 @@
                         <a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/reviews') ? 'is-active' : '' ?>" href="<?= site_url('panel/reviews') ?>">Moderasi ulasan</a>
                     <?php endif ?>
                     <p class="nav-heading mt-7">Operasional</p>
-                    <?php if (($user['role'] ?? null) === 'owner'): ?><a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/inventory') ? 'is-active' : '' ?>" href="<?= site_url('panel/inventory') ?>">Penerimaan dan stok</a><?php endif ?>
+                    <a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/inventory') ? 'is-active' : '' ?>" href="<?= site_url('panel/inventory') ?>">Penerimaan dan stok</a>
                     <a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/opnames') ? 'is-active' : '' ?>" href="<?= site_url('panel/opnames') ?>">Stok opname</a>
                     <a class="panel-nav-link <?= str_starts_with($panelPath, 'panel/expenses') ? 'is-active' : '' ?>" href="<?= site_url('panel/expenses') ?>">Pengeluaran</a>
                     <?php if (($user['role'] ?? null) === 'cashier'): ?>
