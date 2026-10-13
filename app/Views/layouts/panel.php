@@ -47,11 +47,24 @@
                 <form action="<?= site_url('logout') ?>" method="post"><?= csrf_field() ?><button class="button-secondary" type="submit">Keluar</button></form>
             </header>
             <main id="panel-content" class="p-4 sm:p-6 lg:p-8">
-                <?php if (session()->getFlashdata('success')): ?><div class="alert-success mb-6" role="status"><strong>Berhasil.</strong> <?= esc(session()->getFlashdata('success')) ?></div><?php endif ?>
-                <?php if (session()->getFlashdata('error')): ?><div class="alert-danger mb-6" role="alert"><strong>Belum berhasil.</strong> <?= esc(session()->getFlashdata('error')) ?></div><?php endif ?>
                 <?= $this->renderSection('content') ?>
             </main>
         </div>
     </div>
+    <?php $flashSuccess = session()->getFlashdata('success'); $flashError = session()->getFlashdata('error'); ?>
+    <?php if ($flashSuccess || $flashError): ?>
+        <dialog class="app-dialog" open data-flash-dialog aria-labelledby="flash-title" aria-describedby="flash-message" <?= $flashError ? 'role="alertdialog"' : '' ?>>
+            <div class="app-dialog-icon <?= $flashError ? 'is-danger' : 'is-success' ?>" aria-hidden="true"><?= $flashError ? '!' : '&#10003;' ?></div>
+            <h2 class="font-display text-xl" id="flash-title"><?= $flashError ? 'Belum berhasil' : 'Berhasil' ?></h2>
+            <p class="mt-2 text-ink-muted" id="flash-message"><?= esc($flashError ?: $flashSuccess) ?></p>
+            <button class="<?= $flashError ? 'button-primary-inverse' : 'button-primary' ?> mt-6 w-full" type="button" data-dialog-close autofocus>Mengerti</button>
+        </dialog>
+    <?php endif ?>
+    <dialog class="app-dialog" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <div class="app-dialog-icon is-warning" aria-hidden="true">?</div>
+        <h2 class="font-display text-xl" id="confirm-title">Konfirmasi tindakan</h2>
+        <p class="mt-2 text-ink-muted" id="confirm-message" data-confirm-message></p>
+        <div class="mt-6 grid grid-cols-2 gap-3"><button class="button-secondary" type="button" data-dialog-close autofocus>Batal</button><button class="button-primary" type="button" data-confirm-accept>Lanjutkan</button></div>
+    </dialog>
 </body>
 </html>

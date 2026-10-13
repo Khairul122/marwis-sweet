@@ -6,39 +6,8 @@
     <p class="mt-3 text-ink-muted">Buat akun, nonaktifkan akses, atau reset password kasir.</p>
 </div>
 
-<?php $errors = session()->getFlashdata('errors') ?? []; ?>
-<section class="panel-card mb-8 p-5 sm:p-7">
-    <h2 class="text-lg font-bold">Buat akun kasir</h2>
-    <form action="<?= site_url('panel/users/create') ?>" method="post" class="mt-5 grid gap-4 sm:grid-cols-2">
-        <?= csrf_field() ?>
-        <div>
-            <label class="mb-2 block text-sm font-semibold" for="name">Nama lengkap</label>
-            <input class="form-input" id="name" name="name" value="<?= esc(old('name')) ?>" required>
-            <?php if (isset($errors['name'])): ?><p class="form-error"><?= esc($errors['name']) ?></p><?php endif ?>
-        </div>
-        <div>
-            <label class="mb-2 block text-sm font-semibold" for="username">Username</label>
-            <input class="form-input" id="username" name="username" value="<?= esc(old('username')) ?>" autocomplete="username" required>
-            <?php if (isset($errors['username'])): ?><p class="form-error"><?= esc($errors['username']) ?></p><?php endif ?>
-        </div>
-        <div>
-            <label class="mb-2 block text-sm font-semibold" for="email">Email (opsional)</label>
-            <input class="form-input" id="email" name="email" type="email" value="<?= esc(old('email')) ?>" autocomplete="email">
-            <?php if (isset($errors['email'])): ?><p class="form-error"><?= esc($errors['email']) ?></p><?php endif ?>
-        </div>
-        <div>
-            <label class="mb-2 block text-sm font-semibold" for="new-password">Password awal (minimal 12 karakter)</label>
-            <input class="form-input" id="new-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
-            <?php if (isset($errors['password'])): ?><p class="form-error"><?= esc($errors['password']) ?></p><?php endif ?>
-        </div>
-        <div class="sm:col-span-2">
-            <button class="button-primary" type="submit">Buat akun</button>
-        </div>
-    </form>
-</section>
-
 <section class="panel-card overflow-hidden">
-    <div class="border-b border-stone-200 px-5 py-4"><h2 class="font-bold">Daftar kasir</h2></div>
+    <div class="flex items-center justify-between gap-3 border-b border-border-warm px-5 py-4"><h2 class="font-bold">Daftar kasir</h2><a class="button-primary !min-h-9 !px-3" href="<?= site_url('panel/form/cashier') ?>">Tambah kasir</a></div>
     <?php if ($cashiers === []): ?>
         <p class="p-6 text-stone-600">Belum ada akun kasir.</p>
     <?php else: ?>

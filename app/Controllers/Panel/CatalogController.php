@@ -88,7 +88,7 @@ class CatalogController extends BaseController
             'sort_order' => 'required|is_natural|max_length[5]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.catalog')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $name = trim((string) $this->request->getPost('name'));
         $slug = $category['name'] === $name ? $category['slug'] : $this->uniqueSlug('categories', $name);
@@ -173,7 +173,7 @@ class CatalogController extends BaseController
             'stock_mode' => 'required|in_list[recipe,direct,none]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.catalog')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
 
         $stockMode = (string) $this->request->getPost('stock_mode');
@@ -239,7 +239,7 @@ class CatalogController extends BaseController
             'stock_mode' => 'required|in_list[recipe,direct,none]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.catalog')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $stockMode = (string) $this->request->getPost('stock_mode');
         $directItemId = $this->directInventoryItemId($stockMode);

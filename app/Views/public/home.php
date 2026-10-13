@@ -8,6 +8,13 @@
     <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>">
     <script src="<?= base_url('assets/js/app.js') ?>" defer></script>
 </head>
+<?php
+$phone = $settings['phone'] ?? '';
+$phoneDigits = preg_replace('/[^0-9+]/', '', $phone);
+$waNumber = preg_replace('/^0/', '62', preg_replace('/\D/', '', $phone));
+$address = $settings['address'] ?? '';
+$hours = $settings['opening_hours'] ?? '';
+?>
 <body class="min-h-screen bg-surface-cream text-brand-cocoa antialiased">
     <a class="skip-link" href="#konten">Lewati ke konten</a>
     <header class="sticky top-0 z-40 border-b border-border-warm bg-surface-cream/95">
@@ -19,6 +26,7 @@
             <nav class="hidden items-center gap-1 sm:flex" aria-label="Navigasi utama">
                 <a class="nav-link" href="#menu">Menu</a>
                 <a class="nav-link" href="#informasi">Informasi</a>
+                <a class="nav-link" href="#kontak">Kontak</a>
                 <a class="button-secondary ml-2" href="<?= site_url('login') ?>">Masuk panel</a>
             </nav>
             <button class="button-icon sm:hidden" type="button" data-menu-toggle aria-expanded="false" aria-controls="menu-mobile">
@@ -29,6 +37,7 @@
         <nav id="menu-mobile" class="hidden border-t border-border-warm px-4 py-3 sm:hidden" data-menu-mobile aria-label="Navigasi mobile">
             <a class="nav-link block" href="#menu">Menu</a>
             <a class="nav-link block" href="#informasi">Informasi</a>
+            <a class="nav-link block" href="#kontak">Kontak</a>
             <a class="nav-link block" href="<?= site_url('login') ?>">Masuk panel</a>
         </nav>
     </header>
@@ -37,10 +46,19 @@
         <section class="overflow-hidden border-b border-brand-cocoa bg-brand-sun">
             <div class="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.12fr_.88fr] lg:px-8 lg:py-24">
                 <div>
-                    <p class="mb-5 text-sm font-bold uppercase tracking-[0.12em]">Martabak hangat untuk momen dekat</p>
+                    <p class="label-cut mb-6 inline-block bg-brand-cocoa px-4 py-2 pr-7 text-xs font-bold uppercase tracking-[0.12em] text-brand-sun">Martabak dibuat setelah dipesan</p>
                     <h1 class="max-w-3xl font-display text-5xl leading-[.98] sm:text-6xl lg:text-7xl">Pilih rasa.<br>Siapkan selera.</h1>
-                    <p class="mt-6 max-w-xl text-lg leading-8">Temukan menu dan harga terbaru <?= esc($businessName) ?>. Semua pilihan yang tampil di sini sedang tersedia di katalog.</p>
-                    <a class="button-primary-inverse mt-8" href="#menu">Lihat menu hari ini</a>
+                    <p class="mt-6 max-w-xl text-lg leading-8">Menu dan harga terbaru <?= esc($businessName) ?>. Semua pilihan yang tampil di sini sedang tersedia.</p>
+                    <div class="mt-8 flex flex-wrap gap-3">
+                        <a class="button-primary-inverse px-6" href="#menu">Lihat menu hari ini</a>
+                        <?php if ($waNumber !== ''): ?><a class="button-secondary px-6" href="https://wa.me/<?= esc($waNumber) ?>" rel="noopener">Pesan via WhatsApp</a>
+                        <?php elseif ($phoneDigits !== ''): ?><a class="button-secondary px-6" href="tel:<?= esc($phoneDigits) ?>">Hubungi kami</a><?php endif ?>
+                    </div>
+                    <dl class="mt-10 flex flex-wrap gap-x-8 gap-y-4 border-t-2 border-dashed border-brand-cocoa/40 pt-6 text-sm">
+                        <?php if ($products !== []): ?><div><dt class="text-xs font-bold uppercase tracking-[0.12em]">Pilihan menu</dt><dd class="mt-1 font-display text-2xl"><?= count($products) ?></dd></div><?php endif ?>
+                        <?php if (count($categories) > 0): ?><div><dt class="text-xs font-bold uppercase tracking-[0.12em]">Kategori</dt><dd class="mt-1 font-display text-2xl"><?= count($categories) ?></dd></div><?php endif ?>
+                        <?php if ($hours !== ''): ?><div><dt class="text-xs font-bold uppercase tracking-[0.12em]">Jam buka</dt><dd class="mt-1 text-base font-semibold"><?= esc($hours) ?></dd></div><?php endif ?>
+                    </dl>
                 </div>
                 <div class="relative mx-auto w-full max-w-xl" aria-label="Informasi <?= esc($businessName) ?>">
                     <?php if ($banners !== []): ?>
@@ -107,10 +125,12 @@
                                         <span class="font-display text-6xl opacity-20" aria-hidden="true"><?= esc(mb_strtoupper(mb_substr($product['name'], 0, 1))) ?></span>
                                         <span class="absolute bottom-4 left-4 text-xs font-bold uppercase tracking-wider">Foto segera hadir</span>
                                     <?php endif ?>
+                                    <?php if (!empty($product['is_featured'])): ?><span class="label-cut absolute left-0 top-4 bg-brand-chili py-1.5 pl-4 pr-8 text-xs font-bold uppercase tracking-wider text-white">Unggulan</span><?php endif ?>
                                 </div>
                                 <div class="p-5 sm:p-6">
                                     <p class="text-xs font-bold uppercase tracking-[0.12em] text-brand-chili"><?= esc($product['category_name']) ?></p>
                                     <h3 class="mt-2 font-display text-2xl leading-tight"><?= esc($product['name']) ?></h3>
+                                    <?php if ($productVariants !== []): ?><p class="mt-2 text-sm font-semibold text-ink-muted">Mulai <span class="tabular-nums text-brand-cocoa">Rp<?= number_format((float) min(array_column($productVariants, 'price')), 0, ',', '.') ?></span></p><?php endif ?>
                                     <?php if ($product['description']): ?>
                                         <p class="mt-3 line-clamp-2 text-sm leading-6 text-ink-muted"><?= esc($product['description']) ?></p>
                                     <?php endif ?>
@@ -136,18 +156,40 @@
 
         <section id="informasi" class="scroll-mt-24 border-y border-brand-cocoa bg-brand-cocoa py-14 text-surface-cream sm:py-20">
             <div class="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
-                <h2 class="font-display text-4xl leading-tight sm:text-5xl">Menu jujur,<br>harga terbaca.</h2>
-                <div class="grid gap-6 sm:grid-cols-2">
-                    <div><h3 class="font-bold text-brand-sun">Katalog langsung</h3><p class="mt-2 leading-7 text-[#E8D9BD]">Produk dan harga berasal dari panel usaha, sehingga pembaruan katalog tidak perlu mengubah halaman secara manual.</p></div>
-                    <div><h3 class="font-bold text-brand-sun">Pilihan yang tersedia</h3><p class="mt-2 leading-7 text-[#E8D9BD]">Menu nonaktif tidak ditampilkan. Pelanggan hanya melihat pilihan yang sedang diterbitkan oleh pemilik.</p></div>
-                    <?php if (!empty($settings['opening_hours'])): ?><div><h3 class="font-bold text-brand-sun">Jam buka</h3><p class="mt-2 leading-7 text-[#E8D9BD]"><?= esc($settings['opening_hours']) ?></p></div><?php endif ?>
-                    <?php if (!empty($settings['address'])): ?><div><h3 class="font-bold text-brand-sun">Alamat</h3><p class="mt-2 leading-7 text-[#E8D9BD]"><?= esc($settings['address']) ?></p></div><?php endif ?>
-                    <?php if (!empty($settings['phone'])): ?><div><h3 class="font-bold text-brand-sun">Kontak</h3><p class="mt-2 leading-7 text-[#E8D9BD]"><a class="underline decoration-brand-sun decoration-2 underline-offset-4" href="tel:<?= esc(preg_replace('/[^0-9+]/', '', $settings['phone'])) ?>"><?= esc($settings['phone']) ?></a></p></div><?php endif ?>
+                <div>
+                    <p class="section-kicker !text-brand-sun">Tentang <?= esc($businessName) ?></p>
+                    <h2 class="mt-3 font-display text-4xl leading-tight sm:text-5xl">Menu jujur,<br>harga terbaca.</h2>
+                </div>
+                <div class="grid gap-px border border-brand-sun/30 bg-brand-sun/30 sm:grid-cols-3">
+                    <div class="bg-brand-cocoa p-6"><h3 class="font-bold text-brand-sun">Dibuat setelah dipesan</h3><p class="mt-2 leading-7 text-[#E8D9BD]">Adonan dimasak saat pesanan masuk, supaya tiba hangat dan tidak lembek.</p></div>
+                    <div class="bg-brand-cocoa p-6"><h3 class="font-bold text-brand-sun">Harga jelas</h3><p class="mt-2 leading-7 text-[#E8D9BD]">Setiap pilihan tercantum lengkap dengan harganya, tanpa kejutan di kasir.</p></div>
+                    <div class="bg-brand-cocoa p-6"><h3 class="font-bold text-brand-sun">Selalu terbaru</h3><p class="mt-2 leading-7 text-[#E8D9BD]">Menu yang tidak dijual otomatis disembunyikan dari halaman ini.</p></div>
                 </div>
             </div>
         </section>
+
+        <?php if ($hours !== '' || $address !== '' || $phone !== ''): ?>
+        <section id="kontak" class="scroll-mt-24 py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <p class="section-kicker">Kunjungi &amp; hubungi</p>
+                <h2 class="mt-3 font-display text-4xl leading-tight sm:text-5xl">Mampir atau pesan sekarang.</h2>
+                <div class="mt-10 grid gap-5 md:grid-cols-3">
+                    <?php if ($hours !== ''): ?><div class="border border-border-warm bg-white p-6"><p class="section-kicker">Jam buka</p><p class="mt-3 text-lg font-semibold leading-8"><?= esc($hours) ?></p></div><?php endif ?>
+                    <?php if ($address !== ''): ?><div class="border border-border-warm bg-white p-6"><p class="section-kicker">Alamat</p><p class="mt-3 text-lg font-semibold leading-8"><?= esc($address) ?></p><a class="mt-4 inline-flex min-h-11 items-center font-bold underline decoration-brand-sun decoration-4 underline-offset-4" href="https://www.google.com/maps/search/?api=1&amp;query=<?= rawurlencode($address) ?>" target="_blank" rel="noopener">Buka di peta<span class="sr-only"> (tab baru)</span></a></div><?php endif ?>
+                    <?php if ($phone !== ''): ?><div class="border border-border-warm bg-white p-6"><p class="section-kicker">Kontak</p><p class="mt-3 text-lg font-semibold leading-8"><a href="tel:<?= esc($phoneDigits) ?>"><?= esc($phone) ?></a></p><?php if ($waNumber !== ''): ?><a class="button-primary mt-4" href="https://wa.me/<?= esc($waNumber) ?>" rel="noopener">Chat WhatsApp</a><?php endif ?></div><?php endif ?>
+                </div>
+            </div>
+        </section>
+        <?php endif ?>
     </main>
 
-    <footer class="bg-surface-cream"><div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><p class="font-bold"><?= esc($businessName) ?></p><a class="font-semibold underline decoration-brand-sun decoration-4 underline-offset-4" href="<?= site_url('login') ?>">Akses panel usaha</a></div></footer>
+    <footer class="border-t border-brand-cocoa bg-surface-cream">
+        <div class="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
+            <div><p class="font-display text-xl"><?= esc($businessName) ?></p><p class="mt-3 max-w-sm text-sm leading-6 text-ink-muted">Martabak hangat dengan menu dan harga yang selalu diperbarui.</p></div>
+            <nav aria-label="Navigasi footer"><p class="section-kicker">Jelajahi</p><ul class="mt-3 space-y-1 text-sm font-semibold"><li><a class="inline-flex min-h-11 items-center hover:underline" href="#menu">Menu</a></li><li><a class="inline-flex min-h-11 items-center hover:underline" href="#informasi">Informasi</a></li><?php if ($hours !== '' || $address !== '' || $phone !== ''): ?><li><a class="inline-flex min-h-11 items-center hover:underline" href="#kontak">Kontak</a></li><?php endif ?></ul></nav>
+            <div><p class="section-kicker">Pegawai</p><a class="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline decoration-brand-sun decoration-4 underline-offset-4" href="<?= site_url('login') ?>">Masuk panel usaha</a></div>
+        </div>
+        <div class="border-t border-border-warm px-4 py-4 text-center text-xs text-ink-muted">&copy; <?= date('Y') ?> <?= esc($businessName) ?>. Semua hak dilindungi.</div>
+    </footer>
 </body>
 </html>

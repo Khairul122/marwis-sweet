@@ -104,9 +104,33 @@
         carousel.querySelector('[data-carousel-next]')?.addEventListener('click', () => show(active + 1));
     });
 
+    const flashDialog = document.querySelector('[data-flash-dialog]');
+    if (flashDialog && typeof flashDialog.showModal === 'function') {
+        flashDialog.close();
+        flashDialog.showModal();
+    }
+    document.querySelectorAll('dialog [data-dialog-close]').forEach((button) => {
+        button.addEventListener('click', () => button.closest('dialog').close());
+    });
+    document.querySelectorAll('dialog.app-dialog').forEach((dialog) => {
+        dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    });
+
+    const confirmDialog = document.querySelector('[data-confirm-dialog]');
     document.querySelectorAll('[data-confirm-form]').forEach((form) => {
         form.addEventListener('submit', (event) => {
-            if (!window.confirm(form.dataset.confirmForm)) event.preventDefault();
+            if (form.dataset.confirmed === '1') return;
+            event.preventDefault();
+            if (!confirmDialog || typeof confirmDialog.showModal !== 'function') {
+                if (window.confirm(form.dataset.confirmForm)) { form.dataset.confirmed = '1'; form.requestSubmit(event.submitter); }
+                return;
+            }
+            confirmDialog.querySelector('[data-confirm-message]').textContent = form.dataset.confirmForm;
+            const accept = confirmDialog.querySelector('[data-confirm-accept]');
+            const onAccept = () => { form.dataset.confirmed = '1'; confirmDialog.close(); form.requestSubmit(event.submitter); };
+            accept.addEventListener('click', onAccept, { once: true });
+            confirmDialog.addEventListener('close', () => accept.removeEventListener('click', onAccept), { once: true });
+            confirmDialog.showModal();
         });
     });
 
@@ -165,6 +189,11 @@
         const payButton = posRoot.querySelector('[data-pay-button]');
         const checkout = posRoot.querySelector('[data-pos-checkout]');
         const errorBox = posRoot.querySelector('[data-pos-error]');
+        const cartPanel = posRoot.querySelector('[data-pos-cart]');
+        const cartOverlay = posRoot.querySelector('[data-pos-cart-overlay]');
+        const cartOpen = posRoot.querySelector('[data-pos-cart-open]');
+        const cartClose = posRoot.querySelector('[data-pos-cart-close]');
+        let cartReturnFocus = null;
         let currentTotal = 0;
         const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 
@@ -215,10 +244,13 @@
             const discountLabel = posRoot.querySelector('[data-pos-discount-label]');
             const totalLabel = posRoot.querySelector('[data-pos-total]');
             const countLabel = posRoot.querySelector('[data-cart-count]');
+            const mobileCountLabel = posRoot.querySelector('[data-cart-mobile-count]');
+            const itemCount = entries.reduce((sum, item) => sum + item.quantity, 0);
             if (subtotalLabel) subtotalLabel.textContent = rupiah.format(subtotal);
             if (discountLabel) discountLabel.textContent = rupiah.format(discount);
             if (totalLabel) totalLabel.textContent = rupiah.format(currentTotal);
-            if (countLabel) countLabel.textContent = `${entries.reduce((sum, item) => sum + item.quantity, 0)} item`;
+            if (countLabel) countLabel.textContent = `${itemCount} item`;
+            if (mobileCountLabel) mobileCountLabel.textContent = `${itemCount} item`;
             if (cartPayload) cartPayload.value = JSON.stringify(entries.map((item) => ({ variant_id: item.variantId, quantity: item.quantity, topping_ids: item.toppings.map((top) => top.id) })));
             if (payButton) payButton.disabled = entries.length === 0 || currentTotal <= 0;
             updatePayments();
@@ -270,6 +302,30 @@
         updatePaymentFields(1);
         updatePaymentFields(2);
         renderCart();
+
+        const closeCart = () => {
+            if (!cartPanel || !cartOverlay) return;
+            cartPanel.classList.add('translate-x-full');
+            cartOverlay.classList.add('hidden');
+            cartOpen?.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('overflow-hidden');
+            cartReturnFocus?.focus();
+        };
+        const openCart = () => {
+            if (!cartPanel || !cartOverlay) return;
+            cartReturnFocus = document.activeElement;
+            cartPanel.classList.remove('translate-x-full');
+            cartOverlay.classList.remove('hidden');
+            cartOpen?.setAttribute('aria-expanded', 'true');
+            document.body.classList.add('overflow-hidden');
+            cartClose?.focus();
+        };
+        cartOpen?.addEventListener('click', openCart);
+        cartClose?.addEventListener('click', closeCart);
+        cartOverlay?.addEventListener('click', closeCart);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && cartPanel && !cartPanel.classList.contains('translate-x-full') && window.innerWidth < 1280) closeCart();
+        });
 
         checkout?.addEventListener('submit', (event) => {
             errorBox?.classList.add('hidden');

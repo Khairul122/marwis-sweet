@@ -113,7 +113,7 @@ class SettingsController extends BaseController
             'ends_at' => 'permit_empty|valid_date[Y-m-d\TH:i]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.settings')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $link = trim((string) $this->request->getPost('link_url'));
         if ($link !== '' && !$this->isSafeLink($link)) {

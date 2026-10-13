@@ -13,6 +13,10 @@ $routes->post('login', 'AuthController::attempt', ['as' => 'login.attempt']);
 $routes->post('logout', 'AuthController::logout', ['filter' => 'auth', 'as' => 'logout']);
 $routes->group('panel', ['filter' => 'auth'], static function ($routes): void {
     $routes->get('/', 'Panel\DashboardController::index', ['as' => 'panel']);
+    $routes->group('form', ['filter' => 'owner'], static function ($routes): void {
+        $routes->get('(:segment)', 'Panel\FormController::show/$1');
+        $routes->get('(:segment)/(:num)', 'Panel\FormController::show/$1/$2');
+    });
     $routes->group('catalog', ['filter' => 'owner'], static function ($routes): void {
         $routes->get('/', 'Panel\CatalogController::index', ['as' => 'panel.catalog']);
         $routes->post('categories', 'Panel\CatalogController::createCategory', ['as' => 'panel.catalog.categories.create']);

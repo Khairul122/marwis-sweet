@@ -42,6 +42,23 @@ database.default.port = 3306
 cookie.secure = false
 BUSINESS_NAME = 'Marwis Sweet'
 
+#--------------------------------------------------------------------
+# PERMANENT ACCOUNT SEEDER
+#--------------------------------------------------------------------
+
+# Required by: php spark db:seed PermanentAccountSeeder
+# Never commit real passwords. Copy these keys to .env and fill them there.
+# SEED_OWNER_NAME = 'Nama Pemilik'
+# SEED_OWNER_USERNAME = 'owner'
+# SEED_OWNER_EMAIL = 'owner@example.com'
+# SEED_OWNER_PASSWORD = 'minimum-12-characters'
+
+# Optional permanent cashier account. Leave every key empty to skip it.
+# SEED_CASHIER_NAME = 'Nama Kasir'
+# SEED_CASHIER_USERNAME = 'kasir'
+# SEED_CASHIER_EMAIL = 'kasir@example.com'
+# SEED_CASHIER_PASSWORD = 'minimum-12-characters'
+
 # If you use MySQLi as tests, first update the values of Config\Database::$tests.
 # database.tests.hostname = localhost
 # database.tests.database = ci4_test

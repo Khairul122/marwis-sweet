@@ -94,7 +94,7 @@ class MasterDataController extends BaseController
             return redirect()->route('panel.master')->with('error', 'Supplier tidak ditemukan.');
         }
         if (!$this->validate(['name' => 'required|min_length[2]|max_length[140]', 'contact_name' => 'permit_empty|max_length[120]', 'phone' => 'permit_empty|max_length[40]', 'address' => 'permit_empty|max_length[500]'])) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $model->update($supplier['id'], [
             'name' => trim((string) $this->request->getPost('name')),
@@ -155,7 +155,7 @@ class MasterDataController extends BaseController
             'minimum_stock' => 'required|decimal|greater_than_equal_to[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $model->update($item['id'], [
             'name' => trim((string) $this->request->getPost('name')),
@@ -174,7 +174,7 @@ class MasterDataController extends BaseController
             'factor_to_base' => 'required|decimal|greater_than[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $item = (new InventoryItemModel())->find((int) $this->request->getPost('item_id'));
         if (!$item) {
@@ -205,7 +205,7 @@ class MasterDataController extends BaseController
             'quantity' => 'required|decimal|greater_than[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $variantId = (int) $this->request->getPost('variant_id');
         $itemId = (int) $this->request->getPost('item_id');
@@ -254,7 +254,7 @@ class MasterDataController extends BaseController
             'additional_price' => 'required|decimal|greater_than_equal_to[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         db_connect()->table('toppings')->insert([
             'name' => trim((string) $this->request->getPost('name')),
@@ -293,7 +293,7 @@ class MasterDataController extends BaseController
             'additional_price' => 'required|decimal|greater_than_equal_to[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $database->table('toppings')->where('id', $topping['id'])->update([
             'name' => trim((string) $this->request->getPost('name')),
@@ -312,7 +312,7 @@ class MasterDataController extends BaseController
             'quantity' => 'required|decimal|greater_than[0]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->route('panel.master')->with('error', implode(' ', $this->validator->getErrors()));
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
         }
         $database = db_connect();
         $toppingId = (int) $this->request->getPost('topping_id');

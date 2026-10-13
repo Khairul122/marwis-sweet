@@ -15,6 +15,33 @@ Source code ini mengikuti urutan tahap pada [PRD](PRD%20(1).md). Status pekerjaa
 
 Jangan menyimpan rahasia di file `env` yang dilacak Git. File `.env` sudah diabaikan Git. Untuk deployment web, arahkan document root ke folder `public`.
 
+## Seeder
+
+Isi `SEED_OWNER_*` pada `.env`, lalu buat atau perbarui akun permanen dengan:
+
+```bash
+php spark db:seed PermanentAccountSeeder
+```
+
+Akun kasir permanen bersifat opsional. Isi seluruh `SEED_CASHIER_*` bila dibutuhkan. Seeder akun aman dijalankan ulang berdasarkan username, tetapi password akan disetel ulang ke nilai terbaru dari `.env`.
+
+Untuk data contoh lokal, jalankan:
+
+```bash
+php spark db:seed TemporaryDataSeeder
+```
+
+Data contoh memakai slug dan SKU berawalan `demo-` atau `DEMO-`, sehingga seeder dapat dijalankan ulang tanpa duplikasi. Jangan menjalankan seeder ini pada database produksi.
+
+Untuk instalasi pengembangan baru, jalankan `php spark db:seed DevelopmentSeeder`. Jika `SEED_OWNER_*` belum diisi, seeder membuat akun lokal berikut:
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Owner | `owner` | `DemoOwner!2026` |
+| Kasir | `kasir` | `DemoKasir!2026` |
+
+Akun demo dan seeder data sementara otomatis ditolak saat `CI_ENVIRONMENT` bernilai `production`. Jika `SEED_OWNER_*` sudah lengkap, `DevelopmentSeeder` memakai akun permanen dari `.env`.
+
 ## Urutan pengerjaan
 
 1. Fondasi
