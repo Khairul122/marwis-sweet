@@ -8,6 +8,22 @@ $statusLabels = ['counting' => 'Sedang dihitung', 'submitted' => 'Menunggu owner
     <a class="button-secondary self-start" href="<?= site_url('panel/inventory') ?>">Lihat kartu stok</a>
 </div>
 
+<?php
+$reasonLabels = ['low_stock' => 'Stok menipis', 'activity' => 'Banyak terpakai', 'stale' => 'Jadwal hitung'];
+$suggestionRows = array_map(static fn (array $s): array => [
+    '<input class="h-5 w-5 accent-brand-cocoa" type="checkbox" name="ids[]" value="' . (int) $s['id'] . '" form="suggest-form" checked aria-label="Pilih ' . esc($s['item_name']) . '">',
+    '<strong>' . esc($s['item_name']) . '</strong><span class="block text-xs text-ink-muted">' . esc($s['sku']) . '</span>',
+    '<span class="status-label bg-surface-soft-yellow">' . esc($reasonLabels[$s['reason']] ?? $s['reason']) . '</span>',
+    esc($s['detail']), esc(date('d/m/Y', strtotime($s['created_at']))),
+    panel_post('panel/opnames/suggestions/' . (int) $s['id'] . '/dismiss', [], 'Abaikan', 'button-secondary button-sm'),
+], $suggestions);
+?>
+<div class="mb-3 flex flex-wrap items-center gap-3">
+    <form id="suggest-form" action="<?= site_url('panel/opnames/suggestions/start') ?>" method="post" data-confirm-form="Mulai sesi opname untuk bahan terpilih? Mutasi bahan tersebut dikunci sampai sesi selesai."><?= csrf_field() ?><button class="button-primary" type="submit"<?= $suggestions === [] ? ' disabled' : '' ?>>Mulai opname dari usulan terpilih</button></form>
+    <?= panel_post('panel/opnames/suggestions/refresh', [], 'Perbarui usulan sekarang', 'button-secondary') ?>
+</div>
+<?= panel_table('Usulan opname otomatis', ['Pilih', 'Bahan', 'Alasan', 'Detail', 'Dibuat', '>Aksi'], $suggestionRows, ['width' => '52rem', 'empty' => 'Tidak ada usulan. Sistem memeriksa stok menipis, bahan yang banyak terpakai, dan bahan yang lebih dari ' . \App\Services\OpnameSuggestionService::STALE_DAYS . ' hari belum dihitung.']) ?>
+
 <section class="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start">
     <div class="panel-card p-5 sm:p-6 xl:sticky xl:top-24">
         <p class="section-kicker">Sesi baru</p>

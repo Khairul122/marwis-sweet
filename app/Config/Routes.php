@@ -71,6 +71,9 @@ $routes->group('panel', ['filter' => ['auth', 'returnto']], static function ($ro
     $routes->group('opnames', static function ($routes): void {
         $routes->get('/', 'Panel\StockOpnameController::index', ['as' => 'panel.opnames']);
         $routes->post('create', 'Panel\StockOpnameController::create');
+        $routes->post('suggestions/refresh', 'Panel\StockOpnameController::refreshSuggestions');
+        $routes->post('suggestions/start', 'Panel\StockOpnameController::startSuggestions');
+        $routes->post('suggestions/(:num)/dismiss', 'Panel\StockOpnameController::dismissSuggestion/$1');
         $routes->post('(:num)/counts', 'Panel\StockOpnameController::saveCounts/$1');
         $routes->post('(:num)/evidence', 'Panel\StockOpnameController::uploadEvidence/$1');
         $routes->get('(:num)/evidence', 'Panel\StockOpnameController::evidence/$1');

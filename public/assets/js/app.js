@@ -105,7 +105,8 @@
     });
 
     document.querySelectorAll('table[data-datatable]').forEach((table) => {
-        const rows = [...table.tBodies[0].rows];
+        const rows = [...table.tBodies[0].rows].filter((row) => !row.querySelector('[colspan]'));
+        if (rows.length === 0) return;
         const holder = table.parentElement;
         const bar = document.createElement('div');
         bar.className = 'flex flex-wrap items-center justify-between gap-3 border-b border-border-warm px-5 py-3 text-sm';

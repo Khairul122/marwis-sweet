@@ -50,3 +50,12 @@ Akun demo dan seeder data sementara otomatis ditolak saat `CI_ENVIRONMENT` berni
 4. Kontrol keuangan
 5. Pelaporan dan ulasan
 6. Stabilisasi
+
+## Usulan stok opname otomatis
+
+`php spark opname:suggest` menyusun usulan bahan yang perlu dihitung fisik (stok di bawah minimum, banyak terpakai oleh penjualan/retur sejak hitung terakhir, atau lebih dari 7 hari belum dihitung). Perintah ini hanya membuat usulan; sesi opname dan penguncian stok baru dibuat saat staf menekan "Mulai opname dari usulan terpilih" di halaman Stok opname.
+
+Jadwal harian:
+
+- Windows (localhost): `schtasks /Create /SC DAILY /ST 06:00 /TN "Marwis opname:suggest" /TR "cmd /c cd /d D:\Alternatif_D\laragon\www\marwis-sweet && php spark opname:suggest"`
+- Hosting (cron): `0 6 * * * cd /path/ke/marwis-sweet && php spark opname:suggest >> writable/logs/opname-suggest.log 2>&1`

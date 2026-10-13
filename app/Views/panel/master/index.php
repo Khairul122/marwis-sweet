@@ -24,7 +24,7 @@ $itemRows = array_map(static function (array $i) use ($conversions, $crud): arra
 $recipeRows = array_map(static fn (array $v): array => [
     '<strong>' . esc($v['product_name']) . '</strong>', esc($v['variant_name']), esc($v['sku']),
     ($lines = $recipesByVariant[$v['id']] ?? []) === [] ? '<span class="text-ink-muted">Belum ada bahan</span>' : $lineText($lines),
-    panel_actions(['links' => ['Atur resep' => 'panel/master/recipes/' . $v['id']]]),
+    panel_actions(['primary' => ['Atur resep' => 'panel/master/recipes/' . $v['id']]]),
 ], $variants);
 
 $toppingRows = array_map(static fn (array $t): array => [

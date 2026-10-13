@@ -30,25 +30,28 @@ if (! function_exists('panel_post')) {
 
 if (! function_exists('panel_actions')) {
     /**
-     * @param array{links?: array<string,string>, edit?: string, toggle?: array{url:string,field:string,id:int,active:bool,label:string}, delete?: array{url:string,field:string,id:int,name:string,label:string}} $o
+     * @param array{primary?: array<string,string>, links?: array<string,string>, edit?: string, toggle?: array{url:string,field:string,id:int,active:bool,label:string}, delete?: array{url:string,field:string,id:int,name:string,label:string}} $o
      */
     function panel_actions(array $o): string
     {
         $html = '<div class="flex flex-wrap items-center justify-end gap-2">';
+        foreach ($o['primary'] ?? [] as $label => $url) {
+            $html .= '<a class="button-primary button-sm text-center" href="' . site_url($url) . '">' . esc($label) . '</a>';
+        }
         foreach ($o['links'] ?? [] as $label => $url) {
-            $html .= '<a class="button-secondary button-sm" href="' . site_url($url) . '">' . esc($label) . '</a>';
+            $html .= '<a class="button-secondary button-sm text-center" href="' . site_url($url) . '">' . esc($label) . '</a>';
         }
         if (isset($o['edit'])) {
-            $html .= '<a class="button-secondary button-sm" href="' . site_url($o['edit']) . '">Edit</a>';
+            $html .= '<a class="button-secondary button-sm text-center" href="' . site_url($o['edit']) . '">Edit</a>';
         }
         if (isset($o['toggle'])) {
             $t = $o['toggle'];
             $verb = $t['active'] ? 'Nonaktifkan' : 'Aktifkan';
-            $html .= panel_post($t['url'], [$t['field'] => $t['id']], $verb, 'button-secondary button-sm', $verb . ' ' . $t['label'] . ' ini?');
+            $html .= panel_post($t['url'], [$t['field'] => $t['id']], $verb, 'button-secondary button-sm text-center', $verb . ' ' . $t['label'] . ' ini?');
         }
         if (isset($o['delete'])) {
             $d = $o['delete'];
-            $html .= panel_post($d['url'], [$d['field'] => $d['id']], 'Hapus', 'button-danger', 'Hapus ' . $d['label'] . ' "' . $d['name'] . '"? Tindakan ini tidak dapat dibatalkan.');
+            $html .= panel_post($d['url'], [$d['field'] => $d['id']], 'Hapus', 'button-danger text-center', 'Hapus ' . $d['label'] . ' "' . $d['name'] . '"? Tindakan ini tidak dapat dibatalkan.');
         }
 
         return $html . '</div>';

@@ -3,6 +3,7 @@
 namespace App\Controllers\Panel;
 
 use App\Controllers\BaseController;
+use App\Services\OpnameSuggestionService;
 use App\Services\StockOpnameService;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -31,7 +32,36 @@ class StockOpnameController extends BaseController
             'inventoryItems' => $database->table('inventory_items')->where('is_active', true)->orderBy('name')->get()->getResultArray(),
             'opnames' => $opnames,
             'itemsByOpname' => $itemsByOpname,
+            'suggestions' => $database->table('opname_suggestions')
+                ->select('opname_suggestions.*, inventory_items.name AS item_name, inventory_items.sku')
+                ->join('inventory_items', 'inventory_items.id = opname_suggestions.inventory_item_id')
+                ->where('opname_suggestions.status', 'open')->orderBy('opname_suggestions.id')->get()->getResultArray(),
         ]);
+    }
+
+    public function refreshSuggestions(): RedirectResponse
+    {
+        $created = (new OpnameSuggestionService())->generate();
+
+        return redirect()->route('panel.opnames')->with('success', $created > 0 ? $created . ' usulan opname baru ditambahkan.' : 'Tidak ada bahan baru yang perlu dihitung.');
+    }
+
+    public function startSuggestions(): RedirectResponse
+    {
+        try {
+            (new OpnameSuggestionService())->start((array) ($this->request->getPost('ids') ?? []), (int) session('user_id'));
+        } catch (\Throwable $exception) {
+            return redirect()->route('panel.opnames')->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('panel.opnames')->with('success', 'Sesi opname dibuat dari usulan. Bahan terpilih dikunci sampai sesi selesai.');
+    }
+
+    public function dismissSuggestion(int $suggestionId): RedirectResponse
+    {
+        (new OpnameSuggestionService())->dismiss($suggestionId, (int) session('user_id'));
+
+        return redirect()->route('panel.opnames')->with('success', 'Usulan diabaikan.');
     }
 
     public function create(): RedirectResponse
