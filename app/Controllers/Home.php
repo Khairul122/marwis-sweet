@@ -45,7 +45,24 @@ class Home extends BaseController
             $variantsByProduct[$variant['product_id']][] = $variant;
         }
 
+        $database = db_connect();
+        $toppings = $database->table('toppings')->where('is_active', true)->orderBy('additional_price')->orderBy('name')->get()->getResultArray();
+        $ratings = [];
+        foreach ($database->table('product_reviews')->select('product_id, AVG(rating) AS average, COUNT(*) AS total', false)->where('status', 'approved')->groupBy('product_id')->get()->getResultArray() as $row) {
+            $ratings[$row['product_id']] = ['average' => (float) $row['average'], 'total' => (int) $row['total']];
+        }
+        $reviews = $database->table('product_reviews')
+            ->select('product_reviews.display_name, product_reviews.rating, product_reviews.comment, product_reviews.created_at, products.name AS product_name')
+            ->join('products', 'products.id = product_reviews.product_id')
+            ->where('product_reviews.status', 'approved')->where('products.is_active', true)
+            ->orderBy('product_reviews.created_at', 'DESC')->limit(6)->get()->getResultArray();
+        $reviewSummary = $database->table('product_reviews')->select('COUNT(*) AS total, COALESCE(AVG(rating), 0) AS average', false)->where('status', 'approved')->get()->getRowArray();
+
         return view('public/home', [
+            'toppings' => $toppings,
+            'ratings' => $ratings,
+            'reviews' => $reviews,
+            'reviewSummary' => $reviewSummary,
             'businessName' => $settings['business_name'] ?? env('BUSINESS_NAME', 'Marwis Sweet'),
             'settings' => $settings,
             'banners' => $banners,

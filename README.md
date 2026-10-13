@@ -59,3 +59,7 @@ Jadwal harian:
 
 - Windows (localhost): `schtasks /Create /SC DAILY /ST 06:00 /TN "Marwis opname:suggest" /TR "cmd /c cd /d D:\Alternatif_D\laragon\www\marwis-sweet && php spark opname:suggest"`
 - Hosting (cron): `0 6 * * * cd /path/ke/marwis-sweet && php spark opname:suggest >> writable/logs/opname-suggest.log 2>&1`
+
+## Data contoh untuk evaluasi
+
+`php spark db:seed EvaluationDataSeeder` (hanya development/testing) mengisi produk beserta gambar, banner, supplier, penerimaan stok, penjualan 15 hari terakhir lewat `SaleService`, shift, pengeluaran dengan berbagai status, dan ulasan. Gambar berupa ilustrasi bertanda "Gambar contoh" di `public/uploads/demo/`. Seeder menolak jalan bila ada sesi stok opname aktif, dan aman diulang. Data ditandai awalan `EVL-` pada SKU/nomor. Untuk mengosongkan semuanya: `php spark migrate:refresh --all` lalu `php spark db:seed DevelopmentSeeder`.
