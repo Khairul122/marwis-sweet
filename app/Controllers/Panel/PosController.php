@@ -17,11 +17,13 @@ class PosController extends BaseController
         $userId = (int) session('user_id');
         $shift = $database->table('shifts')->where('cashier_id', $userId)->where('status', 'open')->get()->getRowArray();
         $products = $database->table('product_variants')
-            ->select('product_variants.id AS variant_id, product_variants.name AS variant_name, product_variants.sku, product_variants.price, product_variants.stock_mode, products.id AS product_id, products.name AS product_name, products.image_path, categories.name AS category_name, categories.slug AS category_slug')
+            ->select('product_variants.id AS variant_id, product_variants.direct_inventory_item_id, product_variants.name AS variant_name, product_variants.sku, product_variants.price, product_variants.stock_mode, products.id AS product_id, products.name AS product_name, products.image_path, categories.name AS category_name, categories.slug AS category_slug')
             ->join('products', 'products.id = product_variants.product_id')->join('categories', 'categories.id = products.category_id')
             ->where('product_variants.is_active', true)->where('products.is_active', true)->where('categories.is_active', true)
             ->orderBy('categories.sort_order')->orderBy('products.name')->orderBy('product_variants.price')->get()->getResultArray();
-        $toppings = $database->table('toppings')->where('is_active', true)->orderBy('name')->get()->getResultArray();
+        $availability = new \App\Services\ProductAvailabilityService($database);
+        $products = $availability->annotateVariants($products);
+        $toppings = $availability->annotateToppings($database->table('toppings')->where('is_active', true)->orderBy('name')->get()->getResultArray());
         $orderService = new PosOrderService($database);
         $activeOrderId = filter_var($this->request->getGet('order'), FILTER_VALIDATE_INT);
         $activeOrder = $activeOrderId ? $orderService->findHeld((int) $activeOrderId, $userId) : null;

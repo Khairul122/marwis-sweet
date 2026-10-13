@@ -218,12 +218,14 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P2 · Ketergantungan:** aturan hitung ketersediaan resep dan barang siap jual.
 
-- [ ] Hitung status tersedia/habis memakai stok yang relevan tanpa memublikasikan jumlah atau nilai internal.
-- [ ] POS memberikan status dan alasan ketika produk habis atau terkunci opname.
+- [x] Hitung status tersedia/habis memakai stok yang relevan tanpa memublikasikan jumlah atau nilai internal.
+- [x] POS memberikan status dan alasan ketika produk habis atau terkunci opname.
 
 **Terima bila:** stok habis tidak ditampilkan tersedia di katalog/POS dan finalisasi tetap memvalidasi ulang.
 
-**Verifikasi nanti:** produk recipe, direct stock, non-stock, dan stok terkunci.
+**Status:** Implementasi selesai tanpa migrasi. Katalog publik dan POS menggunakan satu layanan untuk menghitung ketersediaan resep, barang langsung, dan produk non-stok. Topping yang bahannya habis atau terkunci juga tidak dapat dipilih. Checkout tetap memakai pemeriksaan stok dan kunci opname di `SaleService`.
+
+**Verifikasi backend dan UI (2026-10-14, MySQL salinan terisolasi):** resep dengan bahan habis dan barang langsung habis berstatus tidak tersedia; varian non-stok tetap tersedia; barang langsung yang sedang opname berstatus terkunci beserta alasannya. Finalisasi setelah stok resep berubah menjadi habis ditolak dan tidak membuat transaksi. Katalog publik menonaktifkan varian habis tanpa menampilkan jumlah/nilai stok. POS dan detail produk menampilkan status yang sama; POS menjelaskan stok opname. Layout 390 px tidak mengalami overflow horizontal. Log browser bersih.
 
 ### Tugas 16 — Tambahkan alur penerimaan kasir dengan persetujuan biaya (B-04)
 

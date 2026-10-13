@@ -100,13 +100,15 @@ class Home extends BaseController
             ->orderBy('products.is_featured', 'DESC')
             ->orderBy('products.name')
             ->findAll();
+        $database = db_connect();
+        $availability = new \App\Services\ProductAvailabilityService($database);
+        $variants = $availability->annotateVariants((new ProductVariantModel())->where('is_active', true)->orderBy('is_default', 'DESC')->orderBy('price')->findAll());
         $variantsByProduct = [];
-        foreach ((new ProductVariantModel())->where('is_active', true)->orderBy('is_default', 'DESC')->orderBy('price')->findAll() as $variant) {
+        foreach ($variants as $variant) {
             $variantsByProduct[$variant['product_id']][] = $variant;
         }
 
-        $database = db_connect();
-        $toppings = $database->table('toppings')->where('is_active', true)->orderBy('additional_price')->orderBy('name')->get()->getResultArray();
+        $toppings = $availability->annotateToppings($database->table('toppings')->where('is_active', true)->orderBy('additional_price')->orderBy('name')->get()->getResultArray());
         $ratings = [];
         foreach ($database->table('product_reviews')->select('product_id, AVG(rating) AS average, COUNT(*) AS total', false)->where('status', 'approved')->groupBy('product_id')->get()->getResultArray() as $row) {
             $ratings[$row['product_id']] = ['average' => (float) $row['average'], 'total' => (int) $row['total']];
@@ -130,10 +132,10 @@ class Home extends BaseController
             'catalog' => [
                 'business' => $businessName,
                 'whatsapp' => $waNumber,
-                'toppings' => array_map(static fn (array $t): array => ['id' => (int) $t['id'], 'name' => $t['name'], 'price' => (float) $t['additional_price'], 'image' => sf_topping_image($t['name'])], $toppings),
+                'toppings' => array_map(static fn (array $t): array => ['id' => (int) $t['id'], 'name' => $t['name'], 'price' => (float) $t['additional_price'], 'image' => sf_topping_image($t['name']), 'available' => (bool) $t['is_available']], $toppings),
                 'products' => array_map(static fn (array $p): array => [
                     'id' => (int) $p['id'], 'name' => $p['name'],
-                    'variants' => array_map(static fn (array $v): array => ['id' => (int) $v['id'], 'name' => $v['name'], 'price' => (float) $v['price'], 'recipe' => $v['stock_mode'] === 'recipe'], $variantsByProduct[$p['id']] ?? []),
+                    'variants' => array_map(static fn (array $v): array => ['id' => (int) $v['id'], 'name' => $v['name'], 'price' => (float) $v['price'], 'recipe' => $v['stock_mode'] === 'recipe', 'available' => (bool) $v['is_available']], $variantsByProduct[$p['id']] ?? []),
                 ], $products),
             ],
         ];

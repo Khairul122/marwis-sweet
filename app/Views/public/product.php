@@ -10,6 +10,8 @@
  */
 $total = (int) $reviewSummary['total'];
 $average = number_format((float) $reviewSummary['average'], 1, ',', '.');
+$availableVariants = array_values(array_filter($variants, static fn (array $variant): bool => !empty($variant['is_available'])));
+$priceVariant = $availableVariants[0] ?? ($variants[0] ?? null);
 $gallery = $images !== [] ? $images : (!empty($product['image_path']) ? [['image_path' => $product['image_path'], 'alt_text' => $product['name']]] : []);
 $canTopping = $toppings !== [] && in_array('recipe', array_column($variants, 'stock_mode'), true);
 $waOrder = $waNumber !== '' ? 'https://wa.me/' . $waNumber . '?text=' . rawurlencode('Halo ' . $businessName . ', saya mau pesan ' . $product['name'] . '.') : '';
@@ -85,13 +87,14 @@ $waOrder = $waNumber !== '' ? 'https://wa.me/' . $waNumber . '?text=' . rawurlen
                                 <p class="text-sm font-extrabold">Pilih <?= count($variants) > 1 ? 'ukuran / varian' : 'varian' ?></p>
                                 <div class="mt-3"><?= sf_variant_picker($product, $variants, 'detail', true) ?></div>
                                 <div class="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-dashed border-border-warm pt-5">
-                                    <div><p class="text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Harga</p><p class="font-brand text-4xl font-extrabold tabular-nums" data-price-out><?= sf_rp($variants[0]['price']) ?></p></div>
+                                    <div><p class="text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Harga</p><p class="font-brand text-4xl font-extrabold tabular-nums" data-price-out><?= sf_rp($priceVariant['price']) ?></p></div>
                                     <?php if ($canTopping): ?><p class="text-sm text-ink-muted">+ topping bisa dipilih di keranjang</p><?php endif ?>
                                 </div>
                                 <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                                    <button class="lp-btn lp-btn-sun" type="button" data-add><?= sf_icon('plus', 'h-5 w-5') ?>Tambah ke pesanan</button>
+                                    <button class="lp-btn lp-btn-sun disabled:cursor-not-allowed disabled:border-[#716356] disabled:bg-[#E7DED2] disabled:text-[#33271E] disabled:opacity-100" type="button" data-add <?= $availableVariants === [] ? 'disabled aria-describedby="product-availability"' : '' ?>><?= $availableVariants === [] ? 'Tidak tersedia' : sf_icon('plus', 'h-5 w-5') . 'Tambah ke pesanan' ?></button>
                                     <?php if ($waOrder !== ''): ?><a class="lp-btn lp-btn-dark" href="<?= esc($waOrder) ?>" target="_blank" rel="noopener"><?= sf_wa_icon() ?>Tanya via WhatsApp<span class="sr-only"> (tab baru)</span></a><?php endif ?>
                                 </div>
+                                <?php if ($availableVariants === []): ?><p id="product-availability" class="mt-3 text-sm font-semibold text-brand-chili" role="status">Semua varian menu ini sedang tidak tersedia.</p><?php endif ?>
                             <?php endif ?>
                         </div>
 

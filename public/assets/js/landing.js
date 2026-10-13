@@ -15,11 +15,11 @@
     try {
         const saved = JSON.parse(window.localStorage.getItem(STORE) || '[]');
         lines = saved
-            .filter((line) => variants.has(line.variantId))
+            .filter((line) => variants.has(line.variantId) && variants.get(line.variantId).available !== false)
             .map((line) => ({
                 variantId: line.variantId,
                 qty: Math.min(99, Math.max(1, Number(line.qty) || 1)),
-                toppings: (line.toppings || []).filter((id) => toppingById.has(id)),
+                toppings: (line.toppings || []).filter((id) => toppingById.has(id) && toppingById.get(id).available !== false),
             }));
     } catch { lines = []; }
     const persist = () => { try { window.localStorage.setItem(STORE, JSON.stringify(lines)); } catch { /* penyimpanan peramban ditolak */ } };
@@ -96,14 +96,18 @@
                 grid.className = 'col-span-2 grid grid-cols-2 gap-2';
                 group.append(legend, grid);
                 catalog.toppings.forEach((topping) => {
+                    const available = topping.available !== false;
                     const on = line.toppings.includes(topping.id);
                     const label = document.createElement('label');
-                    label.className = 'cursor-pointer';
+                    label.className = available ? 'cursor-pointer' : 'cursor-not-allowed opacity-60';
                     const box = document.createElement('input');
                     box.type = 'checkbox';
                     box.className = 'peer sr-only';
                     box.checked = on;
-                    box.setAttribute('aria-label', `${topping.name} untuk ${variant.product}, tambah ${rupiah(topping.price)}`);
+                    box.disabled = !available;
+                    box.setAttribute('aria-label', available
+                        ? `${topping.name} untuk ${variant.product}, tambah ${rupiah(topping.price)}`
+                        : `${topping.name} untuk ${variant.product}, tidak tersedia saat ini`);
                     box.addEventListener('change', () => {
                         line.toppings = box.checked ? [...line.toppings, topping.id] : line.toppings.filter((id) => id !== topping.id);
                         persist();
@@ -112,7 +116,7 @@
                     });
                     // Tile dibangun ulang tiap render, jadi status terpilih cukup ditulis langsung ke class
                     const tile = document.createElement('span');
-                    tile.className = `flex min-h-14 items-center gap-2.5 rounded-2xl border p-1.5 pr-2.5 transition peer-focus-visible:ring-3 peer-focus-visible:ring-brand-sun peer-focus-visible:ring-offset-2 ${on ? 'border-brand-cocoa bg-brand-sun/30' : 'border-border-warm bg-white hover:border-ink-muted'}`;
+                    tile.className = `flex min-h-14 items-center gap-2.5 rounded-2xl border p-1.5 pr-2.5 transition peer-focus-visible:ring-3 peer-focus-visible:ring-brand-sun peer-focus-visible:ring-offset-2 ${on ? 'border-brand-cocoa bg-brand-sun/30' : 'border-border-warm bg-white hover:border-ink-muted'} ${available ? '' : 'bg-surface-cream'}`;
                     const visual = topping.image ? document.createElement('img') : document.createElement('span');
                     if (topping.image) {
                         visual.src = topping.image;
@@ -131,6 +135,12 @@
                     price.className = 'block text-xs font-semibold tabular-nums text-ink-muted';
                     price.textContent = `+${rupiah(topping.price)}`;
                     text.append(name, price);
+                    if (!available) {
+                        const stock = document.createElement('span');
+                        stock.className = 'mt-0.5 block text-[11px] font-semibold text-brand-chili';
+                        stock.textContent = 'Tidak tersedia saat ini';
+                        text.append(stock);
+                    }
                     const tick = document.createElement('span');
                     tick.className = `grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 text-[11px] font-black ${on ? 'border-brand-cocoa bg-brand-cocoa text-white' : 'border-border-warm text-transparent'}`;
                     tick.setAttribute('aria-hidden', 'true');
@@ -177,12 +187,16 @@
     };
 
     const add = (variantId) => {
+        const variant = variants.get(variantId);
+        if (!variant || variant.available === false) {
+            say('Varian ini sedang tidak tersedia.');
+            return;
+        }
         const existing = lines.find((line) => line.variantId === variantId);
         if (existing) existing.qty = Math.min(99, existing.qty + 1);
         else lines.push({ variantId, qty: 1, toppings: [] });
         persist();
         render();
-        const variant = variants.get(variantId);
         say(`${variant.product} (${variant.name}) ditambahkan.`);
     };
 

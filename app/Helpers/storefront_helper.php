@@ -62,12 +62,23 @@ if (!function_exists('sf_variant_picker')) {
         if ($variants === []) {
             return '<p class="text-sm font-semibold text-ink-muted">Harga belum tersedia</p>';
         }
+        $firstAvailable = null;
+        foreach ($variants as $index => $variant) {
+            if (!empty($variant['is_available'])) {
+                $firstAvailable = $index;
+                break;
+            }
+        }
         $html = '<fieldset class="min-w-0"><legend class="sr-only">Pilih varian ' . esc($product['name']) . '</legend><div class="flex flex-wrap gap-2">';
         foreach ($variants as $i => $v) {
             $id = $scope . '-' . $product['id'] . '-' . $v['id'];
-            $html .= '<label class="cursor-pointer" for="' . $id . '"><input class="peer sr-only" type="radio" id="' . $id . '" name="variant-' . $scope . '-' . $product['id'] . '" value="' . (int) $v['id'] . '" data-price="' . (float) $v['price'] . '"' . ($i === 0 ? ' checked' : '') . '>'
-                . '<span class="flex items-center gap-2 rounded-full border border-border-warm bg-white font-bold transition peer-checked:border-brand-cocoa peer-checked:bg-brand-cocoa peer-checked:text-white peer-focus-visible:ring-3 peer-focus-visible:ring-brand-sun peer-focus-visible:ring-offset-2 ' . ($withPrice ? 'min-h-12 px-5 text-base' : 'min-h-10 px-3.5 text-sm') . '">'
-                . esc($v['name']) . ($withPrice ? '<span class="font-semibold tabular-nums opacity-75">' . sf_rp($v['price']) . '</span>' : '') . '</span></label>';
+            $available = !empty($v['is_available']);
+            $status = $available ? 'Tersedia' : (($v['availability_status'] ?? '') === 'sold_out' ? 'Habis' : 'Tidak tersedia');
+            $stateClass = $available ? 'bg-[#E8F5E9] text-[#1F6E3F]' : 'bg-[#FFF0EB] text-brand-chili';
+            $html .= '<label class="' . ($available ? 'cursor-pointer' : 'cursor-not-allowed opacity-75') . '" for="' . $id . '"><input class="peer sr-only" type="radio" id="' . $id . '" name="variant-' . $scope . '-' . $product['id'] . '" value="' . (int) $v['id'] . '" data-price="' . (float) $v['price'] . '"' . ($available ? '' : ' disabled') . ($i === $firstAvailable ? ' checked' : '') . '>'
+                . '<span class="flex flex-col items-start gap-1 rounded-2xl border border-border-warm bg-white font-bold transition peer-checked:border-brand-cocoa peer-checked:bg-brand-cocoa peer-checked:text-white peer-focus-visible:ring-3 peer-focus-visible:ring-brand-sun peer-focus-visible:ring-offset-2 ' . ($withPrice ? 'min-h-16 px-4 py-2 text-base' : 'min-h-14 px-3.5 py-2 text-sm') . '">'
+                . '<span class="flex items-center gap-2">' . esc($v['name']) . ($withPrice ? '<span class="font-semibold tabular-nums opacity-75">' . sf_rp($v['price']) . '</span>' : '') . '</span>'
+                . '<span class="rounded-full px-2 py-0.5 text-[11px] font-extrabold leading-tight ' . $stateClass . ' peer-checked:border peer-checked:border-white/50 peer-checked:bg-white peer-checked:text-brand-cocoa">' . $status . '</span></span></label>';
         }
 
         return $html . '</div></fieldset>';
@@ -105,11 +116,14 @@ if (!function_exists('sf_topping_cards')) {
             $visual = $image !== null
                 ? '<img class="h-24 w-24 rounded-full object-cover shadow-[0_12px_24px_-10px_rgb(45_27_18/.55)] transition duration-300 group-hover:rotate-12 group-hover:scale-105 sm:h-28 sm:w-28" src="' . esc($image) . '" alt="" loading="lazy" width="112" height="112">'
                 : '<span class="grid h-24 w-24 place-items-center rounded-full bg-surface-soft-yellow text-brand-sun-hover ring-8 ring-white sm:h-28 sm:w-28">' . sf_icon('cookie', 'h-10 w-10') . '</span>';
+            $availability = !empty($topping['is_available'])
+                ? '<span class="mt-1.5 text-xs font-semibold text-[#1F6E3F]">Tersedia</span>'
+                : '<span class="mt-1.5 text-xs font-semibold text-brand-chili">Tidak tersedia saat ini</span>';
             $html .= '<li class="group flex flex-col items-center rounded-3xl bg-white px-4 pb-5 pt-5 text-center shadow-[0_18px_40px_-24px_rgb(45_27_18/.45)]">'
                 . $visual
                 . '<span class="mt-4 font-brand text-lg font-bold leading-tight sm:text-xl">' . esc($topping['name']) . '</span>'
                 . '<span class="mt-2 rounded-full bg-brand-cocoa px-3.5 py-1 text-sm font-bold tabular-nums text-white">+' . sf_rp($topping['additional_price']) . '</span>'
-                . '<span class="mt-1.5 text-xs font-semibold text-ink-muted">per porsi</span>'
+                . '<span class="mt-1.5 text-xs font-semibold text-ink-muted">per porsi</span>' . $availability
                 . '</li>';
         }
 

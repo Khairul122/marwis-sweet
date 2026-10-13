@@ -12,6 +12,7 @@ $avgRating = number_format((float) ($storeReviews['average'] ?? 0), 1, ',', '.')
 $minPrice = null;
 foreach ($variantsByProduct as $list) {
     foreach ($list as $v) {
+        if (empty($v['is_available'])) continue;
         $minPrice = $minPrice === null ? (float) $v['price'] : min($minPrice, (float) $v['price']);
     }
 }
@@ -176,7 +177,7 @@ $perks = [
 
                     <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-product-grid>
                         <?php foreach ($products as $product): ?>
-                            <?php $variants = $variantsByProduct[$product['id']] ?? []; $rating = $ratings[$product['id']] ?? null; ?>
+                            <?php $variants = $variantsByProduct[$product['id']] ?? []; $availableVariants = array_values(array_filter($variants, static fn (array $variant): bool => !empty($variant['is_available']))); $priceVariant = $availableVariants[0] ?? ($variants[0] ?? null); $rating = $ratings[$product['id']] ?? null; ?>
                             <article class="reveal lp-card group flex flex-col overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_50px_-24px_rgb(45_27_18/.5)]" data-product-card data-card data-product-id="<?= (int) $product['id'] ?>" data-category="<?= esc($product['category_slug']) ?>" data-search="<?= esc(mb_strtolower($product['name'] . ' ' . implode(' ', array_column($variants, 'name')))) ?>">
                                 <div class="relative grid aspect-[4/3] place-items-center overflow-hidden bg-surface-soft-yellow">
                                     <?php if (!empty($product['image_path'])): ?>
@@ -194,10 +195,11 @@ $perks = [
                                     <div class="mt-4"><?= sf_variant_picker($product, $variants) ?></div>
                                     <div class="mt-5 flex items-center justify-between gap-3 pt-1 lg:mt-auto">
                                         <?php if ($variants !== []): ?>
-                                            <p class="font-brand text-2xl font-extrabold tabular-nums" data-price-out><?= sf_rp($variants[0]['price']) ?></p>
-                                            <button class="lp-btn lp-btn-sun !min-h-11 !px-5" type="button" data-add>+ Tambah</button>
+                                            <p class="font-brand text-2xl font-extrabold tabular-nums" data-price-out><?= sf_rp($priceVariant['price']) ?></p>
+                                            <button class="lp-btn lp-btn-sun !min-h-11 !px-5 disabled:cursor-not-allowed disabled:border-[#716356] disabled:bg-[#E7DED2] disabled:text-[#33271E] disabled:opacity-100" type="button" data-add <?= $availableVariants === [] ? 'disabled aria-describedby="availability-' . (int) $product['id'] . '"' : '' ?>><?= $availableVariants === [] ? 'Tidak tersedia' : '+ Tambah' ?></button>
                                         <?php endif ?>
                                     </div>
+                                    <?php if ($variants !== [] && $availableVariants === []): ?><p id="availability-<?= (int) $product['id'] ?>" class="mt-2 text-sm font-semibold text-brand-chili" role="status">Semua varian menu ini sedang tidak tersedia.</p><?php endif ?>
                                     <a class="mt-3 inline-flex min-h-11 items-center self-start text-sm font-bold text-ink-muted underline decoration-brand-sun decoration-2 underline-offset-4 hover:text-brand-cocoa" href="<?= site_url('menu/' . $product['slug']) ?>">Lihat detail<span class="sr-only"> <?= esc($product['name']) ?></span></a>
                                 </div>
                             </article>
