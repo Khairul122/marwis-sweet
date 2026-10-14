@@ -12,7 +12,7 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 - Alur pengeluaran menguji status draft → diajukan → disetujui → dibayar. Pengeluaran tunai mengkredit laci; penutupan shift memasukkan pengeluaran laci serta kas masuk/keluar ke kas seharusnya.
 - Pembayaran campuran, diskon, kembalian, HPP resep/topping dan barang langsung, retry idempoten, refund penuh/bertahap, token ulasan, filter laporan, dan race penjualan vs. tutup shift telah diuji pada data uji MySQL.
 
-**Batas hasil:** Tugas 5 masih menunggu aturan akun pasangan untuk kas masuk/keluar. Tugas 14–26 belum diimplementasikan atau belum melewati UAT, sehingga laporan ini tidak menyatakan seluruh PRD sudah lulus.
+**Batas hasil:** Tugas 5 masih menunggu aturan akun pasangan untuk kas masuk/keluar. Tugas 14–25 sudah diimplementasikan dengan tingkat verifikasi yang berbeda; benchmark laporan 100.000 transaksi dan uji cakupan lokal untuk Tugas 23–25 lulus. Screenshot viewport dan pengujian deployment nyata masih tertunda. Tugas 26 belum tersertifikasi penuh karena seluruh AC-01–AC-25 dan uji restore backup belum dijalankan.
 
 ## Fase 1 — Akses dan integritas shift
 
@@ -319,43 +319,45 @@ Verifikasi mutasi dilakukan pada schema uji terisolasi `marwis_sweet_verify_busi
 
 **P2 · Ketergantungan:** Tugas 10.
 
-- [ ] Paginasikan detail pada panel dan hindari membangun `IN (...)` dengan semua ID histori.
-- [ ] Terapkan batas aman atau pekerjaan latar dengan tautan privat untuk PDF besar.
+- [x] Paginasikan detail pada panel dan hindari membangun `IN (...)` dengan semua ID histori.
+- [x] Terapkan batas 5.000 detail PDF; angka ringkasan tetap dihitung lengkap per batch.
 
-**Terima bila:** laporan 100.000 transaksi tidak memuat seluruh baris ke memori request; total tetap sama dengan query agregat dan PDF.
+**Terima bila:** laporan 100.000 transaksi membaca ringkasan per batch, menahan detail PDF pada batas 5.000, dan mempertahankan total yang sama dengan query agregat.
 
-**Verifikasi nanti:** ukur dataset target dan target PRD untuk PDF tahunan.
+**Verifikasi backend/render (2026-10-14, MySQL uji terisolasi):** benchmark 100.000 transaksi dengan masing-masing item dan pembayaran lulus; total `Rp100.000.000` cocok dengan `SUM(subtotal)` SQL. Ringkasan mengembalikan 50 baris untuk panel, sedangkan jalur ekspor hanya mengembalikan 5.000 detail dan menandai sisanya terpotong. Build laporan ekspor selesai 27,2 detik dengan puncak 54 MiB pada lingkungan lokal. Fixture PDF 155 penjualan/152 refund menghasilkan 10 halaman A4 (62 KB); halaman 1, 2, dan 10 dirender dan diperiksa: header tabel berulang, nominal terbaca, serta baris dan footer tidak terpotong. Suite penuh juga lulus (22 tes, 234 assertion). Screenshot browser route laporan dan target performa produksi belum diuji.
 
 ### Tugas 24 — Konfigurasikan base URL dan pengamanan deployment (B-16)
 
 **P1 sebelum publikasi · Ketergantungan:** alamat host/domain dan topologi proxy.
 
-- [ ] Baca base URL dari konfigurasi deployment, bukan `localhost` tetap.
-- [ ] Aktifkan HTTPS, cookie aman, dan header yang sesuai hanya pada lingkungan HTTPS; pertahankan HTTP untuk LAN bila diperlukan.
-- [ ] Pastikan URL QR dapat dijangkau pelanggan dan header proxy tidak dipercaya tanpa konfigurasi.
+- [x] Baca dan validasi base URL dari konfigurasi deployment; sediakan default localhost untuk pengembangan.
+- [x] Selaraskan redirect HTTPS dan cookie `Secure` ke skema HTTPS, aktifkan header keamanan, dan pertahankan HTTP untuk LAN.
+- [x] Percayai header proxy hanya bila alamat IP/CIDR proxy dinyatakan secara eksplisit.
 
 **Terima bila:** login, sesi, upload, POS, tautan ulasan, dan PDF bekerja di HTTP lokal/LAN dan HTTPS deployment tanpa mixed content/redirect loop.
 
-**Verifikasi nanti:** konfigurasi aktual web server/proxy serta pemeriksaan header/cookie.
+**Verifikasi konfigurasi (2026-10-14):** unit test lulus (2 tes, 8 assertion) untuk HTTP LAN, HTTPS, proxy valid/invalid, redirect, dan cookie. Domain, sertifikat, reverse proxy produksi, URL QR yang dapat dijangkau pelanggan, serta header aktual masih perlu diperiksa saat deployment.
 
 ### Tugas 25 — Tandai data demo dan rapikan teks progres (A-10, B-17)
 
 **P1 sebelum publikasi · Ketergantungan:** tidak ada.
 
-- [ ] Pastikan alamat, nomor telepon, ulasan, banner, dan nama demo diberi penanda demo atau diganti data usaha terverifikasi sebelum publikasi.
-- [ ] Perbarui label tahap pada dashboard agar sesuai fitur yang tersedia.
+- [x] Tandai mode demo, sembunyikan banner/review contoh dari publik, dan sediakan peringatan untuk mengganti identitas usaha.
+- [x] Perbarui label progres dashboard sesuai tahap yang tersedia.
 
 **Terima bila:** tidak ada data seeder yang disajikan sebagai pengalaman pelanggan nyata pada situs publik.
 
-**Verifikasi nanti:** buka beranda dengan database demo dan database produksi yang telah disiapkan.
+**Verifikasi render (2026-10-14):** feature test MySQL memeriksa peringatan demo ketika penanda aktif maupun ketika penanda belum ada; banner demo tidak diterbitkan dan review evaluasi dikecualikan dari katalog publik. Browser runtime menampilkan strip peringatan pada halaman publik karena profil lama belum memiliki penanda. Dashboard menampilkan Tahap 5 selesai dan Tahap 6 berjalan. Database usaha terverifikasi belum tersedia untuk pemeriksaan.
 
 ### Tugas 26 — Selesaikan UAT, backup/restore, dan panduan (Tahap 6)
 
 **P1 sebelum publikasi · Ketergantungan:** tugas 1–25.
 
-- [ ] Buat tes unit/integrasi aturan pembayaran, refund, stok, jurnal, role, dan laporan.
-- [ ] Jalankan AC-01–AC-25 di MySQL, termasuk concurrency, rollback, PDF multi-halaman, dan akses route langsung.
-- [ ] Dokumentasikan build/deploy, owner/kasir, backup harian, retensi, dan pemulihan.
+- [x] Sediakan tes unit/integrasi untuk pembayaran, refund, stok, jurnal, role, laporan, dan fitur terkait.
+- [ ] Jalankan dan catat seluruh AC-01–AC-25 di MySQL, termasuk concurrency, rollback, PDF multi-halaman, dan akses route langsung.
+- [x] Dokumentasikan build/deploy, owner/kasir, backup harian, retensi, dan pemulihan di `docs/DEPLOYMENT-UAT.md`.
 - [ ] Pulihkan backup ke lingkungan uji dan cocokkan transaksi, jurnal, stok, serta lampiran.
 
 **Terima bila:** hasil UAT tercatat; target kehilangan data/pemulihan PRD diuji; seluruh temuan P1 ditutup atau memiliki keputusan ruang lingkup tertulis.
+
+**Status verifikasi (2026-10-14):** seluruh suite PHPUnit pada MySQL verifikasi terisolasi lulus (22 tes, 234 assertion), termasuk PDF multi-halaman dan fallback penanda demo untuk profil lama. Ini belum mencakup eksekusi penuh seluruh AC-01–AC-25, screenshot browser multi-viewport, pengukuran performa di deployment produksi, atau pemulihan backup produksi. RPO 24 jam/RTO 4 jam belum diuji; Tugas 26 tetap terbuka.

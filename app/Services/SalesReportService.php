@@ -11,7 +11,7 @@ class SalesReportService
 {
     public const PAGE_SIZE = 50;
     public const PDF_DETAIL_LIMIT = 5000;
-    private const SUMMARY_BATCH_SIZE = 200;
+    private const SUMMARY_BATCH_SIZE = 2000;
 
     public function __construct(private ?BaseConnection $database = null)
     {

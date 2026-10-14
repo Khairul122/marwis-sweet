@@ -52,7 +52,7 @@ final class SalesReportPaginationWorkflowTest extends CIUnitTestCase
         $this->database->table('shifts')->insert(['shift_number' => 'R23-' . strtoupper($suffix), 'cashier_id' => $this->cashierId, 'opened_at' => $now, 'opening_cash' => '0.00', 'status' => 'open', 'created_at' => $now, 'updated_at' => $now]);
         $this->shiftId = (int) $this->database->insertID();
 
-        for ($index = 1; $index <= 55; $index++) {
+        for ($index = 1; $index <= 155; $index++) {
             $this->database->table('sales')->insert([
                 'sale_number' => 'R23-' . strtoupper($suffix) . '-' . str_pad((string) $index, 3, '0', STR_PAD_LEFT),
                 'idempotency_key' => hash('sha256', $suffix . '-' . $index), 'shift_id' => $this->shiftId,
@@ -71,7 +71,7 @@ final class SalesReportPaginationWorkflowTest extends CIUnitTestCase
             $saleItemId = (int) $this->database->insertID();
             $this->database->table('payments')->insert(['sale_id' => $saleId, 'method' => $index % 2 === 0 ? 'cash' : 'qris', 'amount' => '1000.00', 'cash_received' => null, 'change_amount' => '0.00', 'created_at' => $now]);
 
-            if ($index <= 52) {
+            if ($index <= 152) {
                 $this->database->table('refunds')->insert([
                     'refund_number' => 'RF-R23-' . strtoupper($suffix) . '-' . str_pad((string) $index, 3, '0', STR_PAD_LEFT),
                     'sale_id' => $saleId, 'shift_id' => $this->shiftId, 'status' => 'posted', 'method' => 'cash',
@@ -113,24 +113,24 @@ final class SalesReportPaginationWorkflowTest extends CIUnitTestCase
         $input = ['period_type' => 'daily', 'date' => $this->date, 'sales_page' => 2, 'refund_page' => 2];
         $report = $service->build($input, true);
 
-        self::assertSame(55, $report['salesTotal']);
+        self::assertSame(155, $report['salesTotal']);
         self::assertSame(2, $report['salesPage']);
-        self::assertCount(5, $report['sales']);
-        self::assertSame(52, $report['refundsTotal']);
+        self::assertCount(50, $report['sales']);
+        self::assertSame(152, $report['refundsTotal']);
         self::assertSame(2, $report['refundPage']);
-        self::assertCount(2, $report['refunds']);
-        self::assertSame('55000.00', $report['totals']['gross']);
-        self::assertSame('49800.00', $report['totals']['net_sales']);
-        self::assertSame('5200.00', $report['totals']['refunds']);
-        self::assertSame('27000.00', $report['paymentTotals']['cash']);
-        self::assertSame('28000.00', $report['paymentTotals']['qris']);
-        self::assertSame('55.000', $report['totals']['units']);
+        self::assertCount(50, $report['refunds']);
+        self::assertSame('155000.00', $report['totals']['gross']);
+        self::assertSame('139800.00', $report['totals']['net_sales']);
+        self::assertSame('15200.00', $report['totals']['refunds']);
+        self::assertSame('77000.00', $report['paymentTotals']['cash']);
+        self::assertSame('78000.00', $report['paymentTotals']['qris']);
+        self::assertSame('155.000', $report['totals']['units']);
         $aggregate = $this->database->table('sales')->selectSum('subtotal', 'gross')->whereIn('id', $this->saleIds)->get()->getRow('gross');
         self::assertSame(number_format((float) $aggregate, 2, '.', ''), $report['totals']['gross']);
 
         $filtered = $service->build($input + ['product' => $this->productId, 'sale_method' => 'cash'], true);
-        self::assertSame(27, $filtered['salesTotal']);
-        self::assertSame('27000.00', $filtered['totals']['gross']);
+        self::assertSame(77, $filtered['salesTotal']);
+        self::assertSame('77000.00', $filtered['totals']['gross']);
 
         $pdfReport = $service->build($input, true, 3, true);
         self::assertCount(3, $pdfReport['sales']);
@@ -141,15 +141,16 @@ final class SalesReportPaginationWorkflowTest extends CIUnitTestCase
 
         $page = $this->withSession(['user_id' => $this->ownerId])->get('panel/reports?period_type=daily&date=' . $this->date . '&sales_page=2&refund_page=2');
         $page->assertOK();
-        $page->assertSee('Menampilkan 51–55 dari 55 transaksi');
-        $page->assertSee('Menampilkan 51–52 dari 52 refund');
+        $page->assertSee('Menampilkan 51–100 dari 155 transaksi');
+        $page->assertSee('Menampilkan 51–100 dari 152 refund');
         $page->assertSee('Halaman detail transaksi');
         $page->assertSee('Halaman refund');
 
         $pdf = $this->withSession(['user_id' => $this->ownerId])->get('panel/reports/sales.pdf?period_type=daily&date=' . $this->date);
         $pdf->assertOK();
         self::assertSame('application/pdf', $pdf->response()->getHeaderLine('Content-Type'));
-        self::assertStringContainsString('%PDF-', $pdf->getBody());
-        self::assertGreaterThanOrEqual(2, preg_match_all('/\/Type\s*\/Page\b/', $pdf->getBody()), 'Laporan detail yang panjang harus menghasilkan PDF multi-halaman.');
+        $pdfBytes = (string) $pdf->response()->getBody();
+        self::assertStringStartsWith('%PDF-', $pdfBytes);
+        self::assertGreaterThanOrEqual(2, preg_match_all('/\/Type\s*\/Page\b/', $pdfBytes), 'Laporan detail yang panjang harus menghasilkan PDF multi-halaman.');
     }
 }

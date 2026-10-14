@@ -6,7 +6,7 @@ Source code ini mengikuti urutan tahap pada [PRD](PRD%20(1).md). Status pekerjaa
 
 1. Pastikan PHP 8.2+, Composer 2.0.14+, Node.js, dan MySQL tersedia.
 2. Buat database MySQL bernama `marwis_sweet` dengan charset `utf8mb4`.
-3. Salin file `env` menjadi `.env`, lalu sesuaikan `app.baseURL`, kredensial MySQL, dan `BUSINESS_NAME`. Untuk HTTPS, gunakan URL `https://...` dan `cookie.secure = true`; HTTP lokal memakai `false`.
+3. Salin file `env` menjadi `.env`, lalu sesuaikan `app.baseURL`, kredensial MySQL, dan `BUSINESS_NAME`. Cookie sesi otomatis memakai atribut `Secure` saat `app.baseURL` menggunakan HTTPS. Atur `app.forceGlobalSecureRequests = true` hanya untuk HTTPS; konfigurasi LAN dapat tetap HTTP.
 4. Pasang dependency: `composer install` dan `npm install`.
 5. Bangun aset CSS lokal: `npm run build:css`.
 6. Jalankan migrasi: `php spark migrate`.
@@ -14,6 +14,8 @@ Source code ini mengikuti urutan tahap pada [PRD](PRD%20(1).md). Status pekerjaa
 8. Jalankan server lokal dengan `php spark serve`.
 
 Jangan menyimpan rahasia di file `env` yang dilacak Git. File `.env` sudah diabaikan Git. Untuk deployment web, arahkan document root ke folder `public`.
+
+Panduan konfigurasi proxy, deployment, backup, restore, dan UAT ada di [docs/DEPLOYMENT-UAT.md](docs/DEPLOYMENT-UAT.md).
 
 ## Seeder
 

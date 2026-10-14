@@ -58,4 +58,14 @@ final class PublicDemoContentWorkflowTest extends CIUnitTestCase
         $page->assertSee('Tampilan data contoh. Identitas, menu, dan informasi usaha di halaman ini belum terverifikasi.');
         $page->assertDontSee('Banner internal demo untuk uji');
     }
+
+    public function testLegacyProfileWithoutDemoMarkerDefaultsToDemo(): void
+    {
+        $this->database->table('settings')->where('setting_key', 'business_profile_is_demo')->delete();
+
+        $page = $this->get('/');
+
+        $page->assertOK();
+        $page->assertSee('Tampilan data contoh. Identitas, menu, dan informasi usaha di halaman ini belum terverifikasi.');
+    }
 }

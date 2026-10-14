@@ -60,4 +60,13 @@ Stack: CodeIgniter 4.7.5, PHP 8.3, Tailwind CSS 4, MySQL, Bahasa Indonesia, zona
 
 ## Tahap 6 — Stabilisasi
 
-- [ ] UAT, pengujian konkurensi/rollback/akses, HTTP/HTTPS, backup/restore, dan panduan
+- [x] Paginasi laporan transaksi/refund, ringkasan berbasis batch, dan batas rincian PDF
+- [x] Konfigurasi base URL, redirect HTTPS, cookie Secure, header keamanan, dan proxy tepercaya eksplisit
+- [x] Penanda konten demo, penyaringan materi contoh dari publik, dan label progres dashboard
+- [x] Panduan build/deploy, akun owner/kasir, backup, retensi, restore, dan checklist UAT di `docs/DEPLOYMENT-UAT.md`
+- [x] Suite verifikasi lokal pada MySQL terisolasi: 22 tes, 234 assertion
+- [x] Benchmark laporan 100.000 transaksi dan batas ekspor 5.000 detail
+- [ ] Jalankan seluruh AC-01–AC-25 dan catat hasil UAT per role
+- [ ] Screenshot desktop/mobile untuk halaman prioritas
+- [ ] Verifikasi domain, sertifikat, proxy, cookie, dan tautan QR pada deployment HTTPS nyata
+- [ ] Pulihkan backup produksi di lingkungan uji; rekonsiliasi transaksi, jurnal, stok, dan lampiran serta ukur RPO/RTO

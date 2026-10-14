@@ -24,12 +24,42 @@ final class InventoryReceiptApprovalTest extends CIUnitTestCase
             static fn (string $filter): bool => $filter !== 'csrf',
         ));
         $this->database = db_connect();
-        $this->ownerId = (int) $this->database->table('users')->where('username', 'task16owner')->get()->getRow('id');
-        $this->cashierId = (int) $this->database->table('users')->where('username', 'task16cashier')->get()->getRow('id');
-        $this->inventoryItemId = (int) $this->database->table('inventory_items')->where('sku', 'DEMO-TEPUNG')->get()->getRow('id');
-        $this->assertGreaterThan(0, $this->ownerId);
-        $this->assertGreaterThan(0, $this->cashierId);
-        $this->assertGreaterThan(0, $this->inventoryItemId);
+        $now = date('Y-m-d H:i:s');
+        foreach ([['task16owner', 'Owner Task 16', 'owner'], ['task16cashier', 'Kasir Task 16', 'cashier']] as [$username, $name, $role]) {
+            $user = $this->database->table('users')->where('username', $username)->get()->getRowArray();
+            if ($user === null) {
+                $this->database->table('users')->insert([
+                    'name' => $name, 'username' => $username, 'email' => null,
+                    'password_hash' => password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
+                    'role' => $role, 'status' => 'active', 'created_at' => $now, 'updated_at' => $now,
+                ]);
+                $userId = (int) $this->database->insertID();
+            } else {
+                $userId = (int) $user['id'];
+            }
+            if ($role === 'owner') { $this->ownerId = $userId; }
+            else { $this->cashierId = $userId; }
+        }
+
+        $item = $this->database->table('inventory_items')->where('sku', 'DEMO-TEPUNG')->get()->getRowArray();
+        if ($item === null) {
+            $this->database->table('inventory_items')->insert([
+                'name' => 'Tepung verifikasi Task 16', 'sku' => 'DEMO-TEPUNG', 'base_unit' => 'gram',
+                'quantity_on_hand' => '0.000', 'average_cost' => '0.0000', 'inventory_value' => '0.00',
+                'minimum_stock' => '0.000', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            $itemId = (int) $this->database->insertID();
+        } else {
+            $itemId = (int) $item['id'];
+        }
+        $this->inventoryItemId = $itemId;
+        $conversion = $this->database->table('unit_conversions')->where(['inventory_item_id' => $itemId, 'purchase_unit' => 'kg'])->get()->getRowArray();
+        if ($conversion === null) {
+            $this->database->table('unit_conversions')->insert([
+                'inventory_item_id' => $itemId, 'purchase_unit' => 'kg', 'factor_to_base' => '1000.000000',
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
     }
 
     public function testCashierInventoryViewHidesBusinessValuationAndOwnerCanReviewIt(): void

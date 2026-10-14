@@ -16,7 +16,7 @@ class Home extends BaseController
         $now = date('Y-m-d H:i:s');
         $data['banners'] = (new BannerModel())
             ->where('is_active', true)
-            ->whereNotLike('image_path', 'uploads/demo/%')
+            ->where('image_path NOT LIKE', 'uploads/demo/%')
             ->groupStart()->where('starts_at', null)->orWhere('starts_at <=', $now)->groupEnd()
             ->groupStart()->where('ends_at', null)->orWhere('ends_at >', $now)->groupEnd()
             ->orderBy('sort_order')->orderBy('id', 'DESC')->findAll();
@@ -147,7 +147,7 @@ class Home extends BaseController
                 ->join('review_tokens', 'review_tokens.id = product_reviews.review_token_id')
                 ->where('product_reviews.status', 'approved')
                 ->groupStart()->where('review_tokens.disabled_reason', null)->orWhere('review_tokens.disabled_reason !=', 'EVL contoh')->groupEnd()->get()->getRowArray(),
-            'isDemoData' => ($settings['business_profile_is_demo'] ?? '0') === '1',
+            'isDemoData' => ($settings['business_profile_is_demo'] ?? '1') === '1',
             'catalog' => [
                 'business' => $businessName,
                 'whatsapp' => $waNumber,
