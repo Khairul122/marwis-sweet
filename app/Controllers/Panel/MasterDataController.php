@@ -207,7 +207,16 @@ class MasterDataController extends BaseController
         if ($used) {
             return redirect()->route('panel.master')->with('error', 'Bahan sudah punya stok, riwayat, atau dipakai pada resep sehingga tidak dapat dihapus. Nonaktifkan saja.');
         }
-        $database->table('inventory_items')->where('id', $id)->delete();
+        try {
+            $database->transException(true)->transStart();
+            $database->table('unit_conversions')->where('inventory_item_id', $id)->delete();
+            $database->table('opname_suggestions')->where('inventory_item_id', $id)->delete();
+            $database->table('inventory_items')->where('id', $id)->delete();
+            $database->transComplete();
+        } catch (\Throwable) {
+            $database->transRollback();
+            return redirect()->route('panel.master')->with('error', 'Bahan masih digunakan dan belum dapat dihapus. Nonaktifkan saja.');
+        }
 
         return redirect()->route('panel.master')->with('success', 'Bahan berhasil dihapus.');
     }
@@ -222,7 +231,11 @@ class MasterDataController extends BaseController
         if ($database->table('goods_receipts')->where('supplier_id', $id)->countAllResults() > 0) {
             return redirect()->route('panel.master')->with('error', 'Supplier sudah dipakai pada dokumen penerimaan sehingga tidak dapat dihapus. Nonaktifkan saja.');
         }
-        $database->table('suppliers')->where('id', $id)->delete();
+        try {
+            $database->table('suppliers')->where('id', $id)->delete();
+        } catch (\Throwable) {
+            return redirect()->route('panel.master')->with('error', 'Supplier masih digunakan dan belum dapat dihapus. Nonaktifkan saja.');
+        }
 
         return redirect()->route('panel.master')->with('success', 'Supplier berhasil dihapus.');
     }

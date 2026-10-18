@@ -430,7 +430,13 @@ class CatalogController extends BaseController
         if (!$product) {
             return redirect()->route('panel.catalog')->with('error', 'Produk tidak ditemukan.');
         }
-        $images = db_connect()->table('product_images')->select('image_path')->where('product_id', $id)->get()->getResultArray();
+        $database = db_connect();
+        foreach (['sale_items', 'product_reviews'] as $table) {
+            if ($database->table($table)->where('product_id', $id)->countAllResults() > 0) {
+                return redirect()->route('panel.catalog')->with('error', 'Produk sudah punya riwayat transaksi atau ulasan dan tidak dapat dihapus. Sembunyikan dari katalog dengan menonaktifkannya.');
+            }
+        }
+        $images = $database->table('product_images')->select('image_path')->where('product_id', $id)->get()->getResultArray();
         $response = $this->deleteRow('products', $id, 'Produk berhasil dihapus.', 'Produk sudah punya riwayat transaksi atau ulasan dan tidak dapat dihapus. Sembunyikan dari katalog dengan menonaktifkannya.');
         if (session()->has('success')) {
             foreach ($images as $image) { $this->deleteMediaIfUnused($image['image_path']); }

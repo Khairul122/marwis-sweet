@@ -74,12 +74,18 @@ final class StockAdjustmentWorkflowTest extends CIUnitTestCase
                 $entryIds = array_column($entries, 'id');
                 if ($entryIds !== []) {
                     $this->database->table('journal_lines')->whereIn('journal_entry_id', $entryIds)->delete();
-                    $this->database->table('journal_entries')->whereIn('id', $entryIds)->delete();
+                    rsort($entryIds, SORT_NUMERIC);
+                    foreach ($entryIds as $entryId) {
+                        $this->database->table('journal_entries')->where('id', $entryId)->delete();
+                    }
                 }
                 $this->database->table('stock_movements')->groupStart()
                     ->whereIn('source_type', ['stock_adjustment', 'stock_adjustment_reversal'])->whereIn('source_id', $adjustmentIds)->groupEnd()->delete();
                 $this->database->table('stock_adjustment_items')->whereIn('stock_adjustment_id', $adjustmentIds)->delete();
-                $this->database->table('stock_adjustments')->whereIn('id', $adjustmentIds)->delete();
+                rsort($adjustmentIds, SORT_NUMERIC);
+                foreach ($adjustmentIds as $adjustmentId) {
+                    $this->database->table('stock_adjustments')->where('id', $adjustmentId)->delete();
+                }
             }
             $this->database->table('inventory_items')->where('id', $this->itemId)->delete();
             $hasAuditHistory = $this->database->table('audit_events')->whereIn('actor_user_id', [$this->ownerId, $this->cashierId])->countAllResults() > 0;

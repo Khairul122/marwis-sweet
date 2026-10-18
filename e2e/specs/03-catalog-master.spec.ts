@@ -77,8 +77,6 @@ test('CAT-04 FR-03 produk terpakai transaksi tidak dapat dihapus', async ({ owne
   expect(await db.count('sale_items', 'sale_id=?', [sale.id])).toBe(1);
   await owner.goto('/panel/catalog');
   await filterTable(owner, 'Semua data produk', product.name);
-  // FR-03 / BUG-E2E-002: hapus produk menghapus sale_items melalui ON DELETE CASCADE.
-  test.fail(true, 'BUG-E2E-002 CAT-04: produk terjual dan riwayat item dapat dihapus.');
   await submit(owner, idForm(owner, '/panel/catalog/products/delete', 'product_id', product.id));
   expect(await db.count('products', 'id=?', [product.id])).toBe(1);
   expect(await db.count('sale_items', 'sale_id=?', [sale.id])).toBe(1);

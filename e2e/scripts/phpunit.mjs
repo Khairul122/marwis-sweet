@@ -11,9 +11,12 @@ if (JSON.parse(probe.stdout).schema !== 'marwis_sweet_e2e') throw new Error('Res
 const reset = spawnSync(process.env.E2E_PHP ?? 'php', ['spark', 'migrate:refresh', '--all', '-f'], {
   cwd: root, env: environment({ CI_ENVIRONMENT: 'testing' }), encoding: 'utf8', windowsHide: true,
 });
-if (reset.status !== 0 || /\[[^\]\r\n]*(?:Exception|Error)\]|Fatal error:|Unable to connect/.test(reset.stdout + reset.stderr)) throw new Error('Reset schema PHPUnit gagal.');
+if (reset.status !== 0 || /\[[^\]\r\n]*(?:Exception|Error)\]|Fatal error:|Unable to connect/.test(reset.stdout + reset.stderr)) {
+  process.stderr.write(reset.stdout + reset.stderr);
+  throw new Error('Reset schema PHPUnit gagal.');
+}
 const log = createWriteStream(resolve(root, 'writable/e2e/phpunit.log'));
-const child = spawn(process.env.E2E_PHP ?? 'php', [process.env.E2E_COMPOSER_PHAR ?? 'C:/ProgramData/ComposerSetup/bin/composer.phar', 'test', '--', '--no-coverage'], {
+const child = spawn(process.env.E2E_PHP ?? 'php', [process.env.E2E_COMPOSER_PHAR ?? 'C:/ProgramData/ComposerSetup/bin/composer.phar', 'test', '--', '--no-coverage', ...process.argv.slice(2)], {
   cwd: root, env: environment({ CI_ENVIRONMENT: 'testing' }), windowsHide: true,
 });
 child.stdout.on('data', (chunk) => { process.stdout.write(chunk); log.write(chunk); });
