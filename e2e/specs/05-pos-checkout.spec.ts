@@ -150,7 +150,13 @@ test('POS-08 FR-06 pembatalan keranjang held tidak mengubah stok atau jurnal', a
   await formAt(cashier, `/panel/pos/orders/${held.id}/cancel`).getByRole('button', { name: 'Batalkan', exact: true }).click();
   await expect(cashier.locator('[data-confirm-dialog][open]').getByRole('button', { name: 'Batal', exact: true })).toBeFocused();
   await cashier.screenshot({ path: 'writable/e2e/bug004-dialog.png' });
-  await cashier.locator('[data-confirm-dialog][open]').getByRole('button', { name: 'Lanjutkan' }).click();
+  await cashier.keyboard.press('Escape');
+  await expect(cashier.locator('[data-confirm-dialog]')).not.toBeVisible();
+  expect((await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('held');
+  await formAt(cashier, `/panel/pos/orders/${held.id}/cancel`).getByRole('button', { name: 'Batalkan', exact: true }).click();
+  await cashier.keyboard.press('Tab');
+  await expect(cashier.locator('[data-confirm-accept]')).toBeFocused();
+  await cashier.keyboard.press('Enter');
   await expect.poll(async () => (await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('cancelled');
   await flash(cashier, /Pesanan dibatalkan/);
   expect(await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)))).toEqual(before);
@@ -239,4 +245,31 @@ test('POS-11 FR-06 struk HTML dan PDF memuat transaksi serta tautan ulasan', asy
   expect((await db.one('SELECT total FROM sales WHERE id=?', [sale.id])).total).toBe(25000);
 });
 
-test.skip('POS-12 AC-09 rollback saat jurnal gagal dibuktikan melalui PHPUnit', async () => {});
+test('POS-12 AC-09 periode tertutup menggagalkan jurnal dan rollback seluruh finalisasi', async ({ ownerPage: owner, cashierPage: cashier, db }) => {
+  const { item, product } = await stockedProduct(owner, db, { direct: true, quantity: 5 });
+  await openShift(cashier, db);
+  await cart(cashier, product.variant_id);
+  const key = await cashier.locator('input[name="idempotency_key"]').inputValue();
+  const month = (await db.one("SELECT DATE_FORMAT(CURDATE(),'%Y-%m') month")).month;
+  await owner.goto('/panel/accounting');
+  const close = formAt(owner, '/panel/accounting/periods/close');
+  await close.getByLabel('Bulan', { exact: true }).fill(month);
+  await close.getByLabel('Alasan', { exact: true }).fill('Uji rollback POS ketika jurnal ditolak periode tertutup');
+  await save(owner, '/panel/accounting/periods/close', /ditutup/);
+  const period = await db.one('SELECT id FROM accounting_periods WHERE period_start=?', [`${month}-01`]);
+  try {
+    const tables = ['sales', 'sale_items', 'payments', 'stock_movements', 'journal_entries', 'journal_lines'];
+    const before = await Promise.all(tables.map((table) => db.count(table)));
+    const stock = await db.one('SELECT * FROM inventory_items WHERE id=?', [item.id]);
+    await submit(cashier, cashier.locator('[data-pos-checkout]'), 'Bayar sekarang');
+    await flash(cashier, /Periode akuntansi.*sudah ditutup/i);
+    expect(await Promise.all(tables.map((table) => db.count(table)))).toEqual(before);
+    expect(await db.one('SELECT * FROM inventory_items WHERE id=?', [item.id])).toEqual(stock);
+    expect(await db.count('sales', 'idempotency_key=?', [key])).toBe(0);
+  } finally {
+    await owner.goto('/panel/accounting');
+    const reopen = formAt(owner, `/panel/accounting/periods/${period.id}/reopen`);
+    await reopen.getByLabel('Alasan pembukaan').fill('Selesai memverifikasi rollback transaksi POS');
+    await save(owner, `/panel/accounting/periods/${period.id}/reopen`, /dibuka/);
+  }
+});

@@ -19,5 +19,6 @@ export function observe(page: Page, info: TestInfo, name: string) {
       await info.attach(`${name}-failure`, { path: screenshot, contentType: 'image/png' });
     }
     expect(errors, `JavaScript runtime ${name}`).toEqual([]);
+    expect(responses.filter((response) => response.status >= 500), `HTTP 5xx ${name}`).toEqual([]);
   };
 }

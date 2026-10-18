@@ -8,6 +8,7 @@ import { createCashier, stockedProduct, openShift, cart, save } from '../helpers
 import { login } from '../helpers/auth';
 import { dismissFlash, flash, submit } from '../helpers/flash';
 import { postWithCsrf } from '../helpers/http';
+import { observe } from '../helpers/runtime';
 
 test.afterAll(async () => { const db = new Database(); try { await db.assertJournalsBalanced(); } finally { await db.close(); } });
 
@@ -20,11 +21,13 @@ test('CON-01 AC-08 dua kasir memperebutkan satu stok lewat dua proses PHP', asyn
     cwd: root, env: environment({ 'app.baseURL': 'http://localhost:8082/' }), stdio: ['ignore', log, log], windowsHide: true,
   });
   const context = await browser.newContext({ baseURL: 'http://localhost:8082/', viewport: { width: 1440, height: 1000 } });
+  let verifySecond: (() => Promise<void>) | undefined;
   try {
     await expect.poll(async () => {
       try { return (await context.request.get('/login', { timeout: 1000 })).status(); } catch { return 0; }
     }, { timeout: 10_000 }).toBe(200);
     const second = await context.newPage();
+    verifySecond = observe(second, info, 'cashier-second');
     await login(second, account.username, account.password);
     await expect(second).toHaveURL('http://localhost:8082/panel');
     await dismissFlash(second);
@@ -43,7 +46,10 @@ test('CON-01 AC-08 dua kasir memperebutkan satu stok lewat dua proses PHP', asyn
     expect((await db.one('SELECT quantity_on_hand FROM inventory_items WHERE id=?', [item.id])).quantity_on_hand).toBe(0);
     expect(await db.count('sale_items', 'product_variant_id=?', [product.variant_id])).toBe(1);
     await info.attach('concurrency.json', { body: JSON.stringify({ origins: ['localhost:8081', 'localhost:8082'], secondPhpPid: server.pid, successfulTransactions: 1 }), contentType: 'application/json' });
-  } finally { await context.close(); server.kill(); }
+  } finally {
+    try { await verifySecond?.(); }
+    finally { await context.close(); server.kill(); }
+  }
 });
 
 test('CON-02 FR-06 kasir tidak dapat membuka shift kedua', async ({ cashierPage: cashier, db }) => {

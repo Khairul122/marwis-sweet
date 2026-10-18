@@ -9,7 +9,9 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 8_000 },
   globalSetup: './e2e/global-setup.ts',
-  reporter: [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results/results.json' }]],
+  globalTeardown: './e2e/global-teardown.ts',
+  reporter: [['list'], ['html', { open: 'never', outputFolder: process.env.E2E_EVALUATION === '1' ? 'writable/e2e/evaluation-report' : 'playwright-report' }],
+    ['json', { outputFile: process.env.E2E_EVALUATION === '1' ? 'writable/e2e/evaluation-results.json' : 'test-results/results.json' }]],
   use: {
     baseURL, browserName: 'chromium', viewport: { width: 1440, height: 1000 },
     trace: 'retain-on-failure', screenshot: 'only-on-failure',

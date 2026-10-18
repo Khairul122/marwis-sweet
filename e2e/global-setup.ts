@@ -22,7 +22,9 @@ export default async function setup() {
     }
   }
   const commands = [['migrate:refresh', '--all', '-f'], ['db:seed', 'DevelopmentSeeder']];
-  if (process.env.E2E_EVALUATION === '1') commands.push(['db:seed', 'EvaluationDataSeeder']);
+  if (process.env.E2E_EVALUATION === '1') {
+    commands.push(['db:seed', 'EvaluationDataSeeder'], ['db:seed', 'Tests\\Support\\Database\\Seeds\\EvaluationRefundSeeder']);
+  }
   for (const args of commands) {
     const result = spawnSync(process.env.E2E_PHP ?? 'php', ['spark', ...args], {
       cwd: root, env: environment({ CI_ENVIRONMENT: 'testing' }), encoding: 'utf8', windowsHide: true,
