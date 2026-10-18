@@ -1,12 +1,12 @@
 {
-  "startedAt": "2026-10-18T13:54:57.485Z",
-  "durationMs": 693279.2849999999,
+  "startedAt": "2026-10-18T18:42:23.927Z",
+  "durationMs": 673378.618,
   "schema": "marwis_sweet_e2e",
-  "total": 96,
-  "passed": 88,
-  "knownFailures": 5,
+  "total": 110,
+  "passed": 108,
+  "knownFailures": 0,
   "unexpected": 0,
-  "skipped": 3,
+  "skipped": 2,
   "evaluation": {
     "tests": [
       {
@@ -14,71 +14,40 @@
         "status": "Lulus"
       }
     ],
-    "transactions": "158",
-    "pages": 6,
+    "transactions": "148",
+    "refunds": 51,
+    "refundPagination": true,
+    "pages": 7,
     "repeatedHeaders": true,
     "pageNumbers": true
   },
   "state": {
-    "capturedAt": "2026-10-18T14:08:02.525Z",
+    "capturedAt": "2026-10-18T18:53:36.769Z",
     "unbalancedJournals": 0,
-    "inventoryValue": 2678680,
-    "inventoryLedger": 305680,
-    "difference": 2373000,
-    "auditEventTypes": [
-      "account.cashier.created",
-      "account.cashier.password_reset",
-      "account.cashier.status_changed",
-      "accounting.journal.manual_posted",
-      "accounting.journal.opening_balance_posted",
-      "accounting.period.closed",
-      "accounting.period.reopened",
-      "catalog.variant.updated",
-      "expense.approved",
-      "expense.created",
-      "expense.paid",
-      "expense.submitted",
-      "inventory.adjustment.approved",
-      "inventory.adjustment.created",
-      "inventory.adjustment.line_saved",
-      "inventory.adjustment.posted",
-      "inventory.adjustment.reversed",
-      "inventory.adjustment.submitted",
-      "inventory.opname.approved",
-      "inventory.opname.cancelled",
-      "inventory.opname.counts_saved",
-      "inventory.opname.rejected",
-      "inventory.opname.submitted",
-      "inventory.receipt.approved",
-      "inventory.receipt.created",
-      "inventory.receipt.line_saved",
-      "inventory.receipt.posted",
-      "inventory.receipt.rejected",
-      "inventory.receipt.submitted",
-      "recipe.item.saved",
-      "refund.posted",
-      "refund.rejected",
-      "review.approved",
-      "review.hidden"
-    ]
+    "inventoryValue": 2710680,
+    "inventoryLedger": 2710680,
+    "difference": 0,
+    "auditEventTypes": 34,
+    "reversedForeignKeys": 0
   },
   "runtime": {
-    "runtimeRecords": 161,
+    "runtimeRecords": 190,
     "errors": 0,
-    "consoleMessages": 2
+    "consoleMessages": 2,
+    "responses": [
+      {
+        "test": "PUB-03 FR-02 produk nonaktif hilang dari beranda, detail, dan POS",
+        "status": 404,
+        "path": "/menu/e2e-1792349025624-88061a-produk"
+      },
+      {
+        "test": "SEC-02 PRD-10 bukti pengeluaran kasir lain tidak dapat dibuka",
+        "status": 404,
+        "path": "/panel/expenses/3/evidence"
+      }
+    ]
   },
-  "verification": {
-    "tests": 8,
-    "passed": 3,
-    "knownFailures": 5,
-    "unexpected": 0,
-    "htmlAccessChecks": "AUTH-07/AUTH-08",
-    "mobileJournalCheck": "MOB-02",
-    "traceDirectory": "writable/e2e/verification-tests",
-    "pdfVisualPages": 6,
-    "textOutsidePdfPage": 0
-  },
-  "phpunit": "OK (22 tests, 234 assertions)",
+  "phpunit": "OK (40 tests, 491 assertions)",
   "acceptanceCriteria": [
     {
       "id": "AC-01",
@@ -94,9 +63,9 @@
     },
     {
       "id": "AC-03",
-      "spec": "03 CAT-03",
+      "spec": "03 CAT-03/04; ForeignKeyDeleteRulesTest",
       "status": "Lulus",
-      "notes": "Harga, resep, dan HPP transaksi lama tetap. CAT-04 menemukan bug penghapusan terpisah."
+      "notes": "Snapshot harga/resep/HPP tetap; penghapusan produk terjual ditolak controller dan FK."
     },
     {
       "id": "AC-04",
@@ -107,8 +76,8 @@
     {
       "id": "AC-05",
       "spec": "05 POS-02; 12 RPT-01/05",
-      "status": "Gagal",
-      "notes": "Satu penjualan dan dua alokasi benar; label dikonfirmasi manual tidak tersedia (BUG-E2E-003)."
+      "status": "Lulus",
+      "notes": "Satu penjualan dan dua alokasi benar; label konfirmasi manual dan referensi ada pada HTML/PDF/laporan."
     },
     {
       "id": "AC-06",
@@ -130,9 +99,9 @@
     },
     {
       "id": "AC-09",
-      "spec": "05 POS-12; PHPUnit",
-      "status": "Belum diuji",
-      "notes": "Fault injection kegagalan jurnal saat finalize tidak tersedia lewat UI. Suite PHPUnit yang ada tidak secara khusus membuktikan kasus ini."
+      "spec": "05 POS-12; SaleServiceRollbackTest",
+      "status": "Lulus",
+      "notes": "Periode berjalan ditutup melalui UI; jurnal ditolak dan seluruh penjualan, pembayaran, mutasi, jurnal, serta stok rollback. PHPUnit menguji transaksi top-level yang sama."
     },
     {
       "id": "AC-10",
@@ -222,7 +191,7 @@
       "id": "AC-24",
       "spec": "12 RPT-03; RPT-04/06 evaluasi terpisah",
       "status": "Lulus",
-      "notes": "Periode kosong valid; 158 transaksi menghasilkan 6 halaman, header berulang dan nomor halaman."
+      "notes": "Periode kosong valid; 148 transaksi, 51 refund, 7 halaman PDF. Pagination transaksi/refund menjaga total; header dan nomor halaman berulang."
     },
     {
       "id": "AC-25",
@@ -234,33 +203,51 @@
   "bugs": [
     {
       "id": "BUG-E2E-001",
-      "scenario": "AUTH-12 / FR-01",
+      "scenario": "AUTH-12..16 / FR-01",
       "priority": "P1",
-      "actual": "Login dari /panel/reports selalu menuju /panel; tujuan awal hilang."
+      "status": "Diperbaiki",
+      "commit": "8e3546a",
+      "actual": "Tujuan lokal dan query dipulihkan; tujuan eksternal ditolak dan role tetap diperiksa."
     },
     {
       "id": "BUG-E2E-002",
       "scenario": "CAT-04 / FR-03",
       "priority": "Kritis",
-      "actual": "Produk yang telah terjual dapat dihapus. ON DELETE CASCADE menghapus sale_items sementara baris sales tetap ada."
+      "status": "Diperbaiki",
+      "commit": "0c04d14",
+      "actual": "55 FK diperbaiki dan produk dengan riwayat ditolak saat dihapus; backup dibuat sebelum migration lokal."
     },
     {
       "id": "BUG-E2E-003",
       "scenario": "POS-02 / AC-05",
-      "priority": "P0 pada plan",
-      "actual": "Pembayaran gabungan benar secara nominal, tetapi UI tidak menampilkan label dikonfirmasi manual."
+      "priority": "P0 pada plan E2E",
+      "status": "Diperbaiki",
+      "commit": "43b5d4d",
+      "actual": "Label metode, konfirmasi manual, dan referensi konsisten pada struk serta laporan."
     },
     {
       "id": "BUG-E2E-004",
       "scenario": "POS-08 / FR-06",
       "priority": "P1",
-      "actual": "Konfirmasi native pembatalan pesanan held diterima, tetapi POST tidak terkirim dan status tetap held."
+      "status": "Diperbaiki",
+      "commit": "9ce90de",
+      "actual": "Dialog POS dan fallback native mengirim pembatalan; penolakan konfirmasi mempertahankan pesanan."
     },
     {
       "id": "BUG-E2E-005",
       "scenario": "ACC-06 / FR-08",
-      "priority": "Data awal",
-      "actual": "DevelopmentSeeder mengisi persediaan demo Rp2.373.000 tanpa jurnal saldo awal; rekonsiliasi total tidak cocok meskipun semua jurnal posted seimbang."
+      "priority": "P2 data demo",
+      "status": "Diperbaiki",
+      "commit": "f3521bc",
+      "actual": "Bahan demo baru memiliki saldo awal dan jurnal modal; rerun mempertahankan stok terpakai dan legacy."
+    },
+    {
+      "id": "BUG-E2E-006",
+      "scenario": "Setup evaluasi / GAP-04",
+      "priority": "P2 seeder evaluasi",
+      "status": "Diperbaiki",
+      "commit": "1254083",
+      "actual": "EvaluationDataSeeder menyertakan ID owner ketika menolak pengeluaran; setup evaluasi tidak lagi ArgumentCountError."
     }
   ],
   "tests": [
@@ -271,7 +258,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3427
+      "duration": 3415
     },
     {
       "title": "AUTH-02 FR-01 kasir memiliki navigasi sesuai role",
@@ -280,7 +267,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 1243
+      "duration": 1253
     },
     {
       "title": "AUTH-06 AC-01 tamu ditolak pada panel, POS, dan PDF",
@@ -289,7 +276,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 1348
+      "duration": 1172
     },
     {
       "title": "AUTH-03 FR-01 password salah tidak mengungkap keberadaan akun",
@@ -298,7 +285,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 1802
+      "duration": 1820
     },
     {
       "title": "AUTH-04 FR-01 percobaan keenam dibatasi meskipun password benar",
@@ -307,7 +294,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5198
+      "duration": 4429
     },
     {
       "title": "AUTH-05 FR-01 logout, Back, dan akses ulang panel",
@@ -316,7 +303,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2306
+      "duration": 2160
     },
     {
       "title": "AUTH-07 AC-02 seluruh grup owner menolak URL langsung kasir",
@@ -325,7 +312,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5658
+      "duration": 5414
     },
     {
       "title": "AUTH-08 AC-02 POST dengan CSRF sah tetap ditolak untuk role kasir",
@@ -334,7 +321,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3955
+      "duration": 3368
     },
     {
       "title": "AUTH-09 AC-02 PDF kasir tanpa HPP, laba, atau buku besar",
@@ -343,7 +330,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2209
+      "duration": 7873
     },
     {
       "title": "AUTH-10 FR-01 POS dan shift khusus kasir menolak owner",
@@ -352,7 +339,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2256
+      "duration": 2010
     },
     {
       "title": "AUTH-11 FR-01 akun dinonaktifkan mengakhiri sesi kasir aktif",
@@ -361,16 +348,61 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4857
+      "duration": 4454
     },
     {
       "title": "AUTH-12 FR-01 login mengembalikan tamu ke laporan yang dituju",
       "file": "01-auth-access.spec.ts",
       "project": "chromium",
-      "status": "failed",
-      "expected": "failed",
+      "status": "passed",
+      "expected": "passed",
       "outcome": "expected",
-      "duration": 9074
+      "duration": 1183
+    },
+    {
+      "title": "AUTH-13 login langsung menuju dashboard",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1068
+    },
+    {
+      "title": "AUTH-14 tujuan eksternal https://evil.invalid tidak menjadi redirect login",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1421
+    },
+    {
+      "title": "AUTH-14 tujuan eksternal //evil.invalid tidak menjadi redirect login",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1317
+    },
+    {
+      "title": "AUTH-15 query tujuan dipertahankan setelah login",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1174
+    },
+    {
+      "title": "AUTH-16 tujuan owner tetap menolak kasir setelah login",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1501
     },
     {
       "title": "PUB-01/05 FR-02 informasi publik dan harga tanpa stok angka atau biaya internal",
@@ -379,7 +411,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2460
+      "duration": 2477
     },
     {
       "title": "PUB-02 FR-02 detail memuat foto, varian, harga, dan status ulasan",
@@ -388,7 +420,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4654
+      "duration": 4387
     },
     {
       "title": "PUB-03 FR-02 produk nonaktif hilang dari beranda, detail, dan POS",
@@ -397,7 +429,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 9635
+      "duration": 7408
     },
     {
       "title": "PUB-04 FR-02 pencarian dan kategori menyaring katalog",
@@ -406,7 +438,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6364
+      "duration": 6047
     },
     {
       "title": "PUB-06 FR-02 simpan identitas menonaktifkan penanda demo",
@@ -415,7 +447,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4657
+      "duration": 3994
     },
     {
       "title": "CAT-01 FR-03 owner membuat kategori, produk, resep, varian, dan topping",
@@ -424,7 +456,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 11077
+      "duration": 9865
     },
     {
       "title": "CAT-05 FR-03 maksimum lima foto produk pada UI",
@@ -433,7 +465,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8251
+      "duration": 7663
     },
     {
       "title": "CAT-02 FR-03 konversi satu kilogram menjadi 1000 gram",
@@ -442,7 +474,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3109
+      "duration": 3013
     },
     {
       "title": "CAT-03 AC-03 harga dan HPP lama tetap setelah perubahan harga dan resep",
@@ -451,16 +483,16 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 16599
+      "duration": 14417
     },
     {
       "title": "CAT-04 FR-03 produk terpakai transaksi tidak dapat dihapus",
       "file": "03-catalog-master.spec.ts",
       "project": "chromium",
-      "status": "failed",
-      "expected": "failed",
+      "status": "passed",
+      "expected": "passed",
       "outcome": "expected",
-      "duration": 6665
+      "duration": 5883
     },
     {
       "title": "INV-01/02 AC-15 penerimaan 1 kg Rp12000 menambah persediaan tanpa beban",
@@ -469,7 +501,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8441
+      "duration": 7404
     },
     {
       "title": "INV-06 FR-04 kartu stok memuat jenis, waktu, jumlah, dan referensi mutasi",
@@ -478,7 +510,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 9130
+      "duration": 8380
     },
     {
       "title": "INV-07 FR-04 penyesuaian stok negatif ditolak sebelum persetujuan",
@@ -487,7 +519,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 12807
+      "duration": 11282
     },
     {
       "title": "INV-03 FR-04 kasir mengajukan penerimaan, owner approve, kasir posting",
@@ -496,7 +528,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8113
+      "duration": 7243
     },
     {
       "title": "INV-04 FR-04 penerimaan ditolak tidak menambah stok",
@@ -505,7 +537,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7388
+      "duration": 6410
     },
     {
       "title": "INV-05 FR-04 penyesuaian disetujui dan pembalik mempertahankan mutasi asal",
@@ -514,7 +546,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 14951
+      "duration": 12912
     },
     {
       "title": "POS-01 AC-04 diskon Rp5000, tunai Rp50000, kembalian Rp5000",
@@ -523,16 +555,16 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5867
+      "duration": 5003
     },
     {
       "title": "POS-02 AC-05 tunai Rp20000 dan QRIS Rp25000 dihitung satu transaksi",
       "file": "05-pos-checkout.spec.ts",
       "project": "chromium",
-      "status": "failed",
-      "expected": "failed",
+      "status": "passed",
+      "expected": "passed",
       "outcome": "expected",
-      "duration": 14519
+      "duration": 6065
     },
     {
       "title": "POS-03 AC-06 dua porsi memakai 200 gram dan jurnal HPP sekali",
@@ -541,7 +573,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 12944
+      "duration": 11349
     },
     {
       "title": "POS-04 AC-07 klik bayar dua kali dan replay kunci idempotensi tidak menggandakan",
@@ -550,7 +582,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5540
+      "duration": 4875
     },
     {
       "title": "POS-05 AC-11 opname mengunci stok saat keranjang dibayar",
@@ -559,7 +591,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 14981
+      "duration": 13376
     },
     {
       "title": "POS-06 FR-06 diskon di atas batas memerlukan kredensial owner",
@@ -568,7 +600,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5874
+      "duration": 4818
     },
     {
       "title": "POS-07 FR-06 keranjang ditahan, dilanjutkan, lalu dibayar",
@@ -577,16 +609,25 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6774
+      "duration": 5804
     },
     {
       "title": "POS-08 FR-06 pembatalan keranjang held tidak mengubah stok atau jurnal",
       "file": "05-pos-checkout.spec.ts",
       "project": "chromium",
-      "status": "failed",
-      "expected": "failed",
+      "status": "passed",
+      "expected": "passed",
       "outcome": "expected",
-      "duration": 14292
+      "duration": 5659
+    },
+    {
+      "title": "POS-08 fallback konfirmasi native menolak lalu menerima pembatalan held",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5357
     },
     {
       "title": "POS-10 FR-06 pembayaran kurang ditolak",
@@ -595,7 +636,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5669
+      "duration": 4569
     },
     {
       "title": "POS-09 FR-06 topping, catatan tanpa kacang, dan meja tercetak pada struk",
@@ -604,7 +645,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 15532
+      "duration": 13389
     },
     {
       "title": "POS-11 FR-06 struk HTML dan PDF memuat transaksi serta tautan ulasan",
@@ -613,16 +654,16 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5994
+      "duration": 4967
     },
     {
-      "title": "POS-12 AC-09 rollback saat jurnal gagal dibuktikan melalui PHPUnit",
+      "title": "POS-12 AC-09 periode tertutup menggagalkan jurnal dan rollback seluruh finalisasi",
       "file": "05-pos-checkout.spec.ts",
       "project": "chromium",
-      "status": "skipped",
-      "expected": "skipped",
-      "outcome": "skipped",
-      "duration": 0
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 13123
     },
     {
       "title": "CON-01 AC-08 dua kasir memperebutkan satu stok lewat dua proses PHP",
@@ -631,7 +672,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 17590
+      "duration": 14186
     },
     {
       "title": "CON-02 FR-06 kasir tidak dapat membuka shift kedua",
@@ -640,7 +681,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2245
+      "duration": 1805
     },
     {
       "title": "REF-01/05 AC-12 refund penuh produk resep membalik uang tanpa mengembalikan tepung",
@@ -649,7 +690,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 15207
+      "duration": 13262
     },
     {
       "title": "REF-02 AC-13 barang layak jual kembali dengan biaya transaksi asal",
@@ -658,7 +699,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 14422
+      "duration": 12206
     },
     {
       "title": "REF-03 AC-12 refund kumulatif melebihi pembelian ditolak di form",
@@ -667,7 +708,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 14243
+      "duration": 12731
     },
     {
       "title": "REF-04/06 FR-11 refund ditolak tanpa jurnal, kemudian refund sebagian",
@@ -676,7 +717,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 17736
+      "duration": 15309
     },
     {
       "title": "OPN-01/06 AC-10 stok 10 fisik 8 diposting sekali dan tidak dapat diedit",
@@ -685,7 +726,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 15394
+      "duration": 12783
     },
     {
       "title": "OPN-04 FR-05 bukti opname privat untuk owner dan ditolak bagi tamu",
@@ -694,7 +735,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7554
+      "duration": 6499
     },
     {
       "title": "OPN-02 FR-05 owner meminta koreksi dan kasir mengajukan ulang",
@@ -703,7 +744,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 17760
+      "duration": 14850
     },
     {
       "title": "OPN-03 FR-05 pembatalan membuka kunci dan POS dapat menjual lagi",
@@ -712,7 +753,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 15201
+      "duration": 12357
     },
     {
       "title": "EXP-01/02 AC-14 approval tidak membukukan, pembayaran membukukan sekali",
@@ -721,7 +762,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6423
+      "duration": 5548
     },
     {
       "title": "EXP-04 FR-07 bukti pengeluaran lebih dari 5 MB ditolak",
@@ -730,7 +771,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3692
+      "duration": 3138
     },
     {
       "title": "EXP-03 FR-07 pembayaran dari laci mencatat shift aktif",
@@ -739,7 +780,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6543
+      "duration": 5731
     },
     {
       "title": "EXP-04 FR-07 nominal nol ditolak form",
@@ -748,7 +789,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 1781
+      "duration": 1583
     },
     {
       "title": "ACC-01 FR-08 jurnal manual menolak akun debit dan kredit yang sama",
@@ -757,7 +798,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4083
+      "duration": 2539
     },
     {
       "title": "ACC-02 FR-08 jurnal seimbang dengan alasan dan audit",
@@ -766,7 +807,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4188
+      "duration": 2419
     },
     {
       "title": "ACC-03/04 AC-22 periode tertutup menolak posting dan dapat dibuka dengan alasan",
@@ -775,7 +816,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8217
+      "duration": 5336
     },
     {
       "title": "ACC-05 FR-08 saldo awal selalu seimbang",
@@ -784,16 +825,16 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3973
+      "duration": 2433
     },
     {
       "title": "ACC-06 FR-08 rekonsiliasi seluruh jurnal dan nilai akun persediaan",
       "file": "10-accounting.spec.ts",
       "project": "chromium",
-      "status": "failed",
-      "expected": "failed",
+      "status": "passed",
+      "expected": "passed",
       "outcome": "expected",
-      "duration": 2418
+      "duration": 1416
     },
     {
       "title": "SHF-01/02/03/04 AC-23 modal, transaksi, kas keluar, tutup shift, dan review owner",
@@ -802,7 +843,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 10732
+      "duration": 8020
     },
     {
       "title": "SHF-03 AC-23 penolakan review shift tidak membuat jurnal selisih",
@@ -811,7 +852,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6265
+      "duration": 5098
     },
     {
       "title": "RPT-01/05 AC-16 total panel dan PDF harian, bulanan, tahunan serta filter pembayaran gabungan",
@@ -820,7 +861,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 10713
+      "duration": 9203
     },
     {
       "title": "RPT-02 AC-17 refund hari ini dari penjualan bulan lalu muncul beserta transaksi asal",
@@ -829,7 +870,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 9715
+      "duration": 9875
     },
     {
       "title": "RPT-03 AC-24 periode kosong menampilkan total nol dan PDF valid",
@@ -847,7 +888,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 9202
+      "duration": 10111
     },
     {
       "title": "RPT-04/06 AC-24 PDF multi-halaman dan pagination dengan EvaluationDataSeeder",
@@ -856,7 +897,7 @@
       "status": "skipped",
       "expected": "skipped",
       "outcome": "skipped",
-      "duration": 1248
+      "duration": 1282
     },
     {
       "title": "REV-01/02/08 AC-18 ulasan tamu pending, disetujui, lalu disembunyikan",
@@ -865,7 +906,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 12105
+      "duration": 10973
     },
     {
       "title": "REV-03 AC-19 pengiriman ulang untuk item sama ditolak",
@@ -874,7 +915,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7774
+      "duration": 6967
     },
     {
       "title": "REV-04 AC-19 token kedaluwarsa tidak membuka data transaksi",
@@ -883,7 +924,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6196
+      "duration": 5358
     },
     {
       "title": "REV-05 AC-19 foto tidak sah ditolak kasus 1",
@@ -892,7 +933,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7681
+      "duration": 6072
     },
     {
       "title": "REV-05 AC-19 foto tidak sah ditolak kasus 2",
@@ -901,7 +942,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7300
+      "duration": 6127
     },
     {
       "title": "REV-05 AC-19 foto tidak sah ditolak kasus 3",
@@ -910,7 +951,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8602
+      "duration": 7503
     },
     {
       "title": "REV-06 FR-11 komentar pendek ditolak, rating hanya 1 sampai 5",
@@ -919,7 +960,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6895
+      "duration": 5889
     },
     {
       "title": "REV-07 FR-11 token acak tidak membocorkan transaksi",
@@ -928,7 +969,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 410
+      "duration": 373
     },
     {
       "title": "BAN-01 FR-10 banner aktif tampil dengan alt text",
@@ -937,7 +978,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3905
+      "duration": 3076
     },
     {
       "title": "BAN-02 AC-20 banner nonaktif, lewat jadwal, dan belum waktunya tidak tampil",
@@ -946,7 +987,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8000
+      "duration": 6162
     },
     {
       "title": "BAN-03 FR-10 tautan javascript ditolak",
@@ -955,7 +996,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2356
+      "duration": 2108
     },
     {
       "title": "BAN-05 FR-10 carousel dapat dioperasikan dengan keyboard",
@@ -964,7 +1005,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 5702
+      "duration": 4289
     },
     {
       "title": "BAN-04 FR-10 hero tetap tersedia ketika seluruh banner dinonaktifkan",
@@ -973,7 +1014,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 8685
+      "duration": 7329
     },
     {
       "title": "USR-01 FR-01 owner membuat kasir, mereset password, dan menonaktifkan",
@@ -982,7 +1023,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7300
+      "duration": 6163
     },
     {
       "title": "USR-02 FR-01 username dan email duplikat ditolak",
@@ -991,7 +1032,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2706
+      "duration": 2546
     },
     {
       "title": "AUD-01 FR-08 audit tampil dan tidak menyimpan password atau token mentah",
@@ -1000,7 +1041,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2878
+      "duration": 2341
     },
     {
       "title": "SEC-01 PRD-10 POST tanpa CSRF ditolak tanpa perubahan data",
@@ -1009,7 +1050,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 1811
+      "duration": 1544
     },
     {
       "title": "SEC-02 PRD-10 bukti pengeluaran kasir lain tidak dapat dibuka",
@@ -1018,7 +1059,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 7048
+      "duration": 5985
     },
     {
       "title": "SEC-03 PRD-10 upload product tidak sah ditolak kasus 1",
@@ -1027,7 +1068,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3728
+      "duration": 3164
     },
     {
       "title": "SEC-03 PRD-10 upload product tidak sah ditolak kasus 2",
@@ -1036,7 +1077,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3527
+      "duration": 3219
     },
     {
       "title": "SEC-03 PRD-10 upload product tidak sah ditolak kasus 3",
@@ -1045,7 +1086,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4879
+      "duration": 4684
     },
     {
       "title": "SEC-03 PRD-10 upload banner tidak sah ditolak kasus 1",
@@ -1054,7 +1095,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2349
+      "duration": 2084
     },
     {
       "title": "SEC-03 PRD-10 upload banner tidak sah ditolak kasus 2",
@@ -1063,7 +1104,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 2289
+      "duration": 2113
     },
     {
       "title": "SEC-03 PRD-10 upload banner tidak sah ditolak kasus 3",
@@ -1072,7 +1113,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3356
+      "duration": 3273
     },
     {
       "title": "SEC-04 PRD-10 nama berkas gambar disimpan acak",
@@ -1081,7 +1122,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 3764
+      "duration": 3236
     },
     {
       "title": "SEC-05 PRD-10 nama produk berisi script di-escape pada halaman publik",
@@ -1090,7 +1131,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 4269
+      "duration": 2987
     },
     {
       "title": "SEC-06 PRD-10 header keamanan tersedia",
@@ -1099,7 +1140,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 400
+      "duration": 369
     },
     {
       "title": "SEC-07 AC-21 HTTPS perlu domain dan sertifikat staging",
@@ -1111,13 +1152,85 @@
       "duration": 0
     },
     {
+      "title": "SRV-01 GAP-03 server menolak refund melebihi sisa unit setelah refund pertama",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 11916
+    },
+    {
+      "title": "SRV-02 GAP-03 server menolak pengeluaran nominal nol meskipun batas HTML dilewati",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1808
+    },
+    {
+      "title": "SRV-03 GAP-03 server menolak komentar 9 karakter",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5627
+    },
+    {
+      "title": "SRV-04 GAP-03 server menolak komentar 1001 karakter",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5491
+    },
+    {
+      "title": "SRV-05 GAP-03 server menolak rating 0",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5645
+    },
+    {
+      "title": "SRV-06 GAP-03 server menolak rating 6",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5871
+    },
+    {
+      "title": "SRV-07 GAP-03 server menolak unggahan foto produk keenam",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7842
+    },
+    {
+      "title": "SRV-08 GAP-03 server menolak empat foto pada satu ulasan",
+      "file": "18-server-validation.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5740
+    },
+    {
       "title": "MOB-01 FR-02 @mobile publik, detail, dan form ulasan tanpa scroll horizontal pada 390px",
       "file": "17-mobile.spec.ts",
       "project": "mobile",
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 10861
+      "duration": 8458
     },
     {
       "title": "MOB-02 FR-06 @mobile kasir menambah produk dan membayar pada 390px",
@@ -1126,7 +1239,7 @@
       "status": "passed",
       "expected": "passed",
       "outcome": "expected",
-      "duration": 6234
+      "duration": 4599
     }
   ]
 }

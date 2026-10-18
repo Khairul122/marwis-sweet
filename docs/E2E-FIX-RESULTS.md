@@ -2,6 +2,8 @@
 
 Mengikuti [E2E-FIX-PLAN.md](E2E-FIX-PLAN.md), dimulai 19 Oktober 2026 dari BUG-E2E-002.
 
+Hasil akhir: **108 E2E lulus, nol gagal, dua skip**, evaluasi PDF terpisah lulus, dan **40 PHPUnit/491 assertion lulus**. Lima bug awal serta bug seeder evaluasi tambahan diperbaiki pada branch `fix/e2e-regressions`. [Laporan lengkap dan status 25 AC](E2E-TEST-RESULTS.md).
+
 ## BUG-E2E-002
 
 - Backup lokal: `writable/backup-before-fk-fix.sql`, 654.432 byte, SHA-256 `fd7f6e7519b481445e958d131dd6a69d1739b33cf7355e834f97cf11eb9efe5d`.
@@ -46,3 +48,58 @@ Tiga tes regresi semula gagal dan kini lulus (94 assertion): posting awal, pengu
 Run evaluasi pertama berhenti dengan `ArgumentCountError` karena `EvaluationDataSeeder` memanggil `ExpenseService::reject()` dengan dua argumen, sedangkan service membutuhkan ID owner sebagai argumen ketiga. Pemanggilan diperbarui mengikuti pola approve/pay seeder yang sama. Ini temuan pada fixture evaluasi, bukan kelolosan payload GAP-03.
 
 Setelah perbaikan, setup evaluasi lengkap dan RPT-04/06 lulus, termasuk dua halaman refund. Tidak ada perbaikan tambahan pada service pengeluaran. Hasil tersimpan di `writable/e2e/evaluation-results.json`.
+
+## Celah cakupan
+
+- GAP-01: POS-12 lulus melalui UI dengan periode berjalan tertutup. Enam tabel finansial dan snapshot stok tetap; key idempotensi tidak tersimpan. Periode dibuka kembali dalam finally. SaleServiceRollbackTest lulus dengan transaksi top-level.
+- GAP-02: AccountingServiceValidationTest lulus untuk jurnal tidak seimbang, debit+kredit bersamaan, serta baris nol. Empat tes PHPUnit GAP-01/02 lulus, 43 assertion.
+- GAP-03: delapan tes request langsung lulus dengan cookie/CSRF sah, pesan domain, serta pemeriksaan 13 tabel. Batas refund, nominal, komentar, rating, dan foto ditolak server. Locator form ulasan dipersempit setelah percobaan awal ikut mencocokkan toolbar development; ini kesalahan tes yang dikoreksi, bukan bug aplikasi baru.
+- GAP-04: fixture khusus schema E2E membuat 51 refund melalui RefundService. RPT-04/06 lulus: halaman pertama berisi 50 refund, halaman kedua satu refund, total tidak berubah. Data evaluasi menghasilkan 148 transaksi dan tujuh halaman PDF. Sebanyak 24 transaksi contoh yang membutuhkan otorisasi diskon owner dilewati oleh EvaluationDataSeeder; jumlah aktual yang dipakai assertion tetap berasal dari database.
+- Seluruh tujuh halaman PDF dirender dan diperiksa secara visual: tabel transaksi/refund, header berulang, nominal, dan nomor halaman utuh. Pemeriksaan bounding box tidak menemukan teks di luar halaman. Artefak `writable/e2e/pdf-review/fix-page-1.png` sampai `fix-page-7.png` dan `writable/e2e/pdf-visual-review.json`.
+- GAP-05 bersifat opsional dan belum ditambahkan: urutan foto, usulan opname, kategori pengeluaran nonaktif, konsistensi dashboard, fixture EXIF GPS, dan audit tap target menyeluruh.
+- GAP-06 tetap dilakukan manual di staging sesuai plan: AC-21 HTTPS dan AC-25 restore/RPO/RTO.
+
+PHPUnit penuh setelah seluruh perubahan: **40 tes, 491 assertion, lulus**, melalui runner yang memanggil `composer test -- --no-coverage` hanya pada schema E2E.
+
+## Perbaikan runner setelah audit lampiran
+
+Run penuh pertama setelah semua perbaikan menghasilkan 108 lulus/dua skip, tetapi lampiran runtime mencatat satu HTTP 500 pada CON-01. Log pukul 01:30:45 WIB menunjukkan race `History::setFiles()` framework: dua proses PHP menghapus file debugbar yang sama, lalu `unlink()` pada proses kedua gagal. Ini request toolbar development, bukan request checkout; satu transaksi dan saldo stok yang benar tetap dibuktikan oleh tes. Bukti run tersebut disimpan terpisah di `writable/e2e/full-with-toolbar-results.json`.
+
+Bootstrap server HTTP E2E kini menetapkan `CI_DEBUG=false`; mode development untuk sesi dan filter CSRF dipertahankan. Source aplikasi maupun framework tidak diubah untuk kasus toolbar. Runtime observer juga menolak seluruh HTTP 5xx dan mengamati browser kasir kedua. Suite penuh diulang dengan profil ini agar hasil akhir membuktikan transaksi sekaligus runtime tanpa 5xx.
+
+## Verifikasi akhir
+
+- Run utama terakhir: 110 tes, 108 lulus, dua skip, nol expected failure, nol kegagalan tak terduga, tanpa retry; 673,4 detik. Dua skip adalah evaluasi PDF yang dijalankan terpisah dan HTTPS staging.
+- Lampiran 190 sesi halaman: nol JavaScript error dan nol HTTP 5xx. Dua respons 404 yang tersisa memang berasal dari pengujian produk nonaktif dan bukti pengeluaran kasir lain; keduanya juga menghasilkan pesan console resource gagal yang diharapkan.
+- Evaluasi diulang dengan profil runner yang sama: satu lulus, 44,5 detik; 148 transaksi, 51 refund, tujuh halaman PDF. Semua halaman hasil terakhir kembali dirender dan diperiksa secara visual.
+- Snapshot utama: nol jurnal tidak seimbang, nilai persediaan dan buku besar sama-sama Rp2.710.680, nol FK terbalik, 34 jenis audit event. Snapshot tersimpan sebelum reset evaluasi, sehingga tetap mewakili run utama.
+- TypeScript, lint PHP yang diubah, pemeriksaan sintaks reporter, dan whitespace diff lulus. PHPUnit tetap dijalankan dengan konfigurasi CLI testing yang terisolasi; perubahan CI_DEBUG hanya berlaku pada server HTTP E2E.
+- Pemeriksaan lokal setelah suite mencocokkan seluruh 41 tabel dan 78 FK dengan snapshot setelah migration: tidak ada perubahan. Bukti `writable/e2e/local-post-suite-verification.json`. Dibanding backup awal, hanya satu baris catatan migration yang bertambah; 40 tabel data tetap utuh.
+- Status acceptance criteria: 23 lulus; AC-21 dan AC-25 masih manual staging. GAP-05 opsional tetap tercatat sebagai belum dicakup.
+
+## Pemeriksaan antislop pada perubahan UI
+
+Cakupan pemeriksaan ini adalah dialog konfirmasi POS dan label pembayaran. Acuan `DESIGN.md` dibaca sebelum perubahan: POS memakai ENERGY 2 / RHYTHM 3 / MOTION 1; panel memakai 1 / 2 / 1. Audit UI seluruh produk pada GAP-05 tidak diklaim selesai.
+
+| Butir | Hasil | Bukti |
+| --- | --- | --- |
+| R-02, teks | PASS | Teks baru dalam Bahasa Indonesia; label metode singkat dan tidak memakai em dash. |
+| R-03, responsif | PASS | Struk 390 px diperiksa secara visual dan dengan scrollWidth; nominal/referensi utuh tanpa overflow horizontal. |
+| R-17, angka | PASS | Nominal, jumlah transaksi, dan referensi berasal dari transaksi fixture yang benar-benar diposting. |
+| R-18, testimoni | PASS | Tidak ada testimoni atau profil orang baru pada UI. |
+| R-23, aset | PASS | Tidak membuat aset visual produk; dialog memakai komponen panel yang ada. |
+| R-24, navigasi | PASS | Tombol Batal/Lanjutkan dan link struk/PDF memakai tujuan aplikasi yang diuji. |
+| R-25, teks/warna | PASS | Pemeriksa kontras: cocoa/putih 16,44:1, muted/putih 7,64:1, cocoa/kuning 10,74:1. Palet tidak diubah. |
+| R-26, tindakan | PASS | Konfirmasi HTML serta native, tolak/terima, dan POST pembatalan dibuktikan dengan status database. |
+| R-27, keadaan | PASS | Penolakan pembayaran, jurnal, dan validasi form tetap menampilkan pesan; konfirmasi batal mempertahankan pesanan. |
+| R-28, FAQ | PASS | Tidak menambahkan FAQ atau konten pengisi. |
+| R-32, keyboard | PASS | POS-08 memeriksa fokus awal Batal, Escape, Tab ke Lanjutkan, lalu Enter untuk submit. |
+| R-33, implementasi | PASS | Perbaikan ditulis langsung di source view dan JS aplikasi; tidak ada script yang menulis ulang source saat runtime. |
+| R-34, tema | PASS | Komponen memakai palet yang sudah ditetapkan; tidak menambah tema atau toggle. |
+| R-35, bukti runtime | PASS | Spec autentikasi/POS dijalankan di Chromium; struk HTML/mobile/PDF dan dialog diperiksa. |
+| R-36, klaim | PASS | Tidak menambah klaim pemasaran, keamanan, atau performa. |
+| R-37, arah | PASS | Mempertahankan Warung Poster dan komponen yang ada dalam DESIGN.md. |
+| R-38, data | PASS | Data demo tetap berlabel demo; perubahan UI hanya menampilkan keadaan transaksi yang ada. |
+| Purpose-Gate | PASS | Tidak menambah gradient, ikon, grid, ilustrasi, atau animasi; dialog dipakai untuk konfirmasi tindakan dan label untuk kejelasan pembayaran. |
+| Liveliness | PASS | Hierarki struk, angka utama, warna kuning tindakan, dan pemisah struk dipertahankan sesuai dials produk. |
+| C-1..C-5 dan konsistensi | PASS | Perubahan menyelesaikan tindakan konkret, memakai komponen yang sama, diuji pada berhasil/gagal, dan didukung bukti runtime serta snapshot database. |

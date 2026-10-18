@@ -1,6 +1,6 @@
 # Menjalankan E2E Marwis Sweet
 
-Suite mengikuti [E2E-TEST-PLAN.md](../docs/E2E-TEST-PLAN.md). Semua perubahan aplikasi dilakukan melalui form asli dengan CSRF aktif. Query assertion hanya membaca `marwis_sweet_e2e`; pengecualian fixture dibatasi pada `sales.paid_at` dan `review_tokens.expires_at`.
+Suite mengikuti [E2E-TEST-PLAN.md](../docs/E2E-TEST-PLAN.md). Fixture operasional dibuat melalui form asli dengan CSRF aktif. GAP-03 mengirim request langsung dengan cookie dan CSRF sah untuk melewati batas HTML dan membuktikan penolakan server. Query assertion hanya membaca `marwis_sweet_e2e`; pengecualian fixture tanggal dibatasi pada `sales.paid_at` dan `review_tokens.expires_at`.
 
 ## Persiapan dan perintah
 
@@ -27,6 +27,8 @@ Router E2E juga menyediakan fixture POST `/__e2e/login-intended` untuk menguji p
 
 Server menggunakan `CI_ENVIRONMENT=development`. Dalam mode `testing`, `Session::startSession()` CodeIgniter mengosongkan sesi setiap request sehingga login browser tidak bertahan. Migrasi/seeder CLI dan PHPUnit memakai `testing`; bootstrap menetapkan `SUPPORTPATH` agar namespace migrasi pendukung PHPUnit ikut dikenali. Reset diperiksa sebelum seeder: tabel penjualan, user, dan jurnal harus kosong.
 
+Hanya pada PHP HTTP server E2E, bootstrap menetapkan `CI_DEBUG=false` untuk menonaktifkan toolbar development. Dua proses PHP sebelumnya berebut menghapus file history toolbar dan menimbulkan HTTP 500 pada request toolbar. Aplikasi, CSRF, dan sesi tetap diuji; konfigurasi server aplikasi biasa tidak diubah. Runtime observer menggagalkan tes bila ada JavaScript error atau HTTP 5xx, termasuk pada kasir kedua di tes concurrency.
+
 Environment bertitik tidak terisi otomatis ke `$_ENV` pada instalasi PHP Windows yang diuji. Bootstrap E2E menerapkan override dari environment proses sebelum CodeIgniter membaca `.env`. Server memakai router pengujian dan rewrite bawaan framework; menjalankan `spark serve` langsung tidak mempertahankan seluruh override ke proses anak pada instalasi ini.
 
 Cache throttle dan sesi disimpan di `writable/e2e/`. Snapshot login dibuat di `e2e/.auth/`; fixture browser membuat login baru per tes agar logout dan regenerasi CSRF tidak menginvalidasi sesi tes lain. Selector konten dibatasi ke area aplikasi untuk menghindari elemen toolbar development.
@@ -47,7 +49,7 @@ npx playwright test e2e/specs/12-reports-pdf.spec.ts --project=chromium --grep R
 Remove-Item Env:\E2E_EVALUATION
 ```
 
-Run ini mereset schema E2E, lalu menambahkan `EvaluationDataSeeder`. Simpan hasil sebelum menjalankan suite lain bila memerlukan bukti dari beberapa run.
+Run ini mereset schema E2E, lalu menambahkan `EvaluationDataSeeder` dan fixture khusus E2E `EvaluationRefundSeeder`. Sebanyak 51 refund dibuat melalui `RefundService` untuk menguji halaman kedua refund tanpa mengubah seeder aplikasi. Hasil evaluasi disimpan terpisah di `writable/e2e/evaluation-results.json` dan `writable/e2e/evaluation-report/`, sehingga hasil run utama tetap tersimpan.
 
 ## PHPUnit dan bukti
 
@@ -59,9 +61,11 @@ Runner tersebut memeriksa target, mereset schema E2E tanpa seeder, lalu menjalan
 
 Hasil HTML ada di `playwright-report/`, JSON di `test-results/results.json`, dan log PHP di `writable/e2e/server.log`. Lampiran mencakup error JavaScript, console warning/error, respons HTTP gagal, screenshot, dan trace kegagalan. Respons 403/404 yang sengaja diuji tetap dicatat sebagai bukti skenario negatif. File auth, artefak runtime, dan upload produk/banner diabaikan Git.
 
-`test.fail()` mempertahankan assertion yang diharapkan dari aplikasi. Playwright menganggap kegagalan tersebut sebagai hasil yang diharapkan, tetapi laporan bisnis tetap menyebutnya **Gagal**. Tes yang tiba-tiba berhasil dengan penanda ini membuat run gagal agar penanda bug ditinjau ulang.
+Global teardown menyimpan snapshot invariant setelah setiap run: jurnal seimbang, nilai persediaan cocok dengan buku besar, dan tidak ada FK terbalik. Snapshot utama ada di `writable/e2e/full-run-state.json`; evaluasi menggunakan `writable/e2e/evaluation-state.json`. Ketidaksesuaian membuat run gagal.
 
-Untuk menyimpan trace temuan yang sudah ditandai, gunakan `--trace on`. Contoh pengulangan terpisah yang mempertahankan artefak run utama:
+`test.fail()` hanya dipakai bila ada bug baru yang telah direproduksi. Lima penanda BUG-E2E-001 sampai 005 sudah dihapus setelah perbaikan. Playwright menganggap kegagalan bertanda ini sebagai hasil yang diharapkan, tetapi laporan bisnis tetap menyebutnya **Gagal**. Tes yang tiba-tiba berhasil dengan penanda ini membuat run gagal agar penanda ditinjau ulang.
+
+Untuk merekam trace regresi perbaikan, gunakan `--trace on`. Contoh pengulangan terpisah yang mempertahankan artefak run utama:
 
 ```text
 npm run test:e2e -- --grep "AUTH-12|CAT-04|POS-02|POS-08|ACC-06" --trace on --output writable/e2e/verification-tests --reporter=list
