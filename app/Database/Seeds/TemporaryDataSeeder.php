@@ -2,6 +2,7 @@
 
 namespace App\Database\Seeds;
 
+use App\Services\AccountingService;
 use App\Services\Money;
 use CodeIgniter\Database\Seeder;
 use LogicException;
@@ -35,15 +36,17 @@ class TemporaryDataSeeder extends Seeder
         ];
         $ingredientIds = [];
         foreach ($ingredients as $sku => [$name, $unit, $quantity, $cost, $minimum]) {
+            $existing = $this->db->table('inventory_items')->where('sku', $sku)->get()->getRowArray();
             $ingredientIds[$sku] = $this->upsert('inventory_items', ['sku' => $sku], [
                 'name' => $name,
                 'base_unit' => $unit,
-                'quantity_on_hand' => $quantity,
-                'average_cost' => $cost,
-                'inventory_value' => Money::decimal(Money::centsForQuantity($quantity * 1000, $cost * 10000)),
                 'minimum_stock' => $minimum,
                 'is_active' => true,
             ]);
+            // Existing demo stock may have been used or need a reviewed legacy reconciliation.
+            if ($existing === null) {
+                $this->postOpeningStock($ingredientIds[$sku], $quantity, $cost);
+            }
         }
 
         foreach ([
@@ -134,6 +137,32 @@ class TemporaryDataSeeder extends Seeder
         }
 
         $this->db->transComplete();
+    }
+
+    private function postOpeningStock(int $itemId, int $quantity, int $cost): void
+    {
+        $ownerId = $this->db->table('users')->where('role', 'owner')->where('status', 'active')->orderBy('id')->get()->getRow('id');
+        if (!$ownerId) {
+            throw new LogicException('Akun owner aktif diperlukan untuk saldo awal demo.');
+        }
+        $now = date('Y-m-d H:i:s');
+        $value = Money::decimal(Money::centsForQuantity($quantity * 1000, $cost * 10000));
+        $this->db->table('inventory_items')->where('id', $itemId)->update([
+            'quantity_on_hand' => Money::quantity($quantity * 1000),
+            'average_cost' => Money::unitCost($cost * 10000),
+            'inventory_value' => $value,
+            'updated_at' => $now,
+        ]);
+        $this->db->table('stock_movements')->insert([
+            'inventory_item_id' => $itemId, 'quantity' => Money::quantity($quantity * 1000),
+            'unit_cost' => Money::unitCost($cost * 10000), 'total_cost' => $value,
+            'movement_type' => 'opening', 'source_type' => 'development_opening', 'source_id' => $itemId,
+            'notes' => 'Saldo awal persediaan demo', 'posted_at' => $now, 'created_by' => (int) $ownerId, 'created_at' => $now,
+        ]);
+        (new AccountingService($this->db))->post('development_opening', $itemId, date('Y-m-d'), 'Saldo awal persediaan demo', [
+            ['account_key' => 'inventory', 'debit' => $value, 'credit' => 0],
+            ['account_key' => 'owner_capital', 'debit' => 0, 'credit' => $value],
+        ], (int) $ownerId);
     }
 
     private function seedSettings(): void

@@ -59,7 +59,5 @@ test('ACC-06 FR-08 rekonsiliasi seluruh jurnal dan nilai akun persediaan', async
   await expect(owner.locator('#ringkasan')).toContainText('Seimbang');
   await db.assertJournalsBalanced();
   const stock = await db.one('SELECT COALESCE(SUM(inventory_value),0) value FROM inventory_items');
-  // FR-08 / BUG-E2E-005: stok demo bernilai Rp2.373.000 tanpa jurnal saldo awal.
-  test.fail(true, 'BUG-E2E-005 ACC-06: saldo persediaan dari DevelopmentSeeder belum dijurnal.');
   expect(await accountBalance(db, 'inventory')).toBe(stock.value);
 });

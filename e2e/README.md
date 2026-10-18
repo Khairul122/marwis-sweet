@@ -31,6 +31,12 @@ Environment bertitik tidak terisi otomatis ke `$_ENV` pada instalasi PHP Windows
 
 Cache throttle dan sesi disimpan di `writable/e2e/`. Snapshot login dibuat di `e2e/.auth/`; fixture browser membuat login baru per tes agar logout dan regenerasi CSRF tidak menginvalidasi sesi tes lain. Selector konten dibatasi ke area aplikasi untuk menghindari elemen toolbar development.
 
+## Saldo awal data demo
+
+`DevelopmentSeeder` memberi enam bahan baru mutasi `opening` dan jurnal Debit Persediaan / Kredit Modal pemilik melalui `AccountingService`. Pengulangan seeder mempertahankan stok, biaya, dan nilai bahan yang sudah ada, tanpa menggandakan saldo awal. Stok legacy tanpa jurnal tidak dikoreksi otomatis.
+
+Untuk database development yang memang boleh dikosongkan, buat backup lebih dulu, lalu jalankan `php spark migrate:refresh --all` dan `php spark db:seed DevelopmentSeeder`. Perintah tersebut menghapus data, sehingga jangan dipakai untuk memperbaiki data operasional. Untuk database berisi riwayat, lakukan rekonsiliasi dan penyesuaian yang ditinjau owner melalui UI. Seluruh reset otomatis suite ini tetap hanya menargetkan `marwis_sweet_e2e`.
+
 ## PDF evaluasi terpisah
 
 `RPT-04/06` dilewati pada run biasa. Jalankan fixture besar secara terpisah di PowerShell:

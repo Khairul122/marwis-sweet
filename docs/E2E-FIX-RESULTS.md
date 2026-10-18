@@ -34,3 +34,9 @@ Helper `payment_method_label()` menyamakan label Tunai, QRIS, Transfer bank, Kar
 POS-02 lulus dengan assertion lama serta pemeriksaan tambahan pada HTML, PDF, dan nomor referensi. Struk desktop, mobile 390 px, serta PDF satu halaman dirender dan diperiksa secara visual; label, referensi, dan nominal utuh. Tidak ada overflow horizontal pada mobile. Artefak di `writable/e2e/bug003-*`.
 
 Seluruh spec POS lulus: 12 tes lulus, satu skip POS-12 yang dilengkapi pada GAP-01, tanpa expected failure yang tersisa di spec ini.
+
+## BUG-E2E-005
+
+Enam bahan demo baru dimulai dari saldo nol lalu mendapatkan mutasi `opening` dan jurnal Debit Persediaan / Kredit Modal pemilik melalui `AccountingService`, total Rp2.373.000. Bahan yang sudah ada dilewati untuk pengisian saldo, sehingga stok terpakai serta data legacy tidak direset atau dikoreksi otomatis.
+
+Tiga tes regresi semula gagal dan kini lulus (94 assertion): posting awal, pengulangan setelah stok/biaya berubah, serta perlindungan stok legacy. Lima tes spec akuntansi lulus, termasuk ACC-06 dengan selisih persediaan Rp0. Lima penanda bug awal telah dihapus tanpa mengubah assertion aslinya. Petunjuk reset database development dan penyesuaian data lama ada di README E2E; seeder tidak dijalankan pada database lokal berisi riwayat.
