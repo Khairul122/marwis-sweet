@@ -127,3 +127,9 @@ _modules/*
 
 # cadangan database lokal (berisi hash password)
 writable/backups/
+
+/e2e/.auth/
+/test-results/
+/playwright-report/
+/writable/e2e/
+/public/uploads/e2e/

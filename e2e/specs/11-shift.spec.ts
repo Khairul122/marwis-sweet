@@ -1,0 +1,42 @@
+import { test, expect } from '../fixtures';
+import { Database } from '../helpers/db';
+import { createCashier, createProduct, openShift, cart, pay, save, formAt } from '../helpers/data';
+import { login } from '../helpers/auth';
+import { dismissFlash } from '../helpers/flash';
+
+test.afterAll(async () => { const db = new Database(); try { await db.assertJournalsBalanced(); } finally { await db.close(); } });
+
+test('SHF-01/02/03/04 AC-23 modal, transaksi, kas keluar, tutup shift, dan review owner', async ({ ownerPage: owner, guestPage: cashier, db }) => {
+  const account = await createCashier(owner, db);
+  const product = await createProduct(owner, db, { stockMode: 'none', price: 45000 });
+  await login(cashier, account.username, account.password);
+  await dismissFlash(cashier);
+  await openShift(cashier, db, 200000);
+  await cart(cashier, product.variant_id, { cash: 45000 });
+  await pay(cashier, db);
+  await cashier.goto('/panel/shifts');
+  const movement = formAt(cashier, '/panel/shifts/cash-movements');
+  await movement.getByLabel('Jenis', { exact: true }).selectOption('out');
+  await movement.getByLabel('Nominal', { exact: true }).fill('10000');
+  await movement.getByLabel('Alasan', { exact: true }).fill('Kas keluar untuk pengujian shift');
+  await save(cashier, '/panel/shifts/cash-movements', /berhasil|dicatat|tersimpan/i);
+  const close = formAt(cashier, '/panel/shifts/close');
+  await close.getByLabel('Kas fisik', { exact: true }).fill('230000');
+  await close.getByLabel(/^Alasan selisih/).fill('Selisih hitung kas pengujian');
+  await save(cashier, '/panel/shifts/close', /ditutup|berhasil/i);
+  const shift = await db.one('SELECT * FROM shifts WHERE cashier_id=?', [account.id]);
+  expect(shift.expected_cash).toBe(235000);
+  expect(shift.cash_difference).toBe(-5000);
+  expect(shift.difference_reason).toBe('Selisih hitung kas pengujian');
+  expect(shift.cash_review_status).toBe('pending');
+  const before = await db.count('journal_entries');
+  await owner.goto('/panel/shift-reviews');
+  const approval = formAt(owner, `/panel/shift-reviews/${shift.id}/approve`);
+  await approval.getByLabel('Catatan persetujuan', { exact: true }).fill('Hitung ulang sesuai bukti');
+  await save(owner, `/panel/shift-reviews/${shift.id}/approve`, /disetujui|diposting|berhasil/i);
+  expect((await db.one('SELECT cash_review_status FROM shifts WHERE id=?', [shift.id])).cash_review_status).toBe('approved');
+  expect(await db.count('journal_entries')).toBe(before + 1);
+  await cashier.goto('/panel/pos');
+  await expect(cashier.getByRole('heading', { name: 'Buka shift untuk memulai penjualan.' })).toBeVisible();
+  expect(await db.count('shifts', "cashier_id=? AND status='open'", [account.id])).toBe(0);
+});

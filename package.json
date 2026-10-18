@@ -2,11 +2,18 @@
   "name": "marwis-sweet-assets",
   "private": true,
   "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:types": "tsc --noEmit -p e2e/tsconfig.json",
     "build:css": "tailwindcss -i ./resources/css/app.css -o ./public/assets/css/app.css --minify",
     "watch:css": "tailwindcss -i ./resources/css/app.css -o ./public/assets/css/app.css --watch"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/cli": "^4.1.14",
-    "tailwindcss": "^4.1.14"
+    "@types/node": "^26.6.5",
+    "mysql2": "^3.24.6",
+    "pdf-parse": "^2.4.5",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^7.0.2"
   }
 }
