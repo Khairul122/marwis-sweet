@@ -1,0 +1,661 @@
+{
+  "width": 1920,
+  "height": 881,
+  "source": "http://localhost:8080",
+  "pages": [
+    {
+      "role": "public",
+      "path": "/",
+      "title": "Martabak\n                            Manis & Telur",
+      "url": "http://localhost:8080/",
+      "files": [
+        "001-public-beranda-01.png",
+        "001-public-beranda-02.png",
+        "001-public-beranda-03.png",
+        "001-public-beranda-04.png",
+        "001-public-beranda-05.png",
+        "001-public-beranda-06.png",
+        "001-public-beranda-07.png",
+        "001-public-beranda-08.png",
+        "001-public-beranda-09.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/login",
+      "title": "Masuk | Marwis Sweet",
+      "url": "http://localhost:8080/login",
+      "files": [
+        "002-public-login-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel",
+      "title": "Dashboard | Marwis Sweet",
+      "url": "http://localhost:8080/panel",
+      "files": [
+        "003-owner-panel-01.png",
+        "003-owner-panel-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/catalog",
+      "title": "Produk dan kategori | Marwis Sweet",
+      "url": "http://localhost:8080/panel/catalog",
+      "files": [
+        "004-owner-panel-catalog-01.png",
+        "004-owner-panel-catalog-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/master",
+      "title": "Bahan, resep, dan supplier | Marwis Sweet",
+      "url": "http://localhost:8080/panel/master",
+      "files": [
+        "005-owner-panel-master-01.png",
+        "005-owner-panel-master-02.png",
+        "005-owner-panel-master-03.png",
+        "005-owner-panel-master-04.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/settings",
+      "title": "Identitas usaha dan banner | Marwis Sweet",
+      "url": "http://localhost:8080/panel/settings",
+      "files": [
+        "006-owner-panel-settings-01.png",
+        "006-owner-panel-settings-02.png",
+        "006-owner-panel-settings-03.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/users",
+      "title": "Akun kasir | Marwis Sweet",
+      "url": "http://localhost:8080/panel/users",
+      "files": [
+        "007-owner-panel-users-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/reviews",
+      "title": "Moderasi ulasan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/reviews",
+      "files": [
+        "008-owner-panel-reviews-01.png",
+        "008-owner-panel-reviews-02.png",
+        "008-owner-panel-reviews-03.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/inventory",
+      "title": "Penerimaan dan kartu stok | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory",
+      "files": [
+        "009-owner-panel-inventory-01.png",
+        "009-owner-panel-inventory-02.png",
+        "009-owner-panel-inventory-03.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/inventory/adjustments",
+      "title": "Penyesuaian stok | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory/adjustments",
+      "files": [
+        "010-owner-panel-inventory-adjustments-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/inventory/adjustments/new",
+      "title": "Buat penyesuaian stok | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory/adjustments/new",
+      "files": [
+        "011-owner-panel-inventory-adjustments-new-01.png",
+        "011-owner-panel-inventory-adjustments-new-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/inventory/receipts/new",
+      "title": "Buat draft penerimaan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory/receipts/new",
+      "files": [
+        "012-owner-panel-inventory-receipts-new-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/opnames",
+      "title": "Stok opname | Marwis Sweet",
+      "url": "http://localhost:8080/panel/opnames",
+      "files": [
+        "013-owner-panel-opnames-01.png",
+        "013-owner-panel-opnames-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/expenses",
+      "title": "Pengeluaran | Marwis Sweet",
+      "url": "http://localhost:8080/panel/expenses",
+      "files": [
+        "014-owner-panel-expenses-01.png",
+        "014-owner-panel-expenses-02.png",
+        "014-owner-panel-expenses-03.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/shift-reviews",
+      "title": "Review selisih shift | Marwis Sweet",
+      "url": "http://localhost:8080/panel/shift-reviews",
+      "files": [
+        "015-owner-panel-shift-reviews-01.png",
+        "015-owner-panel-shift-reviews-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/transactions",
+      "title": "Transaksi | Marwis Sweet",
+      "url": "http://localhost:8080/panel/transactions",
+      "files": [
+        "016-owner-panel-transactions-01.png",
+        "016-owner-panel-transactions-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/reports",
+      "title": "Laporan penjualan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/reports",
+      "files": [
+        "017-owner-panel-reports-01.png",
+        "017-owner-panel-reports-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/accounting",
+      "title": "Pembukuan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/accounting",
+      "files": [
+        "018-owner-panel-accounting-01.png",
+        "018-owner-panel-accounting-02.png",
+        "018-owner-panel-accounting-03.png",
+        "018-owner-panel-accounting-04.png",
+        "018-owner-panel-accounting-05.png",
+        "018-owner-panel-accounting-06.png",
+        "018-owner-panel-accounting-07.png",
+        "018-owner-panel-accounting-08.png",
+        "018-owner-panel-accounting-09.png",
+        "018-owner-panel-accounting-10.png",
+        "018-owner-panel-accounting-11.png",
+        "018-owner-panel-accounting-12.png",
+        "018-owner-panel-accounting-13.png",
+        "018-owner-panel-accounting-14.png",
+        "018-owner-panel-accounting-15.png",
+        "018-owner-panel-accounting-16.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/audit",
+      "title": "Riwayat perubahan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/audit",
+      "files": [
+        "019-owner-panel-audit-01.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel",
+      "title": "Dashboard | Marwis Sweet",
+      "url": "http://localhost:8080/panel",
+      "files": [
+        "020-cashier-panel-01.png",
+        "020-cashier-panel-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/shifts",
+      "title": "Shift kasir | Marwis Sweet",
+      "url": "http://localhost:8080/panel/shifts",
+      "files": [
+        "021-cashier-panel-shifts-01.png",
+        "021-cashier-panel-shifts-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/pos",
+      "title": "POS | Marwis Sweet",
+      "url": "http://localhost:8080/panel/pos",
+      "files": [
+        "022-cashier-panel-pos-01.png",
+        "022-cashier-panel-pos-02.png",
+        "022-cashier-panel-pos-03.png",
+        "022-cashier-panel-pos-04.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/transactions",
+      "title": "Transaksi | Marwis Sweet",
+      "url": "http://localhost:8080/panel/transactions",
+      "files": [
+        "023-cashier-panel-transactions-01.png",
+        "023-cashier-panel-transactions-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/inventory",
+      "title": "Penerimaan dan kartu stok | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory",
+      "files": [
+        "024-cashier-panel-inventory-01.png",
+        "024-cashier-panel-inventory-02.png",
+        "024-cashier-panel-inventory-03.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/opnames",
+      "title": "Stok opname | Marwis Sweet",
+      "url": "http://localhost:8080/panel/opnames",
+      "files": [
+        "025-cashier-panel-opnames-01.png",
+        "025-cashier-panel-opnames-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/expenses",
+      "title": "Pengeluaran | Marwis Sweet",
+      "url": "http://localhost:8080/panel/expenses",
+      "files": [
+        "026-cashier-panel-expenses-01.png",
+        "026-cashier-panel-expenses-02.png",
+        "026-cashier-panel-expenses-03.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/reports",
+      "title": "Laporan penjualan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/reports",
+      "files": [
+        "027-cashier-panel-reports-01.png",
+        "027-cashier-panel-reports-02.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/demo-martabak-manis-cokelat-keju",
+      "title": "Martabak Cokelat Keju | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/demo-martabak-manis-cokelat-keju",
+      "files": [
+        "028-public-menu-demo-martabak-manis-cokelat-keju-01.png",
+        "028-public-menu-demo-martabak-manis-cokelat-keju-02.png",
+        "028-public-menu-demo-martabak-manis-cokelat-keju-03.png",
+        "028-public-menu-demo-martabak-manis-cokelat-keju-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/evl-manis-kacang-wijen",
+      "title": "Martabak Kacang Wijen | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/evl-manis-kacang-wijen",
+      "files": [
+        "029-public-menu-evl-manis-kacang-wijen-01.png",
+        "029-public-menu-evl-manis-kacang-wijen-02.png",
+        "029-public-menu-evl-manis-kacang-wijen-03.png",
+        "029-public-menu-evl-manis-kacang-wijen-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/demo-martabak-manis-original",
+      "title": "Martabak Manis Original | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/demo-martabak-manis-original",
+      "files": [
+        "030-public-menu-demo-martabak-manis-original-01.png",
+        "030-public-menu-demo-martabak-manis-original-02.png",
+        "030-public-menu-demo-martabak-manis-original-03.png",
+        "030-public-menu-demo-martabak-manis-original-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/evl-manis-susu-cokelat",
+      "title": "Martabak Susu Cokelat | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/evl-manis-susu-cokelat",
+      "files": [
+        "031-public-menu-evl-manis-susu-cokelat-01.png",
+        "031-public-menu-evl-manis-susu-cokelat-02.png",
+        "031-public-menu-evl-manis-susu-cokelat-03.png",
+        "031-public-menu-evl-manis-susu-cokelat-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/evl-mini-cokelat",
+      "title": "Mini Martabak Cokelat | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/evl-mini-cokelat",
+      "files": [
+        "032-public-menu-evl-mini-cokelat-01.png",
+        "032-public-menu-evl-mini-cokelat-02.png",
+        "032-public-menu-evl-mini-cokelat-03.png",
+        "032-public-menu-evl-mini-cokelat-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/evl-air-mineral",
+      "title": "Air Mineral 600 ml | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/evl-air-mineral",
+      "files": [
+        "033-public-menu-evl-air-mineral-01.png",
+        "033-public-menu-evl-air-mineral-02.png",
+        "033-public-menu-evl-air-mineral-03.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/evl-telur-daging",
+      "title": "Martabak Telur Daging | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/evl-telur-daging",
+      "files": [
+        "034-public-menu-evl-telur-daging-01.png",
+        "034-public-menu-evl-telur-daging-02.png",
+        "034-public-menu-evl-telur-daging-03.png",
+        "034-public-menu-evl-telur-daging-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/demo-martabak-telur-spesial",
+      "title": "Martabak Telur Spesial | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/demo-martabak-telur-spesial",
+      "files": [
+        "035-public-menu-demo-martabak-telur-spesial-01.png",
+        "035-public-menu-demo-martabak-telur-spesial-02.png",
+        "035-public-menu-demo-martabak-telur-spesial-03.png",
+        "035-public-menu-demo-martabak-telur-spesial-04.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/menu/evl-mini-keju",
+      "title": "Mini Martabak Keju | Marwis Sweet Demo",
+      "url": "http://localhost:8080/menu/evl-mini-keju",
+      "files": [
+        "036-public-menu-evl-mini-keju-01.png",
+        "036-public-menu-evl-mini-keju-02.png",
+        "036-public-menu-evl-mini-keju-03.png",
+        "036-public-menu-evl-mini-keju-04.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/product/create",
+      "title": "Tambah produk | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/product/create",
+      "files": [
+        "037-owner-panel-data-product-create-01.png",
+        "037-owner-panel-data-product-create-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/product/9/edit",
+      "title": "Edit produk | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/product/9/edit",
+      "files": [
+        "038-owner-panel-data-product-9-edit-01.png",
+        "038-owner-panel-data-product-9-edit-02.png",
+        "038-owner-panel-data-product-9-edit-03.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/category/create",
+      "title": "Tambah kategori | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/category/create",
+      "files": [
+        "039-owner-panel-data-category-create-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/category/1/edit",
+      "title": "Edit kategori | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/category/1/edit",
+      "files": [
+        "040-owner-panel-data-category-1-edit-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/item/create",
+      "title": "Tambah bahan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/item/create",
+      "files": [
+        "041-owner-panel-data-item-create-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/item/11/edit",
+      "title": "Edit bahan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/item/11/edit",
+      "files": [
+        "042-owner-panel-data-item-11-edit-01.png",
+        "042-owner-panel-data-item-11-edit-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/master/recipes/3",
+      "title": "Resep Martabak Cokelat Keju | Marwis Sweet",
+      "url": "http://localhost:8080/panel/master/recipes/3",
+      "files": [
+        "043-owner-panel-master-recipes-3-01.png",
+        "043-owner-panel-master-recipes-3-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/topping/create",
+      "title": "Tambah topping | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/topping/create",
+      "files": [
+        "044-owner-panel-data-topping-create-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/topping/2/edit",
+      "title": "Edit topping | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/topping/2/edit",
+      "files": [
+        "045-owner-panel-data-topping-2-edit-01.png",
+        "045-owner-panel-data-topping-2-edit-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/supplier/create",
+      "title": "Tambah supplier | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/supplier/create",
+      "files": [
+        "046-owner-panel-data-supplier-create-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/supplier/1/edit",
+      "title": "Edit supplier | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/supplier/1/edit",
+      "files": [
+        "047-owner-panel-data-supplier-1-edit-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/banner/create",
+      "title": "Tambah banner | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/banner/create",
+      "files": [
+        "048-owner-panel-data-banner-create-01.png",
+        "048-owner-panel-data-banner-create-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/banner/1/edit",
+      "title": "Edit banner | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/banner/1/edit",
+      "files": [
+        "049-owner-panel-data-banner-1-edit-01.png",
+        "049-owner-panel-data-banner-1-edit-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/cashier/create",
+      "title": "Tambah akun kasir | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/cashier/create",
+      "files": [
+        "050-owner-panel-data-cashier-create-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/password/2/edit",
+      "title": "Edit password kasir | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/password/2/edit",
+      "files": [
+        "051-owner-panel-data-password-2-edit-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/cashier/2/edit",
+      "title": "Edit akun kasir | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/cashier/2/edit",
+      "files": [
+        "052-owner-panel-data-cashier-2-edit-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/inventory/receipts/3",
+      "title": "Penerimaan EVL-PB-DRAFT-2 | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory/receipts/3",
+      "files": [
+        "053-owner-panel-inventory-receipts-3-01.png",
+        "053-owner-panel-inventory-receipts-3-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/expense/create",
+      "title": "Tambah pengeluaran | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/expense/create",
+      "files": [
+        "054-owner-panel-data-expense-create-01.png",
+        "054-owner-panel-data-expense-create-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/transactions/156",
+      "title": "Struk TRX-20261012-203337-7A88 | Marwis Sweet",
+      "url": "http://localhost:8080/panel/transactions/156",
+      "files": [
+        "055-owner-panel-transactions-156-01.png",
+        "055-owner-panel-transactions-156-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/transactions/156",
+      "title": "Struk TRX-20261012-203337-7A88 | Marwis Sweet",
+      "url": "http://localhost:8080/panel/transactions/156",
+      "files": [
+        "056-cashier-panel-transactions-156-01.png",
+        "056-cashier-panel-transactions-156-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/inventory/receipts/new",
+      "title": "Buat draft penerimaan | Marwis Sweet",
+      "url": "http://localhost:8080/panel/inventory/receipts/new",
+      "files": [
+        "057-cashier-panel-inventory-receipts-new-01.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/data/expense/create",
+      "title": "Tambah pengeluaran | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/expense/create",
+      "files": [
+        "058-cashier-panel-data-expense-create-01.png",
+        "058-cashier-panel-data-expense-create-02.png"
+      ]
+    },
+    {
+      "role": "cashier",
+      "path": "/panel/data/expense/5/edit",
+      "title": "Edit pengeluaran | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/expense/5/edit",
+      "files": [
+        "059-cashier-panel-data-expense-5-edit-01.png",
+        "059-cashier-panel-data-expense-5-edit-02.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/variant/create?product_id=9",
+      "title": "Tambah varian harga | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/variant/create?product_id=9",
+      "files": [
+        "060-owner-panel-data-variant-create-product-id-9-01.png"
+      ]
+    },
+    {
+      "role": "owner",
+      "path": "/panel/data/variant/15/edit",
+      "title": "Edit varian harga | Marwis Sweet",
+      "url": "http://localhost:8080/panel/data/variant/15/edit",
+      "files": [
+        "061-owner-panel-data-variant-15-edit-01.png"
+      ]
+    },
+    {
+      "role": "public",
+      "path": "/ulasan/fb25a84757b0b7031d85d08ca2132a8003ce05cd8e26d4345dd99a7ed0753079",
+      "title": "Ulasan | Marwis Sweet Demo",
+      "url": "http://localhost:8080/ulasan/fb25a84757b0b7031d85d08ca2132a8003ce05cd8e26d4345dd99a7ed0753079",
+      "files": [
+        "062-public-ulasan-fb25a84757b0b7031d85d08ca2132a8003ce05cd8e26d4345dd99a7ed0753079-01.png",
+        "062-public-ulasan-fb25a84757b0b7031d85d08ca2132a8003ce05cd8e26d4345dd99a7ed0753079-02.png"
+      ]
+    }
+  ],
+  "skipped": [],
+  "coverage": "Halaman publik, semua detail produk aktif, panel pemilik/kasir, serta satu contoh setiap jenis formulir tambah/edit/detail yang memiliki data dan tautan. Setiap halaman panjang dibagi menjadi beberapa gambar. PDF dan file bukti bukan halaman HTML."
+}

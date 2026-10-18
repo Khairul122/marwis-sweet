@@ -177,16 +177,21 @@ $perks = [
 
                     <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-product-grid>
                         <?php foreach ($products as $product): ?>
-                            <?php $variants = $variantsByProduct[$product['id']] ?? []; $availableVariants = array_values(array_filter($variants, static fn (array $variant): bool => !empty($variant['is_available']))); $priceVariant = $availableVariants[0] ?? ($variants[0] ?? null); $rating = $ratings[$product['id']] ?? null; ?>
+                            <?php $variants = $variantsByProduct[$product['id']] ?? []; $availableVariants = array_values(array_filter($variants, static fn (array $variant): bool => !empty($variant['is_available']))); $isSoldOut = $variants !== [] && $availableVariants === []; $priceVariant = $availableVariants[0] ?? ($variants[0] ?? null); $rating = $ratings[$product['id']] ?? null; ?>
                             <article class="reveal lp-card group flex flex-col overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_50px_-24px_rgb(45_27_18/.5)]" data-product-card data-card data-product-id="<?= (int) $product['id'] ?>" data-category="<?= esc($product['category_slug']) ?>" data-search="<?= esc(mb_strtolower($product['name'] . ' ' . implode(' ', array_column($variants, 'name')))) ?>">
                                 <div class="relative grid aspect-[4/3] place-items-center overflow-hidden bg-surface-soft-yellow">
                                     <?php if (!empty($product['image_path'])): ?>
-                                        <img src="<?= base_url($product['image_path']) ?>" alt="<?= esc($product['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
+                                        <img src="<?= base_url($product['image_path']) ?>" alt="<?= esc($product['name']) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105<?= $isSoldOut ? ' blur-sm' : '' ?>" loading="lazy">
                                     <?php else: ?>
-                                        <span class="font-brand text-7xl font-extrabold text-brand-sun-hover/40" aria-hidden="true"><?= esc(mb_strtoupper(mb_substr($product['name'], 0, 1))) ?></span>
+                                        <span class="font-brand text-7xl font-extrabold text-brand-sun-hover/40<?= $isSoldOut ? ' blur-sm' : '' ?>" aria-hidden="true"><?= esc(mb_strtoupper(mb_substr($product['name'], 0, 1))) ?></span>
                                     <?php endif ?>
                                     <span class="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold shadow-sm"><?= esc($product['category_name']) ?></span>
                                     <?php if (!empty($product['is_featured'])): ?><span class="absolute right-4 top-4 rounded-full bg-brand-chili px-3 py-1 text-xs font-bold text-white shadow-sm">Unggulan</span><?php endif ?>
+                                    <?php if ($isSoldOut): ?>
+                                        <div class="pointer-events-none absolute inset-0 grid place-items-center bg-brand-cocoa/20">
+                                            <span id="availability-<?= (int) $product['id'] ?>" class="rounded-xl bg-brand-cocoa px-6 py-2 font-brand text-3xl font-extrabold text-white" role="status">Habis</span>
+                                        </div>
+                                    <?php endif ?>
                                 </div>
                                 <div class="flex flex-1 flex-col p-5 sm:p-6">
                                     <h3 class="font-brand text-2xl font-bold leading-tight"><?= esc($product['name']) ?></h3>
@@ -199,7 +204,6 @@ $perks = [
                                             <button class="lp-btn lp-btn-sun !min-h-11 !px-5 disabled:cursor-not-allowed disabled:border-[#716356] disabled:bg-[#E7DED2] disabled:text-[#33271E] disabled:opacity-100" type="button" data-add <?= $availableVariants === [] ? 'disabled aria-describedby="availability-' . (int) $product['id'] . '"' : '' ?>><?= $availableVariants === [] ? 'Tidak tersedia' : '+ Tambah' ?></button>
                                         <?php endif ?>
                                     </div>
-                                    <?php if ($variants !== [] && $availableVariants === []): ?><p id="availability-<?= (int) $product['id'] ?>" class="mt-2 text-sm font-semibold text-brand-chili" role="status">Semua varian menu ini sedang tidak tersedia.</p><?php endif ?>
                                     <a class="mt-3 inline-flex min-h-11 items-center self-start text-sm font-bold text-ink-muted underline decoration-brand-sun decoration-2 underline-offset-4 hover:text-brand-cocoa" href="<?= site_url('menu/' . $product['slug']) ?>">Lihat detail<span class="sr-only"> <?= esc($product['name']) ?></span></a>
                                 </div>
                             </article>

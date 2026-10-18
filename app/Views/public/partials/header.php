@@ -1,6 +1,6 @@
 <?php
 /**
- * Bilah info + header publik. Tautan bagian memakai URL beranda penuh agar juga jalan dari halaman menu;
+ * Header publik. Tautan bagian memakai URL beranda penuh agar juga jalan dari halaman menu;
  * di beranda sendiri browser hanya menggulir ke bagiannya.
  */
 $home = base_url();
@@ -12,19 +12,6 @@ $navLinks = array_filter([
     $hasContact ? ['#lokasi', 'Lokasi'] : null,
 ]);
 ?>
-    <?php if (!empty($isDemoData)): ?>
-    <aside class="border-b border-[#A85A00]/25 bg-[#FFF4C2] px-4 py-2.5 text-center text-xs font-semibold leading-5 text-[#4A2B00] sm:text-sm" role="note">
-        Tampilan data contoh. Identitas, menu, dan informasi usaha di halaman ini belum terverifikasi.
-    </aside>
-    <?php endif ?>
-    <?php if ($hours !== '' || $phone !== ''): ?>
-    <div class="bg-brand-cocoa text-xs font-semibold text-[#F3E6CC] sm:text-sm">
-        <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 sm:justify-between sm:px-6 lg:px-8">
-            <?php if ($hours !== ''): ?><p><span class="mr-1.5 inline-block h-2 w-2 rounded-full bg-brand-sun align-middle" aria-hidden="true"></span>Buka <?= esc($hours) ?></p><?php endif ?>
-            <?php if ($phone !== ''): ?><p class="hidden sm:block">Pesan &amp; tanya: <a class="font-bold text-brand-sun underline-offset-4 hover:underline" href="<?= $waChat !== '' ? esc($waChat) : 'tel:' . esc($phoneDigits) ?>" <?= $waChat !== '' ? 'target="_blank" rel="noopener"' : '' ?>><?= esc($phone) ?></a></p><?php endif ?>
-        </div>
-    </div>
-    <?php endif ?>
 
     <header class="sticky top-0 z-40 border-b border-border-warm bg-white/95 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
