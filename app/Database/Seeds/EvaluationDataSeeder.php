@@ -397,7 +397,7 @@ class EvaluationDataSeeder extends Seeder
 
         $rejected = $make('Ongkos kirim bahan dari pasar', 'Transportasi', 35000, 'main_cash', 1);
         $service->submit($rejected, 2, 'cashier');
-        $service->reject($rejected, 'Lampirkan bukti ongkos kirim lalu ajukan kembali.');
+        $service->reject($rejected, 'Lampirkan bukti ongkos kirim lalu ajukan kembali.', 1);
     }
 
     private function reviews(): void
