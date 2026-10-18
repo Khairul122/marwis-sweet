@@ -136,10 +136,33 @@ test('POS-08 FR-06 pembatalan keranjang held tidak mengubah stok atau jurnal', a
   const held = await db.one('SELECT * FROM pos_orders WHERE customer_name=?', [name]);
   const before = await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)));
   await cashier.getByText(/Pesanan ditahan \(/).click();
-  // FR-06 / BUG-E2E-004: konfirmasi native diterima, tetapi request pembatalan tidak terkirim.
-  test.fail(true, 'BUG-E2E-004 POS-08: pembatalan held di POS tidak mengirim POST.');
-  cashier.once('dialog', (dialog) => dialog.accept());
   await formAt(cashier, `/panel/pos/orders/${held.id}/cancel`).getByRole('button', { name: 'Batalkan', exact: true }).click();
+  await expect(cashier.locator('[data-confirm-dialog][open]').getByRole('button', { name: 'Batal', exact: true })).toBeFocused();
+  await cashier.screenshot({ path: 'writable/e2e/bug004-dialog.png' });
+  await cashier.locator('[data-confirm-dialog][open]').getByRole('button', { name: 'Lanjutkan' }).click();
+  await expect.poll(async () => (await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('cancelled');
+  await flash(cashier, /Pesanan dibatalkan/);
+  expect(await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)))).toEqual(before);
+});
+
+test('POS-08 fallback konfirmasi native menolak lalu menerima pembatalan held', async ({ ownerPage: owner, cashierPage: cashier, db }) => {
+  const product = await createProduct(owner, db, { stockMode: 'none' });
+  await openShift(cashier, db);
+  await cart(cashier, product.variant_id);
+  const name = unique('Fallback');
+  await cashier.getByLabel(/^Nama pelanggan/).fill(name);
+  await submit(cashier, cashier.locator('[data-pos-checkout]'), 'Simpan sebagai pesanan ditahan');
+  await flash(cashier, /Pesanan tersimpan/);
+  const held = await db.one('SELECT * FROM pos_orders WHERE customer_name=?', [name]);
+  const before = await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)));
+  await cashier.evaluate(() => Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { value: undefined, configurable: true }));
+  await cashier.getByText(/Pesanan ditahan \(/).click();
+  const cancel = formAt(cashier, `/panel/pos/orders/${held.id}/cancel`).getByRole('button', { name: 'Batalkan', exact: true });
+  cashier.once('dialog', (dialog) => dialog.dismiss());
+  await cancel.click();
+  expect((await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('held');
+  cashier.once('dialog', (dialog) => dialog.accept());
+  await cancel.click();
   await expect.poll(async () => (await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('cancelled');
   await flash(cashier, /Pesanan dibatalkan/);
   expect(await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)))).toEqual(before);

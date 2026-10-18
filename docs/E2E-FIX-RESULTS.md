@@ -14,3 +14,9 @@ Mengikuti [E2E-FIX-PLAN.md](E2E-FIX-PLAN.md), dimulai 19 Oktober 2026 dari BUG-E
 - E2E penuh setelah BUG-002: 96 tes, 89 lulus, empat bug lain masih expected failure, tiga dilewati, nol kegagalan tak terduga; durasi 931,9 detik. Assertion CAT-04 tetap dan penanda `test.fail()` dihapus.
 
 Migration sudah diterapkan ke `marwis_sweet_e2e` dan `marwis_sweet` setelah backup terverifikasi. Query metadata menunjukkan nol aturan terbalik pada database lokal. Fingerprint 40 tabel data tetap cocok dengan backup (termasuk 156 penjualan dan 326 item penjualan); hanya tabel `migrations` bertambah satu baris. Bukti ada di `writable/e2e/local-fk-migration.json`.
+
+## BUG-E2E-004
+
+Fallback konfirmasi native sekarang membiarkan submit asli berlanjut bila diterima, tanpa `requestSubmit()` bersarang. Layout POS memakai dialog konfirmasi yang sama dengan panel sebagai anak langsung body, di luar cart yang inert. Fokus awal ada pada tombol Batal. Screenshot `writable/e2e/bug004-dialog.png` diperiksa: judul, isi, dan tombol utuh.
+
+POS-08 lulus untuk dialog HTML serta fallback native (tolak lalu terima), tanpa perubahan stok/jurnal. Seluruh spec POS: 11 lulus, satu expected failure BUG-E2E-003, satu skip POS-12 yang ditangani pada GAP-01. Assertion lama dipertahankan; hanya langkah konfirmasi disesuaikan. Kolom alasan pembatalan tidak ditambahkan karena membutuhkan keputusan owner sesuai plan.

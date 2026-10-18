@@ -36,5 +36,11 @@
             <div class="xl:min-h-0 xl:flex-1 xl:overflow-hidden"><?= $this->renderSection('content') ?></div>
         </main>
     </div>
+    <dialog class="app-dialog" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <div class="app-dialog-icon is-warning" aria-hidden="true">?</div>
+        <h2 class="font-display text-xl" id="confirm-title">Konfirmasi tindakan</h2>
+        <p class="mt-2 text-ink-muted" id="confirm-message" data-confirm-message></p>
+        <div class="mt-6 grid grid-cols-2 gap-3"><button class="button-secondary" type="button" data-dialog-close autofocus>Batal</button><button class="button-primary" type="button" data-confirm-accept>Lanjutkan</button></div>
+    </dialog>
 </body>
 </html>

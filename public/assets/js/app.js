@@ -262,11 +262,11 @@
     document.querySelectorAll('[data-confirm-form]').forEach((form) => {
         form.addEventListener('submit', (event) => {
             if (form.dataset.confirmed === '1') return;
-            event.preventDefault();
             if (!confirmDialog || typeof confirmDialog.showModal !== 'function') {
-                if (window.confirm(form.dataset.confirmForm)) { form.dataset.confirmed = '1'; form.requestSubmit(event.submitter); }
+                if (!window.confirm(form.dataset.confirmForm)) event.preventDefault();
                 return;
             }
+            event.preventDefault();
             confirmDialog.querySelector('[data-confirm-message]').textContent = form.dataset.confirmForm;
             const accept = confirmDialog.querySelector('[data-confirm-accept]');
             const onAccept = () => { form.dataset.confirmed = '1'; confirmDialog.close(); form.requestSubmit(event.submitter); };
