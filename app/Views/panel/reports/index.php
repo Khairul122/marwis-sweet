@@ -2,7 +2,10 @@
 <?= $this->section('content') ?>
 <?php
 $money = static fn (float $value): string => ($value < 0 ? '-Rp' : 'Rp') . number_format(abs($value), 0, ',', '.');
-$methodLabels = ['cash' => 'Tunai', 'qris' => 'QRIS', 'bank_transfer' => 'Transfer bank', 'debit' => 'Debit', 'credit' => 'Kredit'];
+$methodLabels = [];
+foreach (['cash', 'qris', 'bank_transfer', 'debit', 'credit'] as $method) {
+    $methodLabels[$method] = payment_method_label($method);
+}
 $query = [];
 if ($report) {
     $query = ['period_type' => $report['period']['type'], $report['period']['type'] === 'daily' ? 'date' : ($report['period']['type'] === 'monthly' ? 'month' : 'year') => $report['period']['value']];
@@ -12,6 +15,7 @@ $reportPageUrl = static fn (string $key, int $value): string => site_url('panel/
 ?>
 <header class="mb-8 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end"><div><p class="section-kicker">Pelaporan periodik</p><h1 class="mt-2 font-display text-3xl leading-tight sm:text-4xl">Laporan penjualan</h1><p class="mt-3 max-w-3xl text-ink-muted">Pilih periode dan filter operasional. Rekap panel dan PDF memakai snapshot serta rumus yang sama.</p></div><?php if ($report): ?><a class="button-primary" href="<?= site_url('panel/reports/sales.pdf') . '?' . http_build_query($query) ?>">Unduh PDF A4</a><?php endif ?></header>
 
+<?php if ($report && array_diff(array_keys($report['paymentTotals']), ['cash']) !== []): ?><p class="mb-6 text-sm text-ink-muted">Pembayaran non-tunai pada laporan ini dikonfirmasi manual.</p><?php endif ?>
 <?php if ($reportError): ?><div class="alert-danger mb-6" role="alert"><strong>Filter belum valid.</strong> <?= esc($reportError) ?></div><?php endif ?>
 
 <form action="<?= site_url('panel/reports') ?>" method="get" class="panel-card mb-6 p-5 sm:p-6">

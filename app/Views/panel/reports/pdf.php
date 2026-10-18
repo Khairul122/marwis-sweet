@@ -106,7 +106,7 @@ $businessDetails = array_filter([$settings['address'] ?? null, $settings['phone'
 <table class="data"><thead><tr><th>Metode</th><th class="right">Penerimaan</th><th class="right">Refund</th><th class="right">Bersih</th></tr></thead><tbody>
 <?php $paymentMethods = array_values(array_unique(array_merge(array_keys($report['paymentTotals']), array_keys($report['refundByMethod'])))); ?>
 <?php if ($paymentMethods === []): ?><tr><td class="empty" colspan="4">Tidak ada data pada periode ini.</td></tr>
-<?php else: ?><?php foreach ($paymentMethods as $method): ?><?php $amount = (float) ($report['paymentTotals'][$method] ?? 0); $returned = (float) ($report['refundByMethod'][$method] ?? 0); ?><tr><td><?= esc(strtoupper(str_replace('_', ' ', $method))) ?></td><td class="right"><?= $money($amount) ?></td><td class="right"><?= $money($returned) ?></td><td class="right"><?= $money($amount - $returned) ?></td></tr><?php endforeach ?><?php endif ?>
+<?php else: ?><?php foreach ($paymentMethods as $method): ?><?php $amount = (float) ($report['paymentTotals'][$method] ?? 0); $returned = (float) ($report['refundByMethod'][$method] ?? 0); ?><tr><td><?= esc(payment_method_label($method)) ?></td><td class="right"><?= $money($amount) ?></td><td class="right"><?= $money($returned) ?></td><td class="right"><?= $money($amount - $returned) ?></td></tr><?php endforeach ?><?php endif ?>
 </tbody></table>
 
 <div class="section-title">Produk Terlaris</div>
@@ -125,7 +125,7 @@ $businessDetails = array_filter([$settings['address'] ?? null, $settings['phone'
 <div class="section-title">Refund Diposting</div>
 <table class="data"><thead><tr><th>Refund</th><th>Transaksi asal</th><th>Waktu</th><th>Metode</th><th class="right">Nominal</th></tr></thead><tbody>
 <?php if ($report['refunds'] === []): ?><tr><td class="empty" colspan="5">Tidak ada refund yang diposting pada periode ini.</td></tr>
-<?php else: ?><?php foreach ($report['refunds'] as $refund): ?><tr><td><?= esc($refund['refund_number']) ?></td><td><?= esc($refund['sale_number']) ?></td><td><?= esc(date('d/m/Y H:i', strtotime($refund['posted_at']))) ?></td><td><?= esc(strtoupper(str_replace('_', ' ', $refund['method']))) ?></td><td class="right"><?= $money((float) $refund['report_amount']) ?></td></tr><?php endforeach ?><?php endif ?>
+<?php else: ?><?php foreach ($report['refunds'] as $refund): ?><tr><td><?= esc($refund['refund_number']) ?></td><td><?= esc($refund['sale_number']) ?></td><td><?= esc(date('d/m/Y H:i', strtotime($refund['posted_at']))) ?></td><td><?= esc(payment_method_label($refund['method'])) ?></td><td class="right"><?= $money((float) $refund['report_amount']) ?></td></tr><?php endforeach ?><?php endif ?>
 </tbody></table>
 </body>
 </html>

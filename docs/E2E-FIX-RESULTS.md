@@ -26,3 +26,11 @@ POS-08 lulus untuk dialog HTML serta fallback native (tolak lalu terima), tanpa 
 Filter login menyimpan path dan query hanya untuk GET dokumen; POST, AJAX, dan PDF tidak menimpa tujuan. Setelah login berhasil, tujuan diambil sebelum regenerasi sesi, dihapus, lalu divalidasi dengan whitelist path panel. Filter role tetap berjalan pada tujuan tersebut.
 
 PHPUnit: delapan kasus lulus, 89 assertion. Spec autentikasi: 17 lulus, termasuk tujuan laporan, query, login langsung, URL eksternal/protocol-relative, dan tujuan owner yang tetap menolak kasir. Fixture sesi eksternal hanya tersedia melalui router E2E dengan guard schema, nama sesi E2E, dan CSRF aktif; route aplikasi tidak ditambah.
+
+## BUG-E2E-003
+
+Helper `payment_method_label()` menyamakan label Tunai, QRIS, Transfer bank, Kartu debit, dan Kartu kredit pada struk, refund, serta laporan HTML/PDF. Struk non-tunai menampilkan penanda konfirmasi manual dan nomor referensi. Laporan memberi keterangan konfirmasi manual bila memuat penerimaan non-tunai; ini diperlukan oleh assertion POS-02 yang sudah ada pada halaman laporan.
+
+POS-02 lulus dengan assertion lama serta pemeriksaan tambahan pada HTML, PDF, dan nomor referensi. Struk desktop, mobile 390 px, serta PDF satu halaman dirender dan diperiksa secara visual; label, referensi, dan nominal utuh. Tidak ada overflow horizontal pada mobile. Artefak di `writable/e2e/bug003-*`.
+
+Seluruh spec POS lulus: 12 tes lulus, satu skip POS-12 yang dilengkapi pada GAP-01, tanpa expected failure yang tersisa di spec ini.

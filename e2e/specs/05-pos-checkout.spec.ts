@@ -34,9 +34,20 @@ test('POS-02 AC-05 tunai Rp20000 dan QRIS Rp25000 dihitung satu transaksi', asyn
   await cashier.goto(`/panel/reports?product=${product.id}`);
   const total = cashier.locator('article').filter({ has: cashier.getByText('Transaksi lunas', { exact: true }) });
   await expect(total).toContainText('1');
-  // AC-05 / BUG-E2E-003: transaksi gabungan benar, tetapi label konfirmasi manual tidak dirender.
-  test.fail(true, 'BUG-E2E-003 POS-02: label dikonfirmasi manual tidak tersedia.');
   await expect(cashier.getByText(/dikonfirmasi manual/i)).toBeVisible();
+  await cashier.goto(`/panel/transactions/${sale.id}`);
+  await expect(cashier.locator('#receipt')).toContainText('Tunai');
+  await expect(cashier.locator('#receipt')).toContainText('QRIS');
+  await expect(cashier.locator('#receipt')).toContainText('dikonfirmasi manual');
+  const reference = (await db.one("SELECT reference_number FROM payments WHERE sale_id=? AND method='qris'", [sale.id])).reference_number;
+  await expect(cashier.locator('#receipt')).toContainText(reference);
+  await cashier.screenshot({ path: 'writable/e2e/bug003-receipt.png' });
+  const document = await pdf(cashier, `/panel/transactions/${sale.id}.pdf`);
+  expect(document.text).toContain('Tunai');
+  expect(document.text).toContain('QRIS');
+  expect(document.text).toContain('dikonfirmasi manual');
+  expect(document.text).toContain(reference);
+  await test.info().attach('split-payment-receipt.pdf', { body: document.buffer, contentType: 'application/pdf' });
 });
 
 test('POS-03 AC-06 dua porsi memakai 200 gram dan jurnal HPP sekali', async ({ ownerPage: owner, cashierPage: cashier, db }) => {

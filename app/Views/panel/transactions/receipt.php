@@ -71,7 +71,7 @@ foreach ($items as $item) {
             <h2 class="text-sm font-bold">Pembayaran</h2>
             <ul class="mt-3 space-y-2 text-sm">
                 <?php foreach ($payments as $payment): ?>
-                    <li class="flex justify-between gap-4"><span><?= esc(ucwords(str_replace('_', ' ', $payment['method']))) ?></span><span class="tabular-nums">Rp<?= number_format((float) $payment['amount'], 0, ',', '.') ?></span></li>
+                    <li class="flex justify-between gap-4"><span class="min-w-0"><?= esc(payment_method_label($payment['method'])) ?><?php if ($payment['method'] !== 'cash'): ?> <span class="text-xs text-ink-muted">· dikonfirmasi manual</span><?php endif ?><?php if (!empty($payment['reference_number'])): ?><span class="mt-1 block break-all text-xs text-ink-muted"><?= esc($payment['reference_number']) ?></span><?php endif ?></span><span class="shrink-0 tabular-nums">Rp<?= number_format((float) $payment['amount'], 0, ',', '.') ?></span></li>
                     <?php if ((float) $payment['change_amount'] > 0): ?><li class="flex justify-between gap-4"><span>Kembalian</span><span class="tabular-nums">Rp<?= number_format((float) $payment['change_amount'], 0, ',', '.') ?></span></li><?php endif ?>
                 <?php endforeach ?>
             </ul>
@@ -111,7 +111,7 @@ foreach ($items as $item) {
                             <article class="border border-border-warm p-4">
                                 <div class="flex flex-wrap items-start justify-between gap-2"><div><p class="text-xs font-bold text-ink-muted"><?= esc($refund['refund_number']) ?></p><p class="mt-1 font-black tabular-nums">Rp<?= number_format((float) $refund['amount'], 0, ',', '.') ?></p></div><span class="status-label <?= $refund['status'] === 'posted' ? 'bg-[#F0FDF4] text-status-success' : ($refund['status'] === 'rejected' ? 'bg-[#FEF2F2] text-status-danger' : 'bg-brand-sun') ?>"><?= esc($refundStatusLabels[$refund['status']] ?? $refund['status']) ?></span></div>
                                 <ul class="mt-3 space-y-1 text-xs text-ink-muted"><?php foreach ($refund['items'] as $refundItem): ?><li><?= esc($refundItem['product_name']) ?> · <?= esc($refundItem['variant_name']) ?>, <?= number_format((float) $refundItem['quantity'], 0, ',', '.') ?> unit</li><?php endforeach ?></ul>
-                                <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"><dt>Metode</dt><dd class="text-right font-semibold"><?= esc(ucwords(str_replace('_', ' ', $refund['method']))) ?></dd><dt>Pemohon</dt><dd class="text-right font-semibold"><?= esc($refund['requester_name']) ?></dd><dt>Alasan</dt><dd class="text-right"><?= esc($refund['reason']) ?></dd></dl>
+                                <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"><dt>Metode</dt><dd class="text-right font-semibold"><?= esc(payment_method_label($refund['method'])) ?></dd><dt>Pemohon</dt><dd class="text-right font-semibold"><?= esc($refund['requester_name']) ?></dd><dt>Alasan</dt><dd class="text-right"><?= esc($refund['reason']) ?></dd></dl>
                                 <?php if ($refund['status'] === 'rejected'): ?><p class="mt-3 border-l-4 border-status-danger pl-3 text-xs text-status-danger">Ditolak: <?= esc($refund['rejection_reason']) ?></p><?php endif ?>
                                 <?php if (($user['role'] ?? '') === 'owner' && $refund['status'] === 'submitted'): ?>
                                     <div class="mt-4 space-y-3 border-t border-border-warm pt-4">
