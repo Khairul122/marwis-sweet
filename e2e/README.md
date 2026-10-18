@@ -21,6 +21,8 @@ Port 8081 dipakai server E2E. `CON-01` menyalakan proses PHP kedua pada 8082, me
 
 Runner memeriksa konfigurasi CLI dan HTTP sebelum migrasi: schema harus tepat `marwis_sweet_e2e`, base URL harus 8081, dan filter CSRF harus aktif. Endpoint pemeriksaan hanya ada pada router di `e2e/scripts/`, di luar kode aplikasi.
 
+Router E2E juga menyediakan fixture POST `/__e2e/login-intended` untuk menguji penolakan tujuan login eksternal. Fixture memeriksa schema E2E, nama sesi, dan CSRF; hanya field `login_intended` yang ditulis. Endpoint tidak tersedia pada server aplikasi biasa.
+
 ## Sesi dan konfigurasi Windows
 
 Server menggunakan `CI_ENVIRONMENT=development`. Dalam mode `testing`, `Session::startSession()` CodeIgniter mengosongkan sesi setiap request sehingga login browser tidak bertahan. Migrasi/seeder CLI dan PHPUnit memakai `testing`; bootstrap menetapkan `SUPPORTPATH` agar namespace migrasi pendukung PHPUnit ikut dikenali. Reset diperiksa sebelum seeder: tabel penjualan, user, dan jurnal harus kosong.

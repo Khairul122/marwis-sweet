@@ -113,11 +113,41 @@ test('AUTH-11 FR-01 akun dinonaktifkan mengakhiri sesi kasir aktif', async ({ ow
 });
 
 test('AUTH-12 FR-01 login mengembalikan tamu ke laporan yang dituju', async ({ guestPage: page }) => {
-  // FR-01 / BUG-E2E-001: login mengabaikan tujuan awal dan selalu menuju dashboard.
-  test.fail(true, 'BUG-E2E-001 AUTH-12: tujuan laporan tidak dipulihkan setelah login.');
   await page.goto('/panel/reports');
   await page.getByLabel('Username atau email', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('DemoOwner!2026');
   await page.getByRole('button', { name: 'Masuk ke panel' }).click();
   await expect(page).toHaveURL(/\/panel\/reports$/);
+});
+
+test('AUTH-13 login langsung menuju dashboard', async ({ guestPage: page }) => {
+  await login(page, 'owner', 'DemoOwner!2026');
+  await expect(page).toHaveURL(/\/panel$/);
+});
+
+for (const target of ['https://evil.invalid', '//evil.invalid']) {
+  test(`AUTH-14 tujuan eksternal ${target} tidak menjadi redirect login`, async ({ guestPage: page }) => {
+    await page.goto('/login');
+    const stored = await postWithCsrf(page, '/__e2e/login-intended', { target });
+    expect(stored.status()).toBe(200);
+    await login(page, 'owner', 'DemoOwner!2026');
+    await expect(page).toHaveURL(/\/panel$/);
+  });
+}
+
+test('AUTH-15 query tujuan dipertahankan setelah login', async ({ guestPage: page }) => {
+  await page.goto('/panel/reports?period_type=yearly&year=2026');
+  await page.getByLabel('Username atau email', { exact: true }).fill('owner');
+  await page.getByLabel('Password', { exact: true }).fill('DemoOwner!2026');
+  await page.getByRole('button', { name: 'Masuk ke panel' }).click();
+  await expect(page).toHaveURL(/\/panel\/reports\?period_type=yearly&year=2026$/);
+});
+
+test('AUTH-16 tujuan owner tetap menolak kasir setelah login', async ({ guestPage: page }) => {
+  await page.goto('/panel/accounting');
+  await page.getByLabel('Username atau email', { exact: true }).fill('kasir');
+  await page.getByLabel('Password', { exact: true }).fill('DemoKasir!2026');
+  await page.getByRole('button', { name: 'Masuk ke panel' }).click();
+  await expect(page).toHaveURL(/\/panel$/);
+  await expect(page.locator('#flash-message')).toContainText('owner');
 });

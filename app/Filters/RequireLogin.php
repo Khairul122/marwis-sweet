@@ -13,6 +13,13 @@ class RequireLogin implements FilterInterface
     {
         $userId = session('user_id');
         if (!$userId) {
+            $path = uri_string();
+            if (strtolower($request->getMethod()) === 'get' && !$request->isAJAX()
+                && !str_ends_with($path, '.pdf')
+                && in_array($request->getHeaderLine('Sec-Fetch-Dest'), ['', 'document'], true)) {
+                $query = $request->getUri()->getQuery();
+                session()->set('login_intended', $path . ($query !== '' ? '?' . $query : ''));
+            }
             return redirect()->route('login')->with('error', 'Silakan masuk untuk melanjutkan.');
         }
 

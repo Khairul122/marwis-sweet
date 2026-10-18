@@ -45,11 +45,16 @@ class AuthController extends BaseController
         }
 
         cache()->delete($attemptKey);
+        $intended = session()->get('login_intended');
+        session()->remove('login_intended');
         session()->regenerate(true);
         session()->set(['user_id' => $user['id']]);
         (new UserModel())->update($user['id'], ['last_login_at' => date('Y-m-d H:i:s')]);
 
-        return redirect()->route('panel')->with('success', 'Selamat datang, ' . $user['name'] . '.');
+        $destination = is_string($intended) && preg_match('#^panel(/[A-Za-z0-9/_.\-]*)?(\?[^\r\n]*)?$#D', $intended)
+            ? $intended : 'panel';
+
+        return redirect()->to(site_url($destination))->with('success', 'Selamat datang, ' . $user['name'] . '.');
     }
 
     public function logout(): \CodeIgniter\HTTP\RedirectResponse

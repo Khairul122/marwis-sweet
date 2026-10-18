@@ -20,3 +20,9 @@ Migration sudah diterapkan ke `marwis_sweet_e2e` dan `marwis_sweet` setelah back
 Fallback konfirmasi native sekarang membiarkan submit asli berlanjut bila diterima, tanpa `requestSubmit()` bersarang. Layout POS memakai dialog konfirmasi yang sama dengan panel sebagai anak langsung body, di luar cart yang inert. Fokus awal ada pada tombol Batal. Screenshot `writable/e2e/bug004-dialog.png` diperiksa: judul, isi, dan tombol utuh.
 
 POS-08 lulus untuk dialog HTML serta fallback native (tolak lalu terima), tanpa perubahan stok/jurnal. Seluruh spec POS: 11 lulus, satu expected failure BUG-E2E-003, satu skip POS-12 yang ditangani pada GAP-01. Assertion lama dipertahankan; hanya langkah konfirmasi disesuaikan. Kolom alasan pembatalan tidak ditambahkan karena membutuhkan keputusan owner sesuai plan.
+
+## BUG-E2E-001
+
+Filter login menyimpan path dan query hanya untuk GET dokumen; POST, AJAX, dan PDF tidak menimpa tujuan. Setelah login berhasil, tujuan diambil sebelum regenerasi sesi, dihapus, lalu divalidasi dengan whitelist path panel. Filter role tetap berjalan pada tujuan tersebut.
+
+PHPUnit: delapan kasus lulus, 89 assertion. Spec autentikasi: 17 lulus, termasuk tujuan laporan, query, login langsung, URL eksternal/protocol-relative, dan tujuan owner yang tetap menolak kasir. Fixture sesi eksternal hanya tersedia melalui router E2E dengan guard schema, nama sesi E2E, dan CSRF aktif; route aplikasi tidak ditambah.
