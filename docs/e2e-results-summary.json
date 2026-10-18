@@ -1,0 +1,1132 @@
+{
+  "startedAt": "2026-10-18T13:54:57.485Z",
+  "durationMs": 693279.2849999999,
+  "schema": "marwis_sweet_e2e",
+  "total": 96,
+  "passed": 88,
+  "knownFailures": 5,
+  "unexpected": 0,
+  "skipped": 3,
+  "evaluation": {
+    "tests": [
+      {
+        "title": "RPT-04/06 AC-24 PDF multi-halaman dan pagination dengan EvaluationDataSeeder",
+        "status": "Lulus"
+      }
+    ],
+    "transactions": "158",
+    "pages": 6,
+    "repeatedHeaders": true,
+    "pageNumbers": true
+  },
+  "state": {
+    "capturedAt": "2026-10-18T14:08:02.525Z",
+    "unbalancedJournals": 0,
+    "inventoryValue": 2678680,
+    "inventoryLedger": 305680,
+    "difference": 2373000,
+    "auditEventTypes": [
+      "account.cashier.created",
+      "account.cashier.password_reset",
+      "account.cashier.status_changed",
+      "accounting.journal.manual_posted",
+      "accounting.journal.opening_balance_posted",
+      "accounting.period.closed",
+      "accounting.period.reopened",
+      "catalog.variant.updated",
+      "expense.approved",
+      "expense.created",
+      "expense.paid",
+      "expense.submitted",
+      "inventory.adjustment.approved",
+      "inventory.adjustment.created",
+      "inventory.adjustment.line_saved",
+      "inventory.adjustment.posted",
+      "inventory.adjustment.reversed",
+      "inventory.adjustment.submitted",
+      "inventory.opname.approved",
+      "inventory.opname.cancelled",
+      "inventory.opname.counts_saved",
+      "inventory.opname.rejected",
+      "inventory.opname.submitted",
+      "inventory.receipt.approved",
+      "inventory.receipt.created",
+      "inventory.receipt.line_saved",
+      "inventory.receipt.posted",
+      "inventory.receipt.rejected",
+      "inventory.receipt.submitted",
+      "recipe.item.saved",
+      "refund.posted",
+      "refund.rejected",
+      "review.approved",
+      "review.hidden"
+    ]
+  },
+  "runtime": {
+    "runtimeRecords": 161,
+    "errors": 0,
+    "consoleMessages": 2
+  },
+  "verification": {
+    "tests": 8,
+    "passed": 3,
+    "knownFailures": 5,
+    "unexpected": 0,
+    "htmlAccessChecks": "AUTH-07/AUTH-08",
+    "mobileJournalCheck": "MOB-02",
+    "traceDirectory": "writable/e2e/verification-tests",
+    "pdfVisualPages": 6,
+    "textOutsidePdfPage": 0
+  },
+  "phpunit": "OK (22 tests, 234 assertions)",
+  "acceptanceCriteria": [
+    {
+      "id": "AC-01",
+      "spec": "01 AUTH-06; 02 PUB-01/05; 14 BAN-01",
+      "status": "Lulus",
+      "notes": "Katalog/banner dapat diakses tamu; panel, POS, dan PDF panel menolak tamu."
+    },
+    {
+      "id": "AC-02",
+      "spec": "01 AUTH-07/08/09",
+      "status": "Lulus",
+      "notes": "Grup owner dan POST dengan CSRF sah menolak kasir; PDF kasir tanpa HPP/laba."
+    },
+    {
+      "id": "AC-03",
+      "spec": "03 CAT-03",
+      "status": "Lulus",
+      "notes": "Harga, resep, dan HPP transaksi lama tetap. CAT-04 menemukan bug penghapusan terpisah."
+    },
+    {
+      "id": "AC-04",
+      "spec": "05 POS-01",
+      "status": "Lulus",
+      "notes": "Rp50.000 dikurangi diskon Rp5.000; total Rp45.000, kembalian Rp5.000."
+    },
+    {
+      "id": "AC-05",
+      "spec": "05 POS-02; 12 RPT-01/05",
+      "status": "Gagal",
+      "notes": "Satu penjualan dan dua alokasi benar; label dikonfirmasi manual tidak tersedia (BUG-E2E-003)."
+    },
+    {
+      "id": "AC-06",
+      "spec": "05 POS-03",
+      "status": "Lulus",
+      "notes": "Bahan berkurang 200 g; satu jurnal gabungan penjualan/HPP, tanpa duplikasi baris HPP."
+    },
+    {
+      "id": "AC-07",
+      "spec": "05 POS-04",
+      "status": "Lulus",
+      "notes": "Klik ganda dan replay idempotency key menunjuk penjualan sama."
+    },
+    {
+      "id": "AC-08",
+      "spec": "06 CON-01",
+      "status": "Lulus",
+      "notes": "Dua browser context, dua kasir/shift, dua proses PHP; satu berhasil dan stok akhir nol."
+    },
+    {
+      "id": "AC-09",
+      "spec": "05 POS-12; PHPUnit",
+      "status": "Belum diuji",
+      "notes": "Fault injection kegagalan jurnal saat finalize tidak tersedia lewat UI. Suite PHPUnit yang ada tidak secara khusus membuktikan kasus ini."
+    },
+    {
+      "id": "AC-10",
+      "spec": "08 OPN-01/06",
+      "status": "Lulus",
+      "notes": "Stok 10 menjadi 8; approve ulang tidak menggandakan mutasi/jurnal."
+    },
+    {
+      "id": "AC-11",
+      "spec": "05 POS-05",
+      "status": "Lulus",
+      "notes": "Opname yang dimulai setelah keranjang dibuat menolak pembayaran."
+    },
+    {
+      "id": "AC-12",
+      "spec": "07 REF-01/05",
+      "status": "Lulus",
+      "notes": "Refund membalik dana; bahan resep tidak kembali."
+    },
+    {
+      "id": "AC-13",
+      "spec": "07 REF-02",
+      "status": "Lulus",
+      "notes": "Barang siap jual kembali dan HPP dibalik memakai biaya transaksi asal."
+    },
+    {
+      "id": "AC-14",
+      "spec": "09 EXP-01/02",
+      "status": "Lulus",
+      "notes": "Approve belum mengurangi kas; pay membuat satu jurnal dan mengurangi kas Rp10.000."
+    },
+    {
+      "id": "AC-15",
+      "spec": "04 INV-01/02",
+      "status": "Lulus",
+      "notes": "Penerimaan 1 kg bernilai Rp12.000 menambah persediaan tanpa beban operasional."
+    },
+    {
+      "id": "AC-16",
+      "spec": "12 RPT-01/05",
+      "status": "Lulus",
+      "notes": "Total panel dan PDF harian/bulanan/tahunan cocok; pembayaran gabungan tidak dihitung ganda."
+    },
+    {
+      "id": "AC-17",
+      "spec": "12 RPT-02",
+      "status": "Lulus",
+      "notes": "Refund hari ini dari penjualan bulan lalu muncul dengan nomor asal."
+    },
+    {
+      "id": "AC-18",
+      "spec": "13 REV-01/02/08",
+      "status": "Lulus",
+      "notes": "Tamu unggah JPEG; pending, terbit setelah approve, rata-rata/jumlah ulasan berubah."
+    },
+    {
+      "id": "AC-19",
+      "spec": "13 REV-03/04/05",
+      "status": "Lulus",
+      "notes": "Duplikasi, token kedaluwarsa, JPG palsu, SVG, dan foto besar ditolak."
+    },
+    {
+      "id": "AC-20",
+      "spec": "14 BAN-02",
+      "status": "Lulus",
+      "notes": "Banner nonaktif, lewat jadwal, dan belum waktunya tidak tampil."
+    },
+    {
+      "id": "AC-21",
+      "spec": "16 SEC-07",
+      "status": "Belum diuji",
+      "notes": "HTTPS, sertifikat, Secure cookie, dan proxy perlu staging."
+    },
+    {
+      "id": "AC-22",
+      "spec": "10 ACC-03/04",
+      "status": "Lulus",
+      "notes": "Periode tertutup menolak posting, lalu dapat dibuka dengan alasan."
+    },
+    {
+      "id": "AC-23",
+      "spec": "11 SHF-01/02/03/04",
+      "status": "Lulus",
+      "notes": "Kas seharusnya Rp235.000; fisik Rp230.000; jurnal hanya setelah approve. Penolakan review juga diuji."
+    },
+    {
+      "id": "AC-24",
+      "spec": "12 RPT-03; RPT-04/06 evaluasi terpisah",
+      "status": "Lulus",
+      "notes": "Periode kosong valid; 158 transaksi menghasilkan 6 halaman, header berulang dan nomor halaman."
+    },
+    {
+      "id": "AC-25",
+      "spec": "Manual restore UAT",
+      "status": "Belum diuji",
+      "notes": "Prosedur backup/restore deployment beserta RPO/RTO belum diuji. Pemulihan insiden lokal didokumentasikan terpisah."
+    }
+  ],
+  "bugs": [
+    {
+      "id": "BUG-E2E-001",
+      "scenario": "AUTH-12 / FR-01",
+      "priority": "P1",
+      "actual": "Login dari /panel/reports selalu menuju /panel; tujuan awal hilang."
+    },
+    {
+      "id": "BUG-E2E-002",
+      "scenario": "CAT-04 / FR-03",
+      "priority": "Kritis",
+      "actual": "Produk yang telah terjual dapat dihapus. ON DELETE CASCADE menghapus sale_items sementara baris sales tetap ada."
+    },
+    {
+      "id": "BUG-E2E-003",
+      "scenario": "POS-02 / AC-05",
+      "priority": "P0 pada plan",
+      "actual": "Pembayaran gabungan benar secara nominal, tetapi UI tidak menampilkan label dikonfirmasi manual."
+    },
+    {
+      "id": "BUG-E2E-004",
+      "scenario": "POS-08 / FR-06",
+      "priority": "P1",
+      "actual": "Konfirmasi native pembatalan pesanan held diterima, tetapi POST tidak terkirim dan status tetap held."
+    },
+    {
+      "id": "BUG-E2E-005",
+      "scenario": "ACC-06 / FR-08",
+      "priority": "Data awal",
+      "actual": "DevelopmentSeeder mengisi persediaan demo Rp2.373.000 tanpa jurnal saldo awal; rekonsiliasi total tidak cocok meskipun semua jurnal posted seimbang."
+    }
+  ],
+  "tests": [
+    {
+      "title": "AUTH-01 FR-01 owner masuk melalui username dan email",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3427
+    },
+    {
+      "title": "AUTH-02 FR-01 kasir memiliki navigasi sesuai role",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1243
+    },
+    {
+      "title": "AUTH-06 AC-01 tamu ditolak pada panel, POS, dan PDF",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1348
+    },
+    {
+      "title": "AUTH-03 FR-01 password salah tidak mengungkap keberadaan akun",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1802
+    },
+    {
+      "title": "AUTH-04 FR-01 percobaan keenam dibatasi meskipun password benar",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5198
+    },
+    {
+      "title": "AUTH-05 FR-01 logout, Back, dan akses ulang panel",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2306
+    },
+    {
+      "title": "AUTH-07 AC-02 seluruh grup owner menolak URL langsung kasir",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5658
+    },
+    {
+      "title": "AUTH-08 AC-02 POST dengan CSRF sah tetap ditolak untuk role kasir",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3955
+    },
+    {
+      "title": "AUTH-09 AC-02 PDF kasir tanpa HPP, laba, atau buku besar",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2209
+    },
+    {
+      "title": "AUTH-10 FR-01 POS dan shift khusus kasir menolak owner",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2256
+    },
+    {
+      "title": "AUTH-11 FR-01 akun dinonaktifkan mengakhiri sesi kasir aktif",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4857
+    },
+    {
+      "title": "AUTH-12 FR-01 login mengembalikan tamu ke laporan yang dituju",
+      "file": "01-auth-access.spec.ts",
+      "project": "chromium",
+      "status": "failed",
+      "expected": "failed",
+      "outcome": "expected",
+      "duration": 9074
+    },
+    {
+      "title": "PUB-01/05 FR-02 informasi publik dan harga tanpa stok angka atau biaya internal",
+      "file": "02-public-catalog.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2460
+    },
+    {
+      "title": "PUB-02 FR-02 detail memuat foto, varian, harga, dan status ulasan",
+      "file": "02-public-catalog.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4654
+    },
+    {
+      "title": "PUB-03 FR-02 produk nonaktif hilang dari beranda, detail, dan POS",
+      "file": "02-public-catalog.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 9635
+    },
+    {
+      "title": "PUB-04 FR-02 pencarian dan kategori menyaring katalog",
+      "file": "02-public-catalog.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6364
+    },
+    {
+      "title": "PUB-06 FR-02 simpan identitas menonaktifkan penanda demo",
+      "file": "02-public-catalog.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4657
+    },
+    {
+      "title": "CAT-01 FR-03 owner membuat kategori, produk, resep, varian, dan topping",
+      "file": "03-catalog-master.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 11077
+    },
+    {
+      "title": "CAT-05 FR-03 maksimum lima foto produk pada UI",
+      "file": "03-catalog-master.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8251
+    },
+    {
+      "title": "CAT-02 FR-03 konversi satu kilogram menjadi 1000 gram",
+      "file": "03-catalog-master.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3109
+    },
+    {
+      "title": "CAT-03 AC-03 harga dan HPP lama tetap setelah perubahan harga dan resep",
+      "file": "03-catalog-master.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 16599
+    },
+    {
+      "title": "CAT-04 FR-03 produk terpakai transaksi tidak dapat dihapus",
+      "file": "03-catalog-master.spec.ts",
+      "project": "chromium",
+      "status": "failed",
+      "expected": "failed",
+      "outcome": "expected",
+      "duration": 6665
+    },
+    {
+      "title": "INV-01/02 AC-15 penerimaan 1 kg Rp12000 menambah persediaan tanpa beban",
+      "file": "04-inventory.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8441
+    },
+    {
+      "title": "INV-06 FR-04 kartu stok memuat jenis, waktu, jumlah, dan referensi mutasi",
+      "file": "04-inventory.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 9130
+    },
+    {
+      "title": "INV-07 FR-04 penyesuaian stok negatif ditolak sebelum persetujuan",
+      "file": "04-inventory.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 12807
+    },
+    {
+      "title": "INV-03 FR-04 kasir mengajukan penerimaan, owner approve, kasir posting",
+      "file": "04-inventory.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8113
+    },
+    {
+      "title": "INV-04 FR-04 penerimaan ditolak tidak menambah stok",
+      "file": "04-inventory.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7388
+    },
+    {
+      "title": "INV-05 FR-04 penyesuaian disetujui dan pembalik mempertahankan mutasi asal",
+      "file": "04-inventory.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 14951
+    },
+    {
+      "title": "POS-01 AC-04 diskon Rp5000, tunai Rp50000, kembalian Rp5000",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5867
+    },
+    {
+      "title": "POS-02 AC-05 tunai Rp20000 dan QRIS Rp25000 dihitung satu transaksi",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "failed",
+      "expected": "failed",
+      "outcome": "expected",
+      "duration": 14519
+    },
+    {
+      "title": "POS-03 AC-06 dua porsi memakai 200 gram dan jurnal HPP sekali",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 12944
+    },
+    {
+      "title": "POS-04 AC-07 klik bayar dua kali dan replay kunci idempotensi tidak menggandakan",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5540
+    },
+    {
+      "title": "POS-05 AC-11 opname mengunci stok saat keranjang dibayar",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 14981
+    },
+    {
+      "title": "POS-06 FR-06 diskon di atas batas memerlukan kredensial owner",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5874
+    },
+    {
+      "title": "POS-07 FR-06 keranjang ditahan, dilanjutkan, lalu dibayar",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6774
+    },
+    {
+      "title": "POS-08 FR-06 pembatalan keranjang held tidak mengubah stok atau jurnal",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "failed",
+      "expected": "failed",
+      "outcome": "expected",
+      "duration": 14292
+    },
+    {
+      "title": "POS-10 FR-06 pembayaran kurang ditolak",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5669
+    },
+    {
+      "title": "POS-09 FR-06 topping, catatan tanpa kacang, dan meja tercetak pada struk",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 15532
+    },
+    {
+      "title": "POS-11 FR-06 struk HTML dan PDF memuat transaksi serta tautan ulasan",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5994
+    },
+    {
+      "title": "POS-12 AC-09 rollback saat jurnal gagal dibuktikan melalui PHPUnit",
+      "file": "05-pos-checkout.spec.ts",
+      "project": "chromium",
+      "status": "skipped",
+      "expected": "skipped",
+      "outcome": "skipped",
+      "duration": 0
+    },
+    {
+      "title": "CON-01 AC-08 dua kasir memperebutkan satu stok lewat dua proses PHP",
+      "file": "06-pos-concurrency.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 17590
+    },
+    {
+      "title": "CON-02 FR-06 kasir tidak dapat membuka shift kedua",
+      "file": "06-pos-concurrency.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2245
+    },
+    {
+      "title": "REF-01/05 AC-12 refund penuh produk resep membalik uang tanpa mengembalikan tepung",
+      "file": "07-refund.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 15207
+    },
+    {
+      "title": "REF-02 AC-13 barang layak jual kembali dengan biaya transaksi asal",
+      "file": "07-refund.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 14422
+    },
+    {
+      "title": "REF-03 AC-12 refund kumulatif melebihi pembelian ditolak di form",
+      "file": "07-refund.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 14243
+    },
+    {
+      "title": "REF-04/06 FR-11 refund ditolak tanpa jurnal, kemudian refund sebagian",
+      "file": "07-refund.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 17736
+    },
+    {
+      "title": "OPN-01/06 AC-10 stok 10 fisik 8 diposting sekali dan tidak dapat diedit",
+      "file": "08-opname.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 15394
+    },
+    {
+      "title": "OPN-04 FR-05 bukti opname privat untuk owner dan ditolak bagi tamu",
+      "file": "08-opname.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7554
+    },
+    {
+      "title": "OPN-02 FR-05 owner meminta koreksi dan kasir mengajukan ulang",
+      "file": "08-opname.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 17760
+    },
+    {
+      "title": "OPN-03 FR-05 pembatalan membuka kunci dan POS dapat menjual lagi",
+      "file": "08-opname.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 15201
+    },
+    {
+      "title": "EXP-01/02 AC-14 approval tidak membukukan, pembayaran membukukan sekali",
+      "file": "09-expenses.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6423
+    },
+    {
+      "title": "EXP-04 FR-07 bukti pengeluaran lebih dari 5 MB ditolak",
+      "file": "09-expenses.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3692
+    },
+    {
+      "title": "EXP-03 FR-07 pembayaran dari laci mencatat shift aktif",
+      "file": "09-expenses.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6543
+    },
+    {
+      "title": "EXP-04 FR-07 nominal nol ditolak form",
+      "file": "09-expenses.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1781
+    },
+    {
+      "title": "ACC-01 FR-08 jurnal manual menolak akun debit dan kredit yang sama",
+      "file": "10-accounting.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4083
+    },
+    {
+      "title": "ACC-02 FR-08 jurnal seimbang dengan alasan dan audit",
+      "file": "10-accounting.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4188
+    },
+    {
+      "title": "ACC-03/04 AC-22 periode tertutup menolak posting dan dapat dibuka dengan alasan",
+      "file": "10-accounting.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8217
+    },
+    {
+      "title": "ACC-05 FR-08 saldo awal selalu seimbang",
+      "file": "10-accounting.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3973
+    },
+    {
+      "title": "ACC-06 FR-08 rekonsiliasi seluruh jurnal dan nilai akun persediaan",
+      "file": "10-accounting.spec.ts",
+      "project": "chromium",
+      "status": "failed",
+      "expected": "failed",
+      "outcome": "expected",
+      "duration": 2418
+    },
+    {
+      "title": "SHF-01/02/03/04 AC-23 modal, transaksi, kas keluar, tutup shift, dan review owner",
+      "file": "11-shift.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 10732
+    },
+    {
+      "title": "SHF-03 AC-23 penolakan review shift tidak membuat jurnal selisih",
+      "file": "11-shift.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6265
+    },
+    {
+      "title": "RPT-01/05 AC-16 total panel dan PDF harian, bulanan, tahunan serta filter pembayaran gabungan",
+      "file": "12-reports-pdf.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 10713
+    },
+    {
+      "title": "RPT-02 AC-17 refund hari ini dari penjualan bulan lalu muncul beserta transaksi asal",
+      "file": "12-reports-pdf.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 9715
+    },
+    {
+      "title": "RPT-03 AC-24 periode kosong menampilkan total nol dan PDF valid",
+      "file": "12-reports-pdf.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2388
+    },
+    {
+      "title": "RPT-07 FR-09 seluruh PDF operasional menerapkan izin owner dan kasir",
+      "file": "12-reports-pdf.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 9202
+    },
+    {
+      "title": "RPT-04/06 AC-24 PDF multi-halaman dan pagination dengan EvaluationDataSeeder",
+      "file": "12-reports-pdf.spec.ts",
+      "project": "chromium",
+      "status": "skipped",
+      "expected": "skipped",
+      "outcome": "skipped",
+      "duration": 1248
+    },
+    {
+      "title": "REV-01/02/08 AC-18 ulasan tamu pending, disetujui, lalu disembunyikan",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 12105
+    },
+    {
+      "title": "REV-03 AC-19 pengiriman ulang untuk item sama ditolak",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7774
+    },
+    {
+      "title": "REV-04 AC-19 token kedaluwarsa tidak membuka data transaksi",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6196
+    },
+    {
+      "title": "REV-05 AC-19 foto tidak sah ditolak kasus 1",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7681
+    },
+    {
+      "title": "REV-05 AC-19 foto tidak sah ditolak kasus 2",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7300
+    },
+    {
+      "title": "REV-05 AC-19 foto tidak sah ditolak kasus 3",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8602
+    },
+    {
+      "title": "REV-06 FR-11 komentar pendek ditolak, rating hanya 1 sampai 5",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6895
+    },
+    {
+      "title": "REV-07 FR-11 token acak tidak membocorkan transaksi",
+      "file": "13-reviews.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 410
+    },
+    {
+      "title": "BAN-01 FR-10 banner aktif tampil dengan alt text",
+      "file": "14-banners.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3905
+    },
+    {
+      "title": "BAN-02 AC-20 banner nonaktif, lewat jadwal, dan belum waktunya tidak tampil",
+      "file": "14-banners.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8000
+    },
+    {
+      "title": "BAN-03 FR-10 tautan javascript ditolak",
+      "file": "14-banners.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2356
+    },
+    {
+      "title": "BAN-05 FR-10 carousel dapat dioperasikan dengan keyboard",
+      "file": "14-banners.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 5702
+    },
+    {
+      "title": "BAN-04 FR-10 hero tetap tersedia ketika seluruh banner dinonaktifkan",
+      "file": "14-banners.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 8685
+    },
+    {
+      "title": "USR-01 FR-01 owner membuat kasir, mereset password, dan menonaktifkan",
+      "file": "15-users-audit.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7300
+    },
+    {
+      "title": "USR-02 FR-01 username dan email duplikat ditolak",
+      "file": "15-users-audit.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2706
+    },
+    {
+      "title": "AUD-01 FR-08 audit tampil dan tidak menyimpan password atau token mentah",
+      "file": "15-users-audit.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2878
+    },
+    {
+      "title": "SEC-01 PRD-10 POST tanpa CSRF ditolak tanpa perubahan data",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 1811
+    },
+    {
+      "title": "SEC-02 PRD-10 bukti pengeluaran kasir lain tidak dapat dibuka",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 7048
+    },
+    {
+      "title": "SEC-03 PRD-10 upload product tidak sah ditolak kasus 1",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3728
+    },
+    {
+      "title": "SEC-03 PRD-10 upload product tidak sah ditolak kasus 2",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3527
+    },
+    {
+      "title": "SEC-03 PRD-10 upload product tidak sah ditolak kasus 3",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4879
+    },
+    {
+      "title": "SEC-03 PRD-10 upload banner tidak sah ditolak kasus 1",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2349
+    },
+    {
+      "title": "SEC-03 PRD-10 upload banner tidak sah ditolak kasus 2",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 2289
+    },
+    {
+      "title": "SEC-03 PRD-10 upload banner tidak sah ditolak kasus 3",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3356
+    },
+    {
+      "title": "SEC-04 PRD-10 nama berkas gambar disimpan acak",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 3764
+    },
+    {
+      "title": "SEC-05 PRD-10 nama produk berisi script di-escape pada halaman publik",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 4269
+    },
+    {
+      "title": "SEC-06 PRD-10 header keamanan tersedia",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 400
+    },
+    {
+      "title": "SEC-07 AC-21 HTTPS perlu domain dan sertifikat staging",
+      "file": "16-security-upload.spec.ts",
+      "project": "chromium",
+      "status": "skipped",
+      "expected": "skipped",
+      "outcome": "skipped",
+      "duration": 0
+    },
+    {
+      "title": "MOB-01 FR-02 @mobile publik, detail, dan form ulasan tanpa scroll horizontal pada 390px",
+      "file": "17-mobile.spec.ts",
+      "project": "mobile",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 10861
+    },
+    {
+      "title": "MOB-02 FR-06 @mobile kasir menambah produk dan membayar pada 390px",
+      "file": "17-mobile.spec.ts",
+      "project": "mobile",
+      "status": "passed",
+      "expected": "passed",
+      "outcome": "expected",
+      "duration": 6234
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { Database } from '../helpers/db';
 import { createExpense, accountBalance } from '../helpers/finance';
 import { save, openShift, formAt } from '../helpers/data';
 import { postWithCsrf } from '../helpers/http';
+import { submit, flash } from '../helpers/flash';
 
 test.afterAll(async () => { const db = new Database(); try { await db.assertJournalsBalanced(); } finally { await db.close(); } });
 
@@ -21,6 +22,19 @@ test('EXP-01/02 AC-14 approval tidak membukukan, pembayaran membukukan sekali', 
   expect((await db.one('SELECT status FROM expenses WHERE id=?', [expense.id])).status).toBe('paid');
   await postWithCsrf(owner, `/panel/expenses/${expense.id}/pay`);
   expect(await db.count('journal_entries')).toBe(journals + 1);
+});
+
+test('EXP-04 FR-07 bukti pengeluaran lebih dari 5 MB ditolak', async ({ cashierPage: cashier, db }) => {
+  await cashier.goto('/panel/data/expense/create');
+  const before = await db.count('expenses');
+  await cashier.getByLabel('Kategori', { exact: true }).selectOption({ index: 1 });
+  await cashier.getByLabel('Deskripsi', { exact: true }).fill('Pengujian bukti melebihi batas ukuran');
+  await cashier.getByLabel('Nominal', { exact: true }).fill('10000');
+  await cashier.getByLabel('Sumber pembayaran', { exact: true }).selectOption('main_cash');
+  await cashier.getByLabel(/^Bukti \(/).setInputFiles({ name: 'e2e-besar.pdf', mimeType: 'application/pdf', buffer: Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(6 * 1024 * 1024)]) });
+  await submit(cashier, formAt(cashier, '/panel/expenses/create'));
+  await flash(cashier, /bukti|berkas|ukuran|valid/i);
+  expect(await db.count('expenses')).toBe(before);
 });
 
 test('EXP-03 FR-07 pembayaran dari laci mencatat shift aktif', async ({ ownerPage: owner, cashierPage: cashier, db }) => {

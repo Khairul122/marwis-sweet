@@ -23,7 +23,7 @@ export const connection = {
   decimalNumbers: true,
 };
 
-export function environment() {
+export function environment(extra = {}) {
   const env = { ...process.env, CI_ENVIRONMENT: 'development', MARWIS_E2E: '1',
     PHP_INI_SCAN_DIR: resolve(root, 'writable/e2e/php'),
     'app.baseURL': baseURL, 'app.forceGlobalSecureRequests': 'false',
@@ -47,7 +47,9 @@ export function environment() {
       [`database.${group}.DBPrefix`]: '',
     });
   }
+  Object.assign(env, extra);
   env.MARWIS_E2E_KEYS = Object.keys(env).filter((key) => key.includes('.') || key.startsWith('SEED_') || key === 'CI_ENVIRONMENT').join('|');
+  env.MARWIS_E2E_CONFIG = JSON.stringify(Object.fromEntries(env.MARWIS_E2E_KEYS.split('|').map((key) => [key, env[key]])));
   return env;
 }
 

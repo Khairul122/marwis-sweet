@@ -10,6 +10,6 @@ export async function pdf(page: Page, path: string) {
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const text = await parser.getText();
-    return { text: text.text, pages: text.total, buffer };
+    return { text: text.text, pages: text.total, pageTexts: text.pages.map((page) => page.text), buffer };
   } finally { await parser.destroy(); }
 }

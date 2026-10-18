@@ -133,3 +133,5 @@ writable/backups/
 /playwright-report/
 /writable/e2e/
 /public/uploads/e2e/
+/public/uploads/products/
+/public/uploads/banners/

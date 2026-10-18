@@ -1,8 +1,9 @@
 import { test, expect } from '../fixtures';
 import { Database } from '../helpers/db';
-import { stockedProduct, opname, formAt, save, openShift, cart, pay } from '../helpers/data';
+import { createItem, stockedProduct, opname, formAt, save, openShift, cart, pay } from '../helpers/data';
 import { postWithCsrf } from '../helpers/http';
 import { flash } from '../helpers/flash';
+import { jpeg } from '../helpers/uploads';
 
 test.afterAll(async () => { const db = new Database(); try { await db.assertJournalsBalanced(); } finally { await db.close(); } });
 
@@ -23,6 +24,24 @@ test('OPN-01/06 AC-10 stok 10 fisik 8 diposting sekali dan tidak dapat diedit', 
   await expect(owner.getByLabel(`Jumlah fisik ${item.name}`, { exact: true })).toHaveCount(0);
   expect(await db.count('stock_movements')).toBe(movements);
   expect(await db.count('journal_entries')).toBe(journals);
+});
+
+test('OPN-04 FR-05 bukti opname privat untuk owner dan ditolak bagi tamu', async ({ ownerPage: owner, cashierPage: cashier, guestPage: guest, db }) => {
+  const item = await createItem(owner, db);
+  const session = await opname(cashier, db, item.id);
+  const evidence = formAt(cashier, `/panel/opnames/${session.id}/evidence`);
+  await evidence.getByLabel(/^Bukti hitung/).setInputFiles(jpeg());
+  await save(cashier, `/panel/opnames/${session.id}/evidence`, /berhasil|disimpan|tersimpan/i);
+  await guest.goto(`/panel/opnames/${session.id}/evidence`);
+  await expect(guest).toHaveURL(/\/login$/);
+  const file = await owner.request.get(`/panel/opnames/${session.id}/evidence`);
+  expect(file.status()).toBe(200);
+  expect((await file.body()).subarray(0, 2).toString('hex')).toBe('ffd8');
+  expect((await db.one('SELECT evidence_path FROM stock_opnames WHERE id=?', [session.id])).evidence_path).toBeTruthy();
+  const cancel = formAt(cashier, `/panel/opnames/${session.id}/cancel`);
+  await cancel.locator('..').locator('summary').click();
+  await cancel.getByLabel('Alasan pembatalan').fill('Pengujian bukti privat selesai');
+  await save(cashier, `/panel/opnames/${session.id}/cancel`, /dibatalkan/);
 });
 
 test('OPN-02 FR-05 owner meminta koreksi dan kasir mengajukan ulang', async ({ ownerPage: owner, cashierPage: cashier, db }) => {

@@ -6,6 +6,9 @@ import { dismissFlash, flash, submit } from './flash';
 export const unique = (label = 'Data') => `E2E-${Date.now()}-${randomBytes(3).toString('hex')}-${label}`;
 export const formAt = (page: Page, action: string) => page.locator(`form[action$="${action}"]`);
 export const idForm = (page: Page, action: string, field: string, id: number) => formAt(page, action).filter({ has: page.locator(`input[name="${field}"][value="${id}"]`) });
+export async function filterTable(page: Page, title: string, search: string) {
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).locator('[data-dt-search]').fill(search);
+}
 
 export async function save(page: Page, action: string, message: RegExp = /berhasil|disimpan|tersimpan|ditambahkan|dibuat/i) {
   await submit(page, formAt(page, action));

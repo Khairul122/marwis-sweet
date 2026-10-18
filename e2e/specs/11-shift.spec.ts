@@ -40,3 +40,21 @@ test('SHF-01/02/03/04 AC-23 modal, transaksi, kas keluar, tutup shift, dan revie
   await expect(cashier.getByRole('heading', { name: 'Buka shift untuk memulai penjualan.' })).toBeVisible();
   expect(await db.count('shifts', "cashier_id=? AND status='open'", [account.id])).toBe(0);
 });
+
+test('SHF-03 AC-23 penolakan review shift tidak membuat jurnal selisih', async ({ ownerPage: owner, guestPage: cashier, db }) => {
+  const account = await createCashier(owner, db);
+  await login(cashier, account.username, account.password);
+  await dismissFlash(cashier);
+  await openShift(cashier, db, 100000);
+  const close = formAt(cashier, '/panel/shifts/close');
+  await close.getByLabel('Kas fisik', { exact: true }).fill('95000');
+  await close.getByLabel(/^Alasan selisih/).fill('Selisih untuk pengujian penolakan');
+  await save(cashier, '/panel/shifts/close', /ditutup/);
+  const shift = await db.one('SELECT * FROM shifts WHERE cashier_id=?', [account.id]);
+  const before = await db.count('journal_entries');
+  await owner.goto('/panel/shift-reviews');
+  await formAt(owner, `/panel/shift-reviews/${shift.id}/reject`).getByLabel('Alasan penolakan').fill('Bukti hitung perlu ditinjau kembali');
+  await save(owner, `/panel/shift-reviews/${shift.id}/reject`, /ditolak/);
+  expect((await db.one('SELECT cash_review_status FROM shifts WHERE id=?', [shift.id])).cash_review_status).toBe('rejected');
+  expect(await db.count('journal_entries')).toBe(before);
+});

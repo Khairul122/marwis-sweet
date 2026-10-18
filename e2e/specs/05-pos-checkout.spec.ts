@@ -36,7 +36,7 @@ test('POS-02 AC-05 tunai Rp20000 dan QRIS Rp25000 dihitung satu transaksi', asyn
   await expect(total).toContainText('1');
   // AC-05 / BUG-E2E-003: transaksi gabungan benar, tetapi label konfirmasi manual tidak dirender.
   test.fail(true, 'BUG-E2E-003 POS-02: label dikonfirmasi manual tidak tersedia.');
-  await expect(cashier.locator('body')).toContainText(/dikonfirmasi manual/i);
+  await expect(cashier.getByText(/dikonfirmasi manual/i)).toBeVisible();
 });
 
 test('POS-03 AC-06 dua porsi memakai 200 gram dan jurnal HPP sekali', async ({ ownerPage: owner, cashierPage: cashier, db }) => {
@@ -136,8 +136,12 @@ test('POS-08 FR-06 pembatalan keranjang held tidak mengubah stok atau jurnal', a
   const held = await db.one('SELECT * FROM pos_orders WHERE customer_name=?', [name]);
   const before = await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)));
   await cashier.getByText(/Pesanan ditahan \(/).click();
-  await save(cashier, `/panel/pos/orders/${held.id}/cancel`, /Pesanan dibatalkan/);
-  expect((await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('cancelled');
+  // FR-06 / BUG-E2E-004: konfirmasi native diterima, tetapi request pembatalan tidak terkirim.
+  test.fail(true, 'BUG-E2E-004 POS-08: pembatalan held di POS tidak mengirim POST.');
+  cashier.once('dialog', (dialog) => dialog.accept());
+  await formAt(cashier, `/panel/pos/orders/${held.id}/cancel`).getByRole('button', { name: 'Batalkan', exact: true }).click();
+  await expect.poll(async () => (await db.one('SELECT status FROM pos_orders WHERE id=?', [held.id])).status).toBe('cancelled');
+  await flash(cashier, /Pesanan dibatalkan/);
   expect(await Promise.all(['sales', 'stock_movements', 'journal_entries'].map((table) => db.count(table)))).toEqual(before);
 });
 
@@ -149,6 +153,41 @@ test('POS-10 FR-06 pembayaran kurang ditolak', async ({ ownerPage: owner, cashie
   await cashier.getByRole('button', { name: 'Bayar sekarang' }).click();
   await expect(cashier.locator('[data-pos-error]')).toContainText(/kurang|cukup/i);
   expect(await db.count('sales')).toBe(before);
+});
+
+test('POS-09 FR-06 topping, catatan tanpa kacang, dan meja tercetak pada struk', async ({ ownerPage: owner, cashierPage: cashier, db }) => {
+  const { item, product } = await stockedProduct(owner, db);
+  const name = unique('Topping');
+  await owner.goto('/panel/data/topping/create');
+  await owner.getByLabel('Nama topping', { exact: true }).fill(name);
+  await owner.getByLabel('SKU unik', { exact: true }).fill(unique('TOP').toUpperCase());
+  await owner.getByLabel('Harga tambahan', { exact: true }).fill('2000');
+  await save(owner, '/panel/master/toppings');
+  const topping = await db.one('SELECT id FROM toppings WHERE name=?', [name]);
+  await owner.goto(`/panel/data/topping/${topping.id}/edit`);
+  await owner.getByLabel('Bahan', { exact: true }).selectOption(String(item.id));
+  await owner.getByLabel('Jumlah', { exact: true }).fill('10');
+  await save(owner, '/panel/master/toppings/items');
+  await openShift(cashier, db);
+  await cashier.goto('/panel/pos');
+  const productCard = cashier.locator('[data-pos-product]').filter({ has: cashier.locator(`[data-add-product][data-variant-id="${product.variant_id}"]`) });
+  await productCard.getByText('Tambah topping', { exact: true }).click();
+  await productCard.locator(`[data-topping][value="${topping.id}"]`).check();
+  await productCard.locator('[data-add-product]').click();
+  if (await cashier.locator('[data-pos-cart-open]').isVisible()) await cashier.locator('[data-pos-cart-open]').click();
+  await cashier.locator('[data-item-note]').fill('tanpa kacang');
+  await cashier.getByLabel('Jenis pesanan', { exact: true }).selectOption('dine_in');
+  await cashier.getByLabel(/^Nomor meja/).fill('12');
+  await cashier.locator('[data-cash-received="1"]').fill('100000');
+  const sale = await pay(cashier, db);
+  expect(sale.total).toBe(27000);
+  const line = await db.one('SELECT note,topping_snapshot FROM sale_items WHERE sale_id=?', [sale.id]);
+  expect(line.note).toBe('tanpa kacang');
+  expect(line.topping_snapshot).toContain(name);
+  await expect(cashier.locator('#receipt')).toContainText(name);
+  await expect(cashier.locator('#receipt')).toContainText('tanpa kacang');
+  await expect(cashier.locator('#receipt')).toContainText('Makan di tempat');
+  await expect(cashier.locator('#receipt')).toContainText('12');
 });
 
 test('POS-11 FR-06 struk HTML dan PDF memuat transaksi serta tautan ulasan', async ({ ownerPage: owner, cashierPage: cashier, db }) => {

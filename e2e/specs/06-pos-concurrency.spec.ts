@@ -17,7 +17,7 @@ test('CON-01 AC-08 dua kasir memperebutkan satu stok lewat dua proses PHP', asyn
   const account = await createCashier(owner, db);
   const log = openSync(resolve(root, 'writable/e2e/concurrency-server.log'), 'a');
   const server = spawn(process.env.E2E_PHP ?? 'php', ['-S', 'localhost:8082', '-t', 'public', 'e2e/scripts/router.php'], {
-    cwd: root, env: { ...environment(), 'app.baseURL': 'http://localhost:8082/' }, stdio: ['ignore', log, log], windowsHide: true,
+    cwd: root, env: environment({ 'app.baseURL': 'http://localhost:8082/' }), stdio: ['ignore', log, log], windowsHide: true,
   });
   const context = await browser.newContext({ baseURL: 'http://localhost:8082/', viewport: { width: 1440, height: 1000 } });
   try {

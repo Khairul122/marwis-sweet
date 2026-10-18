@@ -1,7 +1,8 @@
 import { test, expect } from '../fixtures';
 import { Database } from '../helpers/db';
-import { createCategory, createItem, createProduct, conversion, stockedProduct, openShift, cart, pay, recipe, formAt, idForm, save, unique } from '../helpers/data';
+import { createCategory, createItem, createProduct, conversion, stockedProduct, openShift, cart, pay, recipe, formAt, idForm, filterTable, save, unique } from '../helpers/data';
 import { flash, submit } from '../helpers/flash';
+import { productPhoto } from '../helpers/uploads';
 
 test.afterAll(async () => { const db = new Database(); try { await db.assertJournalsBalanced(); } finally { await db.close(); } });
 
@@ -30,6 +31,15 @@ test('CAT-01 FR-03 owner membuat kategori, produk, resep, varian, dan topping', 
   await cashier.goto('/panel/pos');
   await expect(cashier.locator(`[data-add-product][data-variant-id="${product.variant_id}"]`)).toBeVisible();
   expect(await db.count('toppings', 'name=?', [topping])).toBe(1);
+});
+
+test('CAT-05 FR-03 maksimum lima foto produk pada UI', async ({ ownerPage: owner, db }) => {
+  test.setTimeout(90_000);
+  const product = await createProduct(owner, db, { stockMode: 'none' });
+  for (let index = 0; index < 5; index++) await productPhoto(owner, product.id);
+  await expect(owner.getByRole('heading', { name: 'Foto produk (5/5)', exact: true })).toBeVisible();
+  await expect(formAt(owner, '/panel/catalog/products/images')).toHaveCount(0);
+  expect(await db.count('product_images', 'product_id=?', [product.id])).toBe(5);
 });
 
 test('CAT-02 FR-03 konversi satu kilogram menjadi 1000 gram', async ({ ownerPage: owner, db }) => {
@@ -66,6 +76,7 @@ test('CAT-04 FR-03 produk terpakai transaksi tidak dapat dihapus', async ({ owne
   const sale = await pay(cashier, db);
   expect(await db.count('sale_items', 'sale_id=?', [sale.id])).toBe(1);
   await owner.goto('/panel/catalog');
+  await filterTable(owner, 'Semua data produk', product.name);
   // FR-03 / BUG-E2E-002: hapus produk menghapus sale_items melalui ON DELETE CASCADE.
   test.fail(true, 'BUG-E2E-002 CAT-04: produk terjual dan riwayat item dapat dihapus.');
   await submit(owner, idForm(owner, '/panel/catalog/products/delete', 'product_id', product.id));

@@ -4,7 +4,7 @@ import { dismissFlash, flash, submit } from '../helpers/flash';
 import { clearThrottle } from '../scripts/env.mjs';
 import { postWithCsrf, roleDenied } from '../helpers/http';
 import { pdf } from '../helpers/pdf';
-import { createCashier, formAt, save } from '../helpers/data';
+import { createCashier, filterTable } from '../helpers/data';
 
 test('AUTH-01 FR-01 owner masuk melalui username dan email', async ({ guestPage: page }) => {
   for (const identity of ['owner', 'owner.demo@localhost.test']) {
@@ -77,9 +77,10 @@ test('AUTH-08 AC-02 POST dengan CSRF sah tetap ditolak untuk role kasir', async 
     const response = await postWithCsrf(page, path, { amount: '10000' });
     expect(response.status()).toBe(303);
     expect(response.headers().location).toMatch(/\/panel$/);
-    await page.goto(response.headers().location);
+    const denied = await page.goto(response.headers().location);
     await expect(page.locator('#flash-message')).toContainText('owner');
     expect(await page.locator('body').innerText()).not.toMatch(/HPP|laba|buku besar/i);
+    expect(await denied!.text()).not.toMatch(/\bHPP\b|\blaba\b|buku besar|unit_cogs|total_cogs|gross_profit/i);
   }
   expect(await Promise.all(['journal_entries', 'refunds', 'expenses'].map((table) => db.count(table)))).toEqual(before);
 });
@@ -104,6 +105,7 @@ test('AUTH-11 FR-01 akun dinonaktifkan mengakhiri sesi kasir aktif', async ({ ow
   await login(cashier, account.username, account.password);
   await expect(cashier).toHaveURL(/\/panel$/);
   await owner.goto('/panel/users');
+  await filterTable(owner, 'Semua data akun kasir', account.username);
   await submit(owner, owner.locator('tr').filter({ hasText: account.username }).locator('form[action$="/panel/users/status"]'));
   await flash(owner, /dinonaktifkan|berhasil|diperbarui/i);
   await cashier.goto('/panel');

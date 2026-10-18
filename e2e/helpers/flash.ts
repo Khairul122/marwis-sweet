@@ -1,4 +1,4 @@
-import { expect, type Page, type Locator } from '@playwright/test';
+import { expect, type Page, type Locator, type Dialog } from '@playwright/test';
 
 export async function dismissFlash(page: Page) {
   await page.waitForLoadState('load');
@@ -13,10 +13,13 @@ export async function flash(page: Page, pattern: string | RegExp) {
 
 export async function submit(page: Page, form: Locator, button?: string | RegExp) {
   await dismissFlash(page);
-  const navigation = page.waitForNavigation({ waitUntil: 'load' });
-  await (button ? form.getByRole('button', { name: button, exact: typeof button === 'string' }) : form.locator('button[type=submit]').first()).click();
-  const confirm = page.locator('[data-confirm-dialog][open]');
-  if (await confirm.count()) await confirm.getByRole('button', { name: 'Lanjutkan' }).click();
-  await navigation;
-  await page.waitForLoadState('domcontentloaded');
+  const native = (dialog: Dialog) => dialog.accept();
+  page.on('dialog', native);
+  try {
+    const navigation = page.waitForNavigation({ waitUntil: 'load' });
+    await (button ? form.getByRole('button', { name: button, exact: typeof button === 'string' }) : form.locator('button[type=submit]').first()).click();
+    const confirm = page.locator('[data-confirm-dialog][open]');
+    if (await confirm.count()) await confirm.getByRole('button', { name: 'Lanjutkan' }).click();
+    await navigation;
+  } finally { page.off('dialog', native); }
 }

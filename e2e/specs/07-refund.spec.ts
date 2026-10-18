@@ -40,11 +40,12 @@ test('REF-02 AC-13 barang layak jual kembali dengan biaya transaksi asal', async
   expect(cogs.amount).toBe(4000);
 });
 
-test('REF-03 AC-12 kuantitas refund melebihi pembelian ditolak di form', async ({ ownerPage: owner, cashierPage: cashier, db }) => {
+test('REF-03 AC-12 refund kumulatif melebihi pembelian ditolak di form', async ({ ownerPage: owner, cashierPage: cashier, db }) => {
   const { product } = await stockedProduct(owner, db);
   await openShift(cashier, db);
-  await cart(cashier, product.variant_id);
+  await cart(cashier, product.variant_id, { quantity: 2 });
   const sale = await pay(cashier, db);
+  await requestRefund(cashier, db, sale.id, 1);
   const form = formAt(cashier, `/panel/transactions/${sale.id}/refunds`);
   const quantity = form.getByLabel(/^Jumlah refund/);
   await quantity.fill('2');
@@ -52,7 +53,7 @@ test('REF-03 AC-12 kuantitas refund melebihi pembelian ditolak di form', async (
   await form.getByRole('button', { name: 'Kirim pengajuan' }).click();
   expect(await quantity.evaluate((input: HTMLInputElement) => input.validity.rangeOverflow)).toBe(true);
   await expect(cashier).toHaveURL(new RegExp(`/transactions/${sale.id}$`));
-  expect(await db.count('refunds', 'sale_id=?', [sale.id])).toBe(0);
+  expect(await db.count('refunds', 'sale_id=?', [sale.id])).toBe(1);
 });
 
 test('REF-04/06 FR-11 refund ditolak tanpa jurnal, kemudian refund sebagian', async ({ ownerPage: owner, cashierPage: cashier, db }) => {

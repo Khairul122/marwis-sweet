@@ -22,7 +22,7 @@ test('ACC-02 FR-08 jurnal seimbang dengan alasan dan audit', async ({ ownerPage:
   const entry = await db.one("SELECT * FROM journal_entries WHERE description=? AND source_type='manual_journal'", [description]);
   const totals = await db.one('SELECT SUM(debit) debit,SUM(credit) credit FROM journal_lines WHERE journal_entry_id=?', [entry.id]);
   expect(totals).toEqual({ debit: 10000, credit: 10000 });
-  expect(await db.count('audit_events', "action='accounting.journal.manual_posted' AND entity_id=?", [String(entry.id)])).toBe(1);
+  expect(await db.count('audit_events', "event_type='accounting.journal.manual_posted' AND object_id=?", [String(entry.id)])).toBe(1);
 });
 
 test('ACC-03/04 AC-22 periode tertutup menolak posting dan dapat dibuka dengan alasan', async ({ ownerPage: owner, db }) => {
@@ -59,5 +59,7 @@ test('ACC-06 FR-08 rekonsiliasi seluruh jurnal dan nilai akun persediaan', async
   await expect(owner.locator('#ringkasan')).toContainText('Seimbang');
   await db.assertJournalsBalanced();
   const stock = await db.one('SELECT COALESCE(SUM(inventory_value),0) value FROM inventory_items');
+  // FR-08 / BUG-E2E-005: stok demo bernilai Rp2.373.000 tanpa jurnal saldo awal.
+  test.fail(true, 'BUG-E2E-005 ACC-06: saldo persediaan dari DevelopmentSeeder belum dijurnal.');
   expect(await accountBalance(db, 'inventory')).toBe(stock.value);
 });

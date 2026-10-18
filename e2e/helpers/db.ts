@@ -26,8 +26,8 @@ export class Database {
     return Number((await this.one(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`, values)).n);
   }
 
-  async fixtureDate(table: 'sales' | 'review_tokens', id: number, column: 'sold_at' | 'expires_at', value: string) {
-    const allowed = { sales: 'sold_at', review_tokens: 'expires_at' };
+  async fixtureDate(table: 'sales' | 'review_tokens', id: number, column: 'paid_at' | 'expires_at', value: string) {
+    const allowed = { sales: 'paid_at', review_tokens: 'expires_at' };
     if (allowed[table] !== column) throw new Error('Fixture tanggal tidak diizinkan.');
     await this.rows('SELECT DATABASE() AS name');
     // fixture: tidak ada UI untuk ini; hanya tanggal pada schema E2E.
